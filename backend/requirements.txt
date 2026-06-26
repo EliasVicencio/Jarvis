@@ -1,0 +1,6 @@
+azure-cognitiveservices-speech>=1.40.0
+flask>=3.0.0
+flask-cors>=4.0.0
+python-dotenv>=1.0.0
+vosk>=0.3.45
+pyaudio>=0.2.14
