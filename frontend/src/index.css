@@ -1,27 +1,18 @@
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body {
+html, body, #root {
   height: 100%;
   background: #060B12;
   color: #DCEFF5;
   font-family: "Space Grotesk", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
 }
 
-#root {
-  height: 100%;
-}
+button { font-family: inherit; cursor: pointer; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
 
-button {
-  font-family: inherit;
-  cursor: pointer;
-}
+::selection { background: #2DD4E8; color: #04101A; }
 
-::selection {
-  background: #2DD4E8;
-  color: #04101A;
-}
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: rgba(45,212,232,0.3); border-radius: 4px; }

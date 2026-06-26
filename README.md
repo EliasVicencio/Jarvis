@@ -1,123 +1,193 @@
-# Jarvis — Asistente Personal de Voz
+# Jarvis — App de Escritorio con Tauri
 
-Proyecto con backend en Python (Flask + Azure Speech) y frontend en React,
-con interfaz tipo consola/HUD.
+Asistente de voz personal con ventana nativa (Tauri), frontend React/Vite
+y backend Python/Flask con Azure Speech.
 
-## ⚠️ Seguridad — Leer primero
+```
+┌──────────────────────────────────────────┐
+│  Ventana Tauri (app nativa de escritorio) │
+│  ┌────────────────────────────────────┐  │
+│  │   Frontend React  (Vite)           │  │
+│  └──────────────┬─────────────────────┘  │
+└─────────────────┼────────────────────────┘
+                  │  HTTP → localhost:5000
+          ┌───────▼────────┐
+          │  Flask backend  │
+          │  Azure Speech   │
+          └────────────────┘
+```
 
-Tu clave anterior de Azure quedó expuesta en texto plano en `config.py` y
-`jarvis.py`. **Regenera la clave en Azure Portal** antes de continuar:
+---
 
-1. Entra a [portal.azure.com](https://portal.azure.com)
-2. Ve a tu recurso de Speech
-3. "Claves y punto de conexión" → Regenerar clave
-4. Usa la clave nueva en el `.env` (ver abajo), nunca en el código
+## ⚠️ Antes de empezar — regenera tu clave de Azure
 
-Si planeas subir este proyecto a GitHub, el `.gitignore` ya excluye `.env`
-para que la clave no quede pública.
+Tu clave anterior quedó expuesta en el código. Regenerarla es gratis y tarda
+30 segundos:
+
+1. Entra a https://portal.azure.com
+2. Busca tu recurso de Speech → "Claves y punto de conexión"
+3. Clic en "Regenerar clave 1"
+4. Copia la clave nueva
+
+---
+
+## Prerequisitos
+
+| Herramienta | Cómo instalar                        | Verificar           |
+|-------------|--------------------------------------|---------------------|
+| Rust        | https://rustup.rs                    | `rustc --version`   |
+| C++ Build Tools (solo Windows) | https://visualstudio.microsoft.com/visual-cpp-build-tools → marcar "Desarrollo de escritorio con C++" | — |
+| Node.js 18+ | https://nodejs.org (versión LTS)     | `node --version`    |
+| Python 3.10+| https://python.org                   | `python --version`  |
+
+---
 
 ## Estructura del proyecto
 
 ```
-jarvis_project/
+jarvis_tauri/
 ├── backend/
-│   ├── app.py              # Servidor Flask (API REST)
-│   ├── jarvis_core.py      # Lógica de Jarvis: voz, comandos
-│   ├── config.py           # Carga la clave desde variables de entorno
-│   ├── .env.example        # Plantilla — cópiala como .env
+│   ├── app.py              ← servidor Flask (API REST)
+│   ├── jarvis_core.py      ← lógica de Jarvis: voz + comandos
+│   ├── config.py           ← lee la clave desde .env
+│   ├── .env.example        ← plantilla → copiar como .env
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── App.js          # Interfaz principal (React)
-│   │   ├── App.css         # Estilos HUD
-│   │   └── index.js
-│   └── package.json
+│   │   ├── App.jsx         ← interfaz React
+│   │   ├── App.css         ← estilos HUD oscuro
+│   │   └── index.jsx
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.js
+├── src-tauri/
+│   ├── src/main.rs         ← código Rust de Tauri
+│   ├── build.rs
+│   ├── Cargo.toml
+│   └── tauri.conf.json     ← configuración de la ventana y build
 └── .gitignore
 ```
 
-## 1. Configurar el backend
+---
+
+## Instalación paso a paso
+
+### 1. Configurar el backend
 
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate        # En Windows: venv\Scripts\activate
+
+# Windows:
+venv\Scripts\activate
+# Mac/Linux:
+source venv/bin/activate
+
 pip install -r requirements.txt
+```
 
+Crea el archivo `.env` (nunca lo subas a git):
+
+```bash
 cp .env.example .env
-# Edita .env y pega tu clave de Azure (la nueva, regenerada)
 ```
 
-Tu `.env` debe verse así:
+Abre `.env` y pega tu clave nueva de Azure:
 
 ```
-AZURE_SPEECH_KEY=tu_clave_nueva_aqui
+AZURE_SPEECH_KEY=pega_tu_clave_aqui
 AZURE_SPEECH_REGION=eastus
 AZURE_SPEECH_VOICE=es-MX-JorgeNeural
 SPEECH_RECOGNITION_LANGUAGE=es-MX
 ```
 
-## 2. Compilar el frontend
+### 2. Instalar dependencias del frontend
 
 ```bash
 cd frontend
 npm install
-npm run build
 ```
 
-Esto genera `frontend/build/`, que Flask sirve automáticamente.
+### 3. Instalar la CLI de Tauri
 
-## 3. Ejecutar
+```bash
+npm install -g @tauri-apps/cli
+```
 
+---
+
+## Correr en modo desarrollo
+
+Necesitas **dos terminales**:
+
+**Terminal 1 — Backend Flask:**
 ```bash
 cd backend
+venv\Scripts\activate     # o source venv/bin/activate en Mac/Linux
 python app.py
 ```
+Deberías ver: `🤖 Jarvis backend corriendo en http://localhost:5000`
 
-Abre **http://localhost:5000** en tu navegador. Verás la interfaz de Jarvis.
-
-### Modo desarrollo (opcional)
-
-Si quieres editar el frontend con recarga automática, en una terminal corre
-el backend (`python app.py`) y en otra:
-
+**Terminal 2 — App Tauri (React + ventana nativa):**
 ```bash
-cd frontend
-npm start
+# desde la raíz del proyecto (jarvis_tauri/)
+npm run tauri dev
 ```
 
-React se abrirá en `http://localhost:3000` y llamará automáticamente al
-backend en el puerto 5000 (gracias al `proxy` configurado en `package.json`).
+Esto:
+1. Arranca Vite con el frontend React en localhost:5173
+2. Compila el código Rust de Tauri
+3. Abre la ventana nativa de escritorio con la interfaz de Jarvis
 
-## Cómo funciona el micrófono
+> La primera vez que compila Rust puede tardar 2-5 minutos. Las siguientes
+> veces es mucho más rápido.
 
-Azure Speech SDK usa el micrófono y los parlantes **del computador donde
-corre `app.py`**, no los del navegador. Esto es perfecto para uso local en tu
-propia máquina. Si en el futuro quieres correr el backend en un servidor
-remoto, habría que cambiar a captura de audio desde el navegador (Web Speech
-API o MediaRecorder) y enviar el audio al backend.
+---
 
-## Comandos disponibles
+## Generar el instalador (.exe / .dmg / .deb)
 
-| Comando (ejemplos)              | Qué hace                                  |
-|----------------------------------|--------------------------------------------|
-| "qué hora es"                    | Dice la hora actual                        |
-| "qué fecha es"                   | Dice la fecha actual                       |
-| "recuérdame [algo]"              | Guarda un recordatorio                     |
-| "mis recordatorios"              | Lista los recordatorios guardados          |
-| "clima en [ciudad]"              | Da el clima actual de esa ciudad           |
-| "busca [algo]"                   | Busca en Google                            |
-| "abre navegador" / "abre google" | Abre Google                                |
-| "abre youtube"                   | Abre YouTube                               |
-| "abre spotify"                   | Abre Spotify                               |
-| "abre calculadora"               | Abre la calculadora del sistema            |
-| "abre bloc de notas"             | Abre el bloc de notas del sistema          |
-| "cuéntame un chiste"             | Dice un chiste                             |
-| "qué puedes hacer" / "ayuda"     | Lista los comandos disponibles             |
-| "adiós"                          | Se despide                                 |
+```bash
+# Asegúrate de que el backend esté detenido antes de hacer el build
+npm run tauri build
+```
 
-## Próximos pasos sugeridos
+El instalador queda en `src-tauri/target/release/bundle/`.
 
-- Agregar más voces de Azure y dejar que el usuario elija desde la interfaz
-- Guardar recordatorios con fecha/hora y avisos
-- Integrar reconocimiento de voz desde el navegador para poder desplegar en
-  un servidor remoto (no solo localhost)
+---
+
+## Comandos disponibles en Jarvis
+
+| Lo que dices                  | Qué hace                            |
+|-------------------------------|-------------------------------------|
+| "qué hora es"                 | Dice la hora actual                 |
+| "qué fecha es"                | Dice la fecha de hoy                |
+| "recuérdame [algo]"           | Guarda un recordatorio              |
+| "mis recordatorios"           | Lista los recordatorios             |
+| "clima en [ciudad]"           | Clima actual (Open-Meteo, gratis)   |
+| "busca [algo]"                | Abre Google con la búsqueda         |
+| "abre youtube"                | Abre YouTube en el navegador        |
+| "abre spotify"                | Abre Spotify                        |
+| "abre calculadora"            | Abre la calculadora del sistema     |
+| "abre bloc de notas"          | Abre el bloc de notas               |
+| "cuéntame un chiste"          | Dice un chiste                      |
+| "qué puedes hacer" / "ayuda"  | Lista todos los comandos            |
+| "adiós"                       | Se despide                          |
+
+---
+
+## Solución de problemas comunes
+
+**"No se pudo conectar con el backend"**
+→ Asegúrate de que `python app.py` esté corriendo en otra terminal.
+
+**Error de clave de Azure**
+→ Verifica que el archivo `.env` existe en la carpeta `backend/` y que la
+  clave es correcta (sin espacios extra).
+
+**Error al compilar Rust la primera vez**
+→ En Windows, verifica que instalaste las C++ Build Tools y reiniciaste
+  la terminal después de instalar Rust.
+
+**El micrófono no responde**
+→ Azure Speech usa el micrófono predeterminado del sistema. Verifica en
+  Configuración → Sonido que el micrófono correcto esté seleccionado.

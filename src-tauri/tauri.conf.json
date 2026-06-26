@@ -1,0 +1,67 @@
+{
+  "build": {
+    "beforeDevCommand": "npm run dev --prefix frontend",
+    "beforeBuildCommand": "npm run build --prefix frontend",
+    "devPath": "http://localhost:5173",
+    "distDir": "../frontend/dist"
+  },
+  "package": {
+    "productName": "Jarvis",
+    "version": "1.0.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "open": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "category": "Utility",
+      "copyright": "Elias Vicencio",
+      "deb": { "depends": [] },
+      "externalBin": [],
+      "icon": [
+        "icons/icon.png"
+      ],
+      "identifier": "com.elias.jarvis",
+      "longDescription": "Asistente personal de voz Jarvis con Azure Speech.",
+      "macOS": {
+        "entitlements": null,
+        "exceptionDomain": "",
+        "frameworks": [],
+        "providerShortName": null,
+        "signingIdentity": null
+      },
+      "resources": [],
+      "shortDescription": "Jarvis Voice Assistant",
+      "targets": "all",
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": ""
+      }
+    },
+    "security": {
+      "csp": null
+    },
+    "updater": {
+      "active": false
+    },
+    "windows": [
+      {
+        "fullscreen": true,
+        "height": 720,
+        "resizable": true,
+        "title": "Jarvis",
+        "width": 1200,
+        "minWidth": 900,
+        "minHeight": 600,
+        "decorations": true,
+        "transparent": false,
+        "center": true
+      }
+    ]
+  }
+}
