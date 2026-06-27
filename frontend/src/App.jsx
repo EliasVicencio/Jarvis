@@ -34,8 +34,9 @@ export default function App() {
   const [wakeActivo,    setWakeActivo]    = useState(false);
   const [wakeFlash,     setWakeFlash]     = useState(null);
 
-  const scrollRef  = useRef(null);
-  const estadoRef  = useRef("inactivo");
+  const scrollRef         = useRef(null);
+  const estadoRef         = useRef("inactivo");
+  const escucharRef       = useRef(null); // ref para poder llamar desde el polling
   const hora = useReloj();
 
   useEffect(() => { estadoRef.current = estado; }, [estado]);
@@ -44,61 +45,6 @@ export default function App() {
     setMensajes(prev => [...prev, { rol, texto, id: Date.now() + Math.random() }]);
   }, []);
 
-  // ── Carga inicial ──────────────────────────────────────────────────────
-  useEffect(() => {
-    fetch(`${API}/saludo`)
-      .then(r => r.json())
-      .then(data => {
-        setBackendOk(true);
-        setWakeActivo(data.wake_activo || false);
-        agregarMensaje("jarvis", data.saludo);
-        setRecordatorios(data.recordatorios || []);
-      })
-      .catch(() => {
-        setBackendOk(false);
-        agregarMensaje("sistema", "⚠ No se pudo conectar con el backend.");
-      });
-  }, [agregarMensaje]);
-
-  // ── Polling wake word (cada 500ms) ────────────────────────────────────
-  // Más simple y confiable que SSE en Tauri
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const resp = await fetch(`${API}/wake-poll`);
-        const data = await resp.json();
-
-        if (data.activado) {
-          const fuente = data.fuente; // "jarvis" o "aplauso"
-
-          // Flash visual
-          setWakeFlash(fuente);
-          setTimeout(() => setWakeFlash(null), 1500);
-
-          // Activar micrófono solo si está inactivo
-          if (estadoRef.current === "inactivo") {
-            agregarMensaje("sistema",
-              fuente === "jarvis"
-                ? "🎤 Wake word detectada: «Jarvis»"
-                : "👏 Doble aplauso detectado"
-            );
-            setTimeout(() => escucharMicrofono(), 400);
-          }
-        }
-      } catch {
-        // silencioso — puede fallar si el backend se está reiniciando
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agregarMensaje]);
-
-  // ── Scroll automático ─────────────────────────────────────────────────
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [mensajes]);
-
   const refrescarRecordatorios = useCallback(() => {
     fetch(`${API}/recordatorios`)
       .then(r => r.json())
@@ -106,7 +52,7 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  // ── Enviar comando ────────────────────────────────────────────────────
+  // ── Enviar comando ─────────────────────────────────────────────────────
   const enviarComando = useCallback(async (texto) => {
     if (!texto.trim() || estadoRef.current !== "inactivo") return;
     agregarMensaje("usuario", texto);
@@ -128,7 +74,7 @@ export default function App() {
     }
   }, [agregarMensaje, refrescarRecordatorios]);
 
-  // ── Escuchar micrófono ────────────────────────────────────────────────
+  // ── Escuchar micrófono ─────────────────────────────────────────────────
   const escucharMicrofono = useCallback(async () => {
     if (estadoRef.current !== "inactivo") return;
     setEstado("escuchando");
@@ -147,6 +93,63 @@ export default function App() {
     }
   }, [agregarMensaje, enviarComando]);
 
+  // Mantener la ref siempre actualizada con la versión más reciente
+  useEffect(() => {
+    escucharRef.current = escucharMicrofono;
+  }, [escucharMicrofono]);
+
+  // ── Carga inicial ──────────────────────────────────────────────────────
+  useEffect(() => {
+    fetch(`${API}/saludo`)
+      .then(r => r.json())
+      .then(data => {
+        setBackendOk(true);
+        setWakeActivo(data.wake_activo || false);
+        agregarMensaje("jarvis", data.saludo);
+        setRecordatorios(data.recordatorios || []);
+      })
+      .catch(() => {
+        setBackendOk(false);
+        agregarMensaje("sistema", "⚠ No se pudo conectar con el backend.");
+      });
+  }, [agregarMensaje]);
+
+  // ── Polling wake word (cada 500ms) ─────────────────────────────────────
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const resp = await fetch(`${API}/wake-poll`);
+        const data = await resp.json();
+
+        if (data.activado) {
+          const fuente = data.fuente;
+
+          setWakeFlash(fuente);
+          setTimeout(() => setWakeFlash(null), 1500);
+
+          if (estadoRef.current === "inactivo") {
+            setMensajes(prev => [...prev, {
+              rol: "sistema",
+              texto: fuente === "jarvis" ? "🎤 Wake word detectada: «Jarvis»" : "👏 Doble aplauso detectado",
+              id: Date.now() + Math.random()
+            }]);
+            // Usar la ref — siempre tiene la versión actualizada de escucharMicrofono
+            setTimeout(() => escucharRef.current?.(), 400);
+          }
+        }
+      } catch {
+        // silencioso
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, []); // sin dependencias — usa refs para todo
+
+  // ── Scroll automático ──────────────────────────────────────────────────
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [mensajes]);
+
   const handleEnviar = e => {
     e.preventDefault();
     enviarComando(inputManual);
@@ -160,14 +163,12 @@ export default function App() {
     <div className="shell">
       <div className="bg-grid" />
 
-      {/* Flash de activación */}
       {wakeFlash && (
         <div className={`wake-flash wake-flash-${wakeFlash}`}>
           {wakeFlash === "jarvis" ? "🎤 «Jarvis» detectado" : "👏 Doble aplauso detectado"}
         </div>
       )}
 
-      {/* ── Topbar ─────────────────────────────────────── */}
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark">J</div>
@@ -194,10 +195,8 @@ export default function App() {
         </div>
       </header>
 
-      {/* ── Cuerpo ─────────────────────────────────────── */}
       <main className="grid">
 
-        {/* Columna izquierda */}
         <section className="panel core-panel">
           <div
             className={`ring estado-${estado}${wakeFlash ? " ring-wake" : ""}`}
@@ -237,7 +236,6 @@ export default function App() {
           </form>
         </section>
 
-        {/* Columna central */}
         <section className="panel log-panel">
           <div className="panel-header">Registro de conversación</div>
           <div className="log-scroll" ref={scrollRef}>
@@ -253,7 +251,6 @@ export default function App() {
           </div>
         </section>
 
-        {/* Columna derecha */}
         <section className="panel side-panel">
           <div className="panel-header">Comandos rápidos</div>
           <div className="chip-list">

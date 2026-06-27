@@ -1,11 +1,7 @@
-"""
-app.py — Backend Flask para Jarvis.
-Pausa el WakeWordDetector mientras Azure Speech usa el micrófono.
-"""
-
 import os
 import queue
 import threading
+import time
 import logging
 
 from flask import Flask, request, jsonify
@@ -22,9 +18,18 @@ CORS(app)
 _wake_queue    = queue.Queue()
 _wake_detector = None
 _wake_activo   = False
+_ultimo_wake   = 0       # timestamp del último wake procesado
+WAKE_COOLDOWN  = 4.0     # segundos de bloqueo tras activación
 
 
 def _on_wake(fuente: str):
+    global _ultimo_wake
+    ahora = time.time()
+    # Ignorar si está en cooldown
+    if ahora - _ultimo_wake < WAKE_COOLDOWN:
+        logger.info(f"Wake ignorada (cooldown): {fuente}")
+        return
+    _ultimo_wake = ahora
     logger.info(f"Wake activada: {fuente}")
     _wake_queue.put(fuente)
 
@@ -36,12 +41,12 @@ def iniciar_wake_detector():
         _wake_detector = WakeWordDetector(callback=_on_wake)
         _wake_detector.start()
         _wake_activo = True
-        logger.info("Wake word detector activo (Vosk offline)")
+        logger.info("Wake word detector activo")
     except Exception as e:
         logger.error(f"No se pudo iniciar el wake detector: {e}")
 
 
-@app.route("/api/wake-poll", methods=["GET"])
+@app.route("/api/wake-poll")
 def api_wake_poll():
     try:
         fuente = _wake_queue.get_nowait()
@@ -52,19 +57,26 @@ def api_wake_poll():
 
 @app.route("/api/escuchar", methods=["POST"])
 def api_escuchar():
-    # Pausar Vosk antes de que Azure tome el micrófono
+    global _ultimo_wake
     if _wake_detector:
         _wake_detector.pausar()
-
     try:
         texto = jarvis_core.reconocer_voz()
     finally:
-        # Siempre reanudar, aunque Azure falle
         if _wake_detector:
             _wake_detector.reanudar()
 
     if not texto:
-        return jsonify({"texto": "", "ok": False, "mensaje": "No se entendió nada"})
+        return jsonify({"texto": "", "ok": False})
+
+    # Si Azure captó "jarvis" como comando, ignorarlo — no es un comando real
+    texto_limpio = texto.strip().rstrip(".").lower()
+    if texto_limpio in ("jarvis", "jarvi", "jarbes", "harvis"):
+        logger.info(f"Ignorando 'jarvis' como comando (era la wake word)")
+        # Resetear cooldown para que la próxima detección funcione
+        _ultimo_wake = time.time()
+        return jsonify({"texto": "", "ok": False, "mensaje": "Wake word ignorada como comando"})
+
     return jsonify({"texto": texto, "ok": True})
 
 
@@ -74,10 +86,9 @@ def api_comando():
     comando = data.get("comando", "")
     hablar  = data.get("hablar", True)
     if not comando:
-        return jsonify({"error": "Falta el campo 'comando'"}), 400
+        return jsonify({"error": "Falta comando"}), 400
     resultado = jarvis_core.procesar_comando(comando)
     if hablar:
-        # Pausar Vosk mientras Jarvis habla (evita que se escuche a sí mismo)
         if _wake_detector:
             _wake_detector.pausar()
         try:
@@ -93,7 +104,7 @@ def api_hablar():
     data  = request.get_json(force=True) or {}
     texto = data.get("texto", "")
     if not texto:
-        return jsonify({"error": "Falta el campo 'texto'"}), 400
+        return jsonify({"error": "Falta texto"}), 400
     if _wake_detector:
         _wake_detector.pausar()
     try:
@@ -104,12 +115,12 @@ def api_hablar():
     return jsonify({"ok": True})
 
 
-@app.route("/api/recordatorios", methods=["GET"])
+@app.route("/api/recordatorios")
 def api_recordatorios():
     return jsonify({"recordatorios": jarvis_core.obtener_recordatorios()})
 
 
-@app.route("/api/saludo", methods=["GET"])
+@app.route("/api/saludo")
 def api_saludo():
     return jsonify({
         "saludo": "Hola, soy Jarvis. ¿En qué te ayudo?",
@@ -118,7 +129,7 @@ def api_saludo():
     })
 
 
-@app.route("/api/wake-status", methods=["GET"])
+@app.route("/api/wake-status")
 def api_wake_status():
     return jsonify({
         "activo": _wake_activo,
