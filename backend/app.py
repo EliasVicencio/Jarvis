@@ -147,3 +147,57 @@ if __name__ == "__main__":
     threading.Thread(target=iniciar_wake_detector, daemon=True).start()
     print("🤖 Jarvis backend corriendo en http://localhost:5000")
     app.run(debug=False, port=5000, threaded=True)
+
+# ── Noticias ───────────────────────────────────────────────────────────────
+import urllib.request
+import urllib.parse
+import json as _json
+
+@app.route("/api/noticias")
+def api_noticias():
+    """Obtiene noticias de tecnología e IA via NewsAPI."""
+    api_key = os.getenv("NEWS_API_KEY", "")
+    categoria = request.args.get("categoria", "tecnologia")
+
+    # Queries por categoría
+    queries = {
+        "tecnologia": "tecnología OR inteligencia artificial OR software",
+        "ia":         "inteligencia artificial OR machine learning OR ChatGPT OR AI",
+        "ciberseguridad": "ciberseguridad OR hacking OR cybersecurity",
+        "programacion": "programación OR Python OR JavaScript OR desarrollador",
+    }
+
+    if not api_key:
+        return jsonify({"error": "Falta NEWS_API_KEY en .env", "noticias": []})
+
+    try:
+        q = urllib.parse.quote(queries.get(categoria, queries["tecnologia"]))
+        url = (
+            f"https://newsapi.org/v2/everything"
+            f"?q={q}"
+            f"&language=es"
+            f"&sortBy=publishedAt"
+            f"&pageSize=12"
+            f"&apiKey={api_key}"
+        )
+        req = urllib.request.Request(url, headers={"User-Agent": "Jarvis/1.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = _json.loads(resp.read())
+
+        noticias = []
+        for art in data.get("articles", []):
+            if art.get("title") and art.get("title") != "[Removed]":
+                noticias.append({
+                    "titulo":      art.get("title", ""),
+                    "descripcion": art.get("description", "") or "",
+                    "fuente":      art.get("source", {}).get("name", ""),
+                    "url":         art.get("url", ""),
+                    "imagen":      art.get("urlToImage", ""),
+                    "fecha":       art.get("publishedAt", ""),
+                })
+
+        return jsonify({"noticias": noticias, "total": len(noticias)})
+
+    except Exception as e:
+        logger.error(f"Error obteniendo noticias: {e}")
+        return jsonify({"error": str(e), "noticias": []})

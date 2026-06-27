@@ -254,3 +254,18 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   background: rgba(255,255,255,0.02); border: 1px solid var(--border);
 }
 .reminder-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--amber); box-shadow: 0 0 6px rgba(242,169,59,0.55); }
+/* ── Navegación principal ───────────────────────────── */
+.nav-btn {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px; letter-spacing: 0.06em;
+  padding: 6px 14px; border-radius: 8px; cursor: pointer;
+  border: 1px solid rgba(45,212,232,0.25);
+  background: rgba(45,212,232,0.06);
+  color: #2DD4E8; transition: all 0.2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.nav-btn:hover {
+  background: rgba(45,212,232,0.15);
+  border-color: rgba(45,212,232,0.5);
+  box-shadow: 0 0 14px rgba(45,212,232,0.15);
+}

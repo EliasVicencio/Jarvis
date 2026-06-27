@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import "./App.css";
+import Noticias from "./Noticias";
+import "./Noticias.css";
 
 const API = "http://localhost:5000/api";
 
@@ -26,6 +28,7 @@ function useReloj() {
 }
 
 export default function App() {
+  const [vista,         setVista]         = useState("principal"); // "principal" | "noticias"
   const [mensajes,      setMensajes]      = useState([]);
   const [estado,        setEstado]        = useState("inactivo");
   const [recordatorios, setRecordatorios] = useState([]);
@@ -163,6 +166,10 @@ export default function App() {
   const horaStr  = hora.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const fechaStr = hora.toLocaleDateString("es-CL",  { weekday: "long", day: "numeric", month: "long" });
 
+  if (vista === "noticias") {
+    return <Noticias onVolver={() => setVista("principal")} />;
+  }
+
   return (
     <div className="shell">
       <div className="bg-grid" />
@@ -181,6 +188,9 @@ export default function App() {
             <div className="brand-sub">asistente personal · Jorge Neural</div>
           </div>
         </div>
+        <button className="nav-btn" onClick={() => setVista("noticias")}>
+          ◈ Stark Intel
+        </button>
 
         <div className="status-pills">
           <div className="status-pill" data-ok={backendOk}>

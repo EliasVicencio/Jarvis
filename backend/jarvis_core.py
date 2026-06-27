@@ -209,6 +209,14 @@ def procesar_comando(comando):
         )
         accion = "ayuda"
 
+    elif any(p in comando for p in ["para", "pausa", "detente", "descansa", "silencio"]):
+        respuesta = "Entendido, me pongo en pausa. Di Jarvis cuando me necesites."
+        accion    = "pausar"
+
+    elif any(p in comando for p in ["actívate", "activar", "despausa", "vuelve", "reanuda"]):
+        respuesta = "De vuelta. ¿En qué te ayudo?"
+        accion    = "reanudar"
+
     elif "adiós" in comando or "adios" in comando or "apagado" in comando:
         respuesta  = "Hasta luego"
         continuar  = False
