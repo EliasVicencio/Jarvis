@@ -1,162 +1,113 @@
 """
-wake_word.py — Detector de wake word y aplauso para Jarvis.
+wake_word.py — Detector de wake word usando Azure Speech en loop continuo.
 
-Pausa automáticamente mientras Azure Speech está usando el micrófono,
-para evitar conflictos de dispositivo de audio.
+Sin Vosk, sin PyAudio, sin modelos externos.
+Solo Azure Speech SDK que ya está instalado.
+
+Cómo funciona:
+- Un hilo escucha en ciclos cortos (recognize_once con timeout)
+- Si detecta "jarvis" (o variantes) → llama al callback
+- Si detecta un sonido fuerte repetido → doble aplauso → llama al callback
+- Se pausa automáticamente mientras Azure procesa el comando principal
 """
 
 import threading
-import struct
-import math
 import time
-import json
 import logging
-import os
+import math
 
 logger = logging.getLogger(__name__)
 
-CLAP_THRESHOLD    = 3500
-CLAP_MIN_INTERVAL = 0.4
-CLAP_WINDOW       = 1.5
-CLAP_COUNT_NEEDED = 2
-FRAME_LENGTH      = 8000
-SAMPLE_RATE       = 16000
-
-WAKE_WORDS = ["jarvis", "jarvi", "jarbes", "harvis"]
-
-MODEL_PATH_DEFAULT = os.path.join(os.path.dirname(__file__), "vosk-model-es")
+WAKE_WORDS   = ["jarvis", "jarvi", "jarbes", "harvis"]
+LISTEN_SECS  = 2      # duración de cada ciclo de escucha
+PAUSE_AFTER  = 1.0    # pausa entre ciclos para no saturar la API
 
 
 class WakeWordDetector:
-    def __init__(self, callback, model_path: str = None, sensitivity: float = 0.6):
-        self.callback    = callback
-        self.model_path  = model_path or MODEL_PATH_DEFAULT
-        self._running    = False
-        self._pausado    = False   # True mientras Azure usa el micrófono
-        self._thread     = None
-        self._clap_times = []
+    def __init__(self, callback, speech_config=None, sensitivity=0.6):
+        self.callback      = callback
+        self.speech_config = speech_config  # se inyecta desde app.py
+        self._running      = False
+        self._pausado      = False
+        self._thread       = None
 
     def start(self):
         if self._running:
             return
+        if not self.speech_config:
+            logger.error("WakeWordDetector necesita speech_config de Azure.")
+            return
         self._running = True
         self._thread  = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
-        logger.info("WakeWordDetector iniciado (Vosk offline)")
+        logger.info("WakeWordDetector iniciado (Azure Speech loop)")
 
     def stop(self):
         self._running = False
         if self._thread:
-            self._thread.join(timeout=3)
+            self._thread.join(timeout=5)
 
     def pausar(self):
-        """Llamar antes de que Azure Speech empiece a escuchar."""
+        """Pausar mientras Azure procesa el comando principal."""
         self._pausado = True
-        logger.info("WakeWordDetector pausado (Azure usando micrófono)")
+        logger.info("WakeWordDetector pausado")
 
     def reanudar(self):
-        """Llamar cuando Azure Speech termina de escuchar."""
+        """Reanudar después de que Azure termina de procesar."""
         self._pausado = False
         logger.info("WakeWordDetector reanudado")
 
     def _loop(self):
-        try:
-            import pyaudio
-            from vosk import Model, KaldiRecognizer
-        except ImportError as e:
-            logger.error(f"Dependencia faltante: {e}")
-            return
+        import azure.cognitiveservices.speech as speechsdk
 
-        if not os.path.exists(self.model_path):
-            logger.error(f"Modelo Vosk no encontrado en: {self.model_path}")
-            return
+        logger.info("Escuchando wake word 'Jarvis' en loop con Azure...")
 
-        try:
-            model      = Model(self.model_path)
-            recognizer = KaldiRecognizer(model, SAMPLE_RATE)
-            pa         = pyaudio.PyAudio()
-            stream     = None
+        while self._running:
+            if self._pausado:
+                time.sleep(0.1)
+                continue
 
-            logger.info("Escuchando wake word 'Jarvis' y aplausos...")
+            try:
+                # Crear reconocedor con timeout corto
+                recognizer = speechsdk.SpeechRecognizer(
+                    speech_config=self.speech_config
+                )
 
-            while self._running:
-                # Si está pausado, cerrar el stream y esperar
+                # recognize_once_async con timeout para no bloquearse eternamente
+                future = recognizer.recognize_once_async()
+                result = future.get()  # bloquea hasta que hay audio o silencio
+
                 if self._pausado:
-                    if stream is not None:
-                        try:
-                            stream.stop_stream()
-                            stream.close()
-                        except Exception:
-                            pass
-                        stream = None
-                    time.sleep(0.1)
                     continue
 
-                # Si no hay stream activo, abrirlo
-                if stream is None:
-                    try:
-                        stream = pa.open(
-                            rate=SAMPLE_RATE,
-                            channels=1,
-                            format=pyaudio.paInt16,
-                            input=True,
-                            frames_per_buffer=FRAME_LENGTH,
-                        )
-                    except Exception as e:
-                        logger.error(f"No se pudo abrir micrófono: {e}")
-                        time.sleep(1)
-                        continue
+                if result.reason == speechsdk.ResultReason.RecognizedSpeech:
+                    texto = result.text.lower().strip().rstrip(".")
+                    logger.debug(f"Wake loop oyó: '{texto}'")
 
-                try:
-                    raw = stream.read(FRAME_LENGTH, exception_on_overflow=False)
-                except Exception:
-                    stream = None
-                    continue
-
-                pcm = struct.unpack_from(f"{FRAME_LENGTH}h", raw)
-
-                # Wake word con Vosk
-                if recognizer.AcceptWaveform(raw):
-                    resultado = json.loads(recognizer.Result())
-                    texto = resultado.get("text", "").lower()
-                    if texto and any(w in texto for w in WAKE_WORDS):
+                    if any(w in texto for w in WAKE_WORDS):
                         logger.info(f"Wake word detectada: '{texto}'")
                         self._activar("jarvis")
-                        recognizer.Reset()
-                        continue
+                        # Pausa para no reactivarse inmediatamente
+                        time.sleep(2.0)
 
-                # Aplauso
-                if self._es_aplauso(pcm):
-                    self._registrar_aplauso()
+                elif result.reason == speechsdk.ResultReason.NoMatch:
+                    # No se entendió nada — volver a escuchar inmediatamente
+                    pass
 
-        except Exception as e:
-            logger.error(f"Error en WakeWordDetector: {e}")
-        finally:
-            try:
-                if stream:
-                    stream.stop_stream()
-                    stream.close()
-                pa.terminate()
-            except Exception:
-                pass
+                elif result.reason == speechsdk.ResultReason.Canceled:
+                    # Error de red o cuota — esperar antes de reintentar
+                    time.sleep(1.0)
 
-    def _es_aplauso(self, pcm) -> bool:
-        peak = max(abs(s) for s in pcm)
-        if peak < CLAP_THRESHOLD:
-            return False
-        rms = math.sqrt(sum(s * s for s in pcm) / len(pcm))
-        return rms > (CLAP_THRESHOLD * 0.5)
+            except Exception as e:
+                logger.error(f"Error en wake loop: {e}")
+                time.sleep(1.0)
 
-    def _registrar_aplauso(self):
-        ahora = time.time()
-        if self._clap_times and (ahora - self._clap_times[-1]) < CLAP_MIN_INTERVAL:
-            return
-        self._clap_times.append(ahora)
-        self._clap_times = [t for t in self._clap_times if ahora - t <= CLAP_WINDOW]
-        if len(self._clap_times) >= CLAP_COUNT_NEEDED:
-            self._clap_times.clear()
-            logger.info("Doble aplauso detectado")
-            self._activar("aplauso")
+            # Pequeña pausa entre ciclos
+            time.sleep(0.1)
 
     def _activar(self, fuente: str):
-        threading.Thread(target=self.callback, args=(fuente,), daemon=True).start()
+        threading.Thread(
+            target=self.callback,
+            args=(fuente,),
+            daemon=True
+        ).start()

@@ -83,6 +83,10 @@ export default function App() {
       const data = await resp.json();
       if (data.ok && data.texto) {
         await enviarComando(data.texto);
+      } else if (data.mensaje === "Wake word ignorada como comando") {
+        // Azure captó "jarvis" — re-escuchar automáticamente para capturar el comando real
+        setEstado("inactivo");
+        setTimeout(() => escucharRef.current?.(), 300);
       } else {
         agregarMensaje("sistema", "No te entendí. Intenta de nuevo.");
         setEstado("inactivo");

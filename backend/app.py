@@ -1,3 +1,8 @@
+"""
+app.py — Backend Flask para Jarvis.
+Wake word via Azure Speech en loop (sin Vosk, sin PyAudio).
+"""
+
 import os
 import queue
 import threading
@@ -15,17 +20,16 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-_wake_queue    = queue.Queue()
+_wake_queue   = queue.Queue()
 _wake_detector = None
 _wake_activo   = False
-_ultimo_wake   = 0       # timestamp del último wake procesado
-WAKE_COOLDOWN  = 4.0     # segundos de bloqueo tras activación
+_ultimo_wake   = 0
+WAKE_COOLDOWN  = 4.0
 
 
 def _on_wake(fuente: str):
     global _ultimo_wake
     ahora = time.time()
-    # Ignorar si está en cooldown
     if ahora - _ultimo_wake < WAKE_COOLDOWN:
         logger.info(f"Wake ignorada (cooldown): {fuente}")
         return
@@ -38,10 +42,14 @@ def iniciar_wake_detector():
     global _wake_detector, _wake_activo
     try:
         from wake_word import WakeWordDetector
-        _wake_detector = WakeWordDetector(callback=_on_wake)
+        # Reutiliza el speech_config ya configurado en jarvis_core
+        _wake_detector = WakeWordDetector(
+            callback=_on_wake,
+            speech_config=jarvis_core.speech_config,
+        )
         _wake_detector.start()
         _wake_activo = True
-        logger.info("Wake word detector activo")
+        logger.info("Wake word detector activo (Azure Speech loop)")
     except Exception as e:
         logger.error(f"No se pudo iniciar el wake detector: {e}")
 
@@ -69,11 +77,9 @@ def api_escuchar():
     if not texto:
         return jsonify({"texto": "", "ok": False})
 
-    # Si Azure captó "jarvis" como comando, ignorarlo — no es un comando real
     texto_limpio = texto.strip().rstrip(".").lower()
     if texto_limpio in ("jarvis", "jarvi", "jarbes", "harvis"):
-        logger.info(f"Ignorando 'jarvis' como comando (era la wake word)")
-        # Resetear cooldown para que la próxima detección funcione
+        logger.info("Ignorando 'jarvis' como comando (era la wake word)")
         _ultimo_wake = time.time()
         return jsonify({"texto": "", "ok": False, "mensaje": "Wake word ignorada como comando"})
 
@@ -133,7 +139,7 @@ def api_saludo():
 def api_wake_status():
     return jsonify({
         "activo": _wake_activo,
-        "metodos": ["jarvis", "aplauso"] if _wake_activo else [],
+        "metodos": ["jarvis"] if _wake_activo else [],
     })
 
 
