@@ -8,6 +8,9 @@ import queue
 import threading
 import time
 import logging
+import urllib.request
+import urllib.parse
+import json as _json
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -20,10 +23,11 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-_wake_queue   = queue.Queue()
+_wake_queue    = queue.Queue()
 _wake_detector = None
 _wake_activo   = False
 _ultimo_wake   = 0
+_jarvis_pausado = False
 WAKE_COOLDOWN  = 4.0
 
 
@@ -42,7 +46,6 @@ def iniciar_wake_detector():
     global _wake_detector, _wake_activo
     try:
         from wake_word import WakeWordDetector
-        # Reutiliza el speech_config ya configurado en jarvis_core
         _wake_detector = WakeWordDetector(
             callback=_on_wake,
             speech_config=jarvis_core.speech_config,
@@ -54,10 +57,18 @@ def iniciar_wake_detector():
         logger.error(f"No se pudo iniciar el wake detector: {e}")
 
 
+# ── Endpoints ──────────────────────────────────────────────────────────────
+
 @app.route("/api/wake-poll")
 def api_wake_poll():
+    global _jarvis_pausado
     try:
         fuente = _wake_queue.get_nowait()
+        if _jarvis_pausado:
+            _jarvis_pausado = False
+            if _wake_detector:
+                _wake_detector.reanudar()
+            logger.info("Jarvis reactivado por wake word")
         return jsonify({"activado": True, "fuente": fuente})
     except queue.Empty:
         return jsonify({"activado": False, "fuente": None})
@@ -88,20 +99,33 @@ def api_escuchar():
 
 @app.route("/api/comando", methods=["POST"])
 def api_comando():
+    global _jarvis_pausado
     data    = request.get_json(force=True) or {}
     comando = data.get("comando", "")
     hablar  = data.get("hablar", True)
     if not comando:
         return jsonify({"error": "Falta comando"}), 400
+
     resultado = jarvis_core.procesar_comando(comando)
-    if hablar:
+
+    if resultado.get("accion") == "pausar":
+        _jarvis_pausado = True
         if _wake_detector:
+            _wake_detector.pausar()
+    elif resultado.get("accion") == "reanudar":
+        _jarvis_pausado = False
+        if _wake_detector:
+            _wake_detector.reanudar()
+
+    if hablar:
+        if _wake_detector and resultado.get("accion") not in ("pausar", "reanudar"):
             _wake_detector.pausar()
         try:
             jarvis_core.hablar(resultado["respuesta"])
         finally:
-            if _wake_detector:
+            if _wake_detector and resultado.get("accion") != "pausar":
                 _wake_detector.reanudar()
+
     return jsonify(resultado)
 
 
@@ -143,35 +167,31 @@ def api_wake_status():
     })
 
 
-if __name__ == "__main__":
-    threading.Thread(target=iniciar_wake_detector, daemon=True).start()
-    print("🤖 Jarvis backend corriendo en http://localhost:5000")
-    app.run(debug=False, port=5000, threaded=True)
+@app.route("/api/estado")
+def api_estado():
+    return jsonify({"pausado": _jarvis_pausado})
+
 
 # ── Noticias ───────────────────────────────────────────────────────────────
-import urllib.request
-import urllib.parse
-import json as _json
 
 @app.route("/api/noticias")
 def api_noticias():
     """Obtiene noticias de tecnología e IA via NewsAPI."""
-    api_key = os.getenv("NEWS_API_KEY", "")
+    api_key   = os.getenv("NEWS_API_KEY", "")
     categoria = request.args.get("categoria", "tecnologia")
 
-    # Queries por categoría
     queries = {
-        "tecnologia": "tecnología OR inteligencia artificial OR software",
-        "ia":         "inteligencia artificial OR machine learning OR ChatGPT OR AI",
+        "tecnologia":     "tecnologia OR inteligencia artificial OR software",
+        "ia":             "inteligencia artificial OR machine learning OR ChatGPT OR AI",
         "ciberseguridad": "ciberseguridad OR hacking OR cybersecurity",
-        "programacion": "programación OR Python OR JavaScript OR desarrollador",
+        "programacion":   "programacion OR Python OR JavaScript OR desarrollador",
     }
 
     if not api_key:
         return jsonify({"error": "Falta NEWS_API_KEY en .env", "noticias": []})
 
     try:
-        q = urllib.parse.quote(queries.get(categoria, queries["tecnologia"]))
+        q   = urllib.parse.quote(queries.get(categoria, queries["tecnologia"]))
         url = (
             f"https://newsapi.org/v2/everything"
             f"?q={q}"
@@ -201,3 +221,11 @@ def api_noticias():
     except Exception as e:
         logger.error(f"Error obteniendo noticias: {e}")
         return jsonify({"error": str(e), "noticias": []})
+
+
+# ── Arranque ───────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    threading.Thread(target=iniciar_wake_detector, daemon=True).start()
+    print("🤖 Jarvis backend corriendo en http://localhost:5000")
+    app.run(debug=False, port=5000, threaded=True)
