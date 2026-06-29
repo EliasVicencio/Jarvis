@@ -6,16 +6,16 @@ import "./Noticias.css";
 const API = "http://localhost:5000/api";
 
 const COMANDOS = [
-  { texto: "qué hora es",           icono: "◷" },
-  { texto: "qué fecha es",          icono: "◴" },
-  { texto: "clima en Santiago",     icono: "☁" },
-  { texto: "busca noticias de hoy", icono: "⌕" },
-  { texto: "abre youtube",          icono: "▶" },
-  { texto: "abre spotify",          icono: "♫" },
-  { texto: "abre calculadora",      icono: "⬚" },
-  { texto: "cuéntame un chiste",    icono: "✦" },
-  { texto: "mis recordatorios",     icono: "✎" },
-  { texto: "qué puedes hacer",      icono: "?" },
+  { texto: "qué hora es",        icono: "◷" },
+  { texto: "qué fecha es",       icono: "◴" },
+  { texto: "clima en Santiago",  icono: "☁" },
+  { texto: "stark intel",        icono: "◈", accion: "noticias" },
+  { texto: "abre youtube",       icono: "▶" },
+  { texto: "abre spotify",       icono: "♫" },
+  { texto: "abre calculadora",   icono: "⬚" },
+  { texto: "cuéntame un chiste", icono: "✦" },
+  { texto: "mis recordatorios",  icono: "✎" },
+  { texto: "qué puedes hacer",   icono: "?" },
 ];
 
 function useReloj() {
@@ -28,38 +28,25 @@ function useReloj() {
 }
 
 export default function App() {
-  const [vista,         setVista]         = useState("principal"); // "principal" | "noticias"
-  const [mensajes,      setMensajes]      = useState([]);
-  const [estado,        setEstado]        = useState("inactivo");
-  const [recordatorios, setRecordatorios] = useState([]);
-  const [inputManual,   setInputManual]   = useState("");
-  const [backendOk,     setBackendOk]     = useState(null);
-  const [wakeActivo,    setWakeActivo]    = useState(false);
-  const [wakeFlash,     setWakeFlash]     = useState(null);
+  const [vista,       setVista]       = useState("principal");
+  const [estado,      setEstado]      = useState("inactivo");
+  const [inputManual, setInputManual] = useState("");
+  const [backendOk,   setBackendOk]   = useState(null);
+  const [wakeActivo,  setWakeActivo]  = useState(false);
+  const [wakeFlash,   setWakeFlash]   = useState(null);
 
-  const scrollRef         = useRef(null);
-  const estadoRef         = useRef("inactivo");
-  const escucharRef       = useRef(null); // ref para poder llamar desde el polling
+  const estadoRef   = useRef("inactivo");
+  const escucharRef = useRef(null);
   const hora = useReloj();
 
   useEffect(() => { estadoRef.current = estado; }, [estado]);
 
-  const agregarMensaje = useCallback((rol, texto) => {
-    setMensajes(prev => [...prev, { rol, texto, id: Date.now() + Math.random() }]);
-  }, []);
-
-  const refrescarRecordatorios = useCallback(() => {
-    fetch(`${API}/recordatorios`)
-      .then(r => r.json())
-      .then(data => setRecordatorios(data.recordatorios || []))
-      .catch(() => {});
-  }, []);
+  const refrescarRecordatorios = useCallback(() => {}, []);
 
   // ── Enviar comando ─────────────────────────────────────────────────────
   const enviarComando = useCallback(async (texto, forzar = false) => {
     if (!texto.trim()) return;
     if (!forzar && estadoRef.current !== "inactivo") return;
-    agregarMensaje("usuario", texto);
     setEstado("procesando");
     estadoRef.current = "procesando";
     try {
@@ -71,21 +58,16 @@ export default function App() {
       const data = await resp.json();
       setEstado("hablando");
       estadoRef.current = "hablando";
-      agregarMensaje("jarvis", data.respuesta);
-      if (data.accion === "recordatorio_agregado") refrescarRecordatorios();
       if (data.accion === "abrir_noticias") setVista("noticias");
-      if (data.accion === "pausar") setPausado(true);
-      if (data.accion === "reanudar") setPausado(false);
       setTimeout(() => {
         setEstado("inactivo");
         estadoRef.current = "inactivo";
       }, 1000);
     } catch {
-      agregarMensaje("sistema", "Error al contactar a Jarvis.");
       setEstado("inactivo");
       estadoRef.current = "inactivo";
     }
-  }, [agregarMensaje, refrescarRecordatorios]);
+  }, []);
 
   // ── Escuchar micrófono ─────────────────────────────────────────────────
   const escucharMicrofono = useCallback(async () => {
@@ -99,23 +81,20 @@ export default function App() {
         estadoRef.current = "inactivo";
         await enviarComando(data.texto, true);
       } else if (data.mensaje === "Wake word ignorada como comando") {
-        // Azure captó "jarvis" — re-escuchar automáticamente para capturar el comando real
         setEstado("inactivo");
+        estadoRef.current = "inactivo";
         setTimeout(() => escucharRef.current?.(), 300);
       } else {
-        agregarMensaje("sistema", "No te entendí. Intenta de nuevo.");
         setEstado("inactivo");
+        estadoRef.current = "inactivo";
       }
     } catch {
-      agregarMensaje("sistema", "Error al acceder al micrófono.");
       setEstado("inactivo");
+      estadoRef.current = "inactivo";
     }
-  }, [agregarMensaje, enviarComando]);
+  }, [enviarComando]);
 
-  // Mantener la ref siempre actualizada con la versión más reciente
-  useEffect(() => {
-    escucharRef.current = escucharMicrofono;
-  }, [escucharMicrofono]);
+  useEffect(() => { escucharRef.current = escucharMicrofono; }, [escucharMicrofono]);
 
   // ── Carga inicial ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -124,69 +103,34 @@ export default function App() {
       .then(data => {
         setBackendOk(true);
         setWakeActivo(data.wake_activo || false);
-        agregarMensaje("jarvis", data.saludo);
-        setRecordatorios(data.recordatorios || []);
       })
-      .catch(() => {
-        setBackendOk(false);
-        agregarMensaje("sistema", "⚠ No se pudo conectar con el backend.");
-      });
-  }, [agregarMensaje]);
+      .catch(() => setBackendOk(false));
+  }, []);
 
-  // ── Polling wake word (cada 500ms) ─────────────────────────────────────
+  // ── Polling wake word ──────────────────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
         const resp = await fetch(`${API}/wake-poll`);
         const data = await resp.json();
-
         if (data.activado) {
-          const fuente = data.fuente;
-
-          setWakeFlash(fuente);
+          setWakeFlash(data.fuente);
           setTimeout(() => setWakeFlash(null), 1500);
-
           if (estadoRef.current === "inactivo") {
-            setMensajes(prev => [...prev, {
-              rol: "sistema",
-              texto: fuente === "jarvis" ? "🎤 Wake word detectada: «Jarvis»" : "👏 Doble aplauso detectado",
-              id: Date.now() + Math.random()
-            }]);
-            // Usar la ref — siempre tiene la versión actualizada de escucharMicrofono
             setTimeout(() => escucharRef.current?.(), 400);
           }
         }
-      } catch {
-        // silencioso
-      }
+      } catch {}
     }, 500);
-
     return () => clearInterval(interval);
   }, []);
 
-  // ── Polling de acciones del backend (abrir_noticias, etc.) ────────────
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const resp = await fetch(`${API}/accion-poll`);
-        const data = await resp.json();
-        if (data.accion === "abrir_noticias") {
-          setVista("noticias");
-        }
-      } catch { /* silencioso */ }
-    }, 600);
-    return () => clearInterval(interval);
-  }, []); // sin dependencias — usa refs para todo
-
-  // ── Scroll automático ──────────────────────────────────────────────────
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [mensajes]);
-
   const handleEnviar = e => {
     e.preventDefault();
-    enviarComando(inputManual);
-    setInputManual("");
+    if (inputManual.trim()) {
+      enviarComando(inputManual);
+      setInputManual("");
+    }
   };
 
   const horaStr  = hora.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -201,11 +145,10 @@ export default function App() {
       <div className="bg-grid" />
 
       {wakeFlash && (
-        <div className={`wake-flash wake-flash-${wakeFlash}`}>
-          {wakeFlash === "jarvis" ? "🎤 «Jarvis» detectado" : "👏 Doble aplauso detectado"}
-        </div>
+        <div className="wake-flash">🎤 «Jarvis» detectado</div>
       )}
 
+      {/* ── Topbar ─────────────────────────────────────────── */}
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark">J</div>
@@ -214,6 +157,7 @@ export default function App() {
             <div className="brand-sub">asistente personal · Jorge Neural</div>
           </div>
         </div>
+
         <button className="nav-btn" onClick={() => setVista("noticias")}>
           ◈ Stark Intel
         </button>
@@ -235,9 +179,26 @@ export default function App() {
         </div>
       </header>
 
-      <main className="grid">
+      {/* ── Cuerpo ─────────────────────────────────────────── */}
+      <main className="main-body">
 
-        <section className="panel core-panel">
+        {/* Chips arriba */}
+        <div className="chips-row">
+          {COMANDOS.map(c => (
+            <button
+              key={c.texto}
+              className="chip"
+              onClick={() => c.accion === "noticias" ? setVista("noticias") : enviarComando(c.texto)}
+              disabled={estado !== "inactivo"}
+            >
+              <span className="chip-icon">{c.icono}</span>
+              {c.texto}
+            </button>
+          ))}
+        </div>
+
+        {/* Anillo central */}
+        <div className="core-wrap">
           <div
             className={`ring estado-${estado}${wakeFlash ? " ring-wake" : ""}`}
             onClick={escucharMicrofono}
@@ -251,77 +212,24 @@ export default function App() {
             <div className="ring-inner" />
             <div className="ring-core"><MicSVG /></div>
           </div>
-
           <p className="estado-label">{labelEstado(estado)}</p>
-
-          <div className="wake-badges">
-            <span className="wake-badge" data-activo={wakeActivo}>🗣 «Jarvis»</span>
-            <span className="wake-badge" data-activo={wakeActivo}>👏 Doble aplauso</span>
-          </div>
-
           <p className="hint">
-            {wakeActivo ? "Di «Jarvis» o aplaude dos veces" : "Toca el núcleo o escribe abajo"}
+            {wakeActivo ? "Di «Jarvis» para activar" : "Toca el núcleo o escribe abajo"}
           </p>
+        </div>
 
-          <form className="input-row" onSubmit={handleEnviar}>
-            <input
-              className="txt-input"
-              type="text"
-              placeholder="Escribe un comando…"
-              value={inputManual}
-              onChange={e => setInputManual(e.target.value)}
-              disabled={estado !== "inactivo"}
-            />
-            <button className="btn-send" type="submit" disabled={estado !== "inactivo"}>➤</button>
-          </form>
-        </section>
-
-        <section className="panel log-panel">
-          <div className="panel-header">Registro de conversación</div>
-          <div className="log-scroll" ref={scrollRef}>
-            {mensajes.length === 0 && (
-              <div className="empty-hint">Di «Jarvis», aplaude dos veces, o escribe algo.</div>
-            )}
-            {mensajes.map(m => (
-              <div key={m.id} className={`bubble bubble-${m.rol}`}>
-                <span className="bubble-tag">{labelRol(m.rol)}</span>
-                <span className="bubble-texto">{m.texto}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel side-panel">
-          <div className="panel-header">Comandos rápidos</div>
-          <div className="chip-list">
-            {COMANDOS.map(c => (
-              <button
-                key={c.texto}
-                className="chip"
-                onClick={() => enviarComando(c.texto)}
-                disabled={estado !== "inactivo"}
-              >
-                <span className="chip-icon">{c.icono}</span>
-                {c.texto}
-              </button>
-            ))}
-          </div>
-
-          <div className="panel-header panel-header-mt">
-            Recordatorios
-            <span className="badge">{recordatorios.length}</span>
-          </div>
-          <div className="reminder-list">
-            {recordatorios.length === 0
-              ? <div className="empty-hint">Sin recordatorios.</div>
-              : recordatorios.map((r, i) => (
-                  <div key={i} className="reminder-item">
-                    <span className="reminder-dot" />{r}
-                  </div>
-                ))
-            }
-          </div>
-        </section>
+        {/* Input centrado abajo */}
+        <form className="input-row" onSubmit={handleEnviar}>
+          <input
+            className="txt-input"
+            type="text"
+            placeholder="Escribe un comando…"
+            value={inputManual}
+            onChange={e => setInputManual(e.target.value)}
+            disabled={estado !== "inactivo"}
+          />
+          <button className="btn-send" type="submit" disabled={estado !== "inactivo"}>➤</button>
+        </form>
 
       </main>
     </div>
@@ -330,14 +238,12 @@ export default function App() {
 
 function labelEstado(e) {
   return { escuchando: "Escuchando…", procesando: "Procesando…", hablando: "Respondiendo…" }[e]
-    ?? "Listo — di «Jarvis» o aplaude";
+    ?? "Listo — di «Jarvis»";
 }
-function labelRol(r) {
-  return { usuario: "Tú", jarvis: "Jarvis", sistema: "Sistema" }[r] ?? r;
-}
+
 function MicSVG() {
   return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
       <path d="M12 14a3 3 0 003-3V6a3 3 0 10-6 0v5a3 3 0 003 3z"
         stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
       <path d="M19 11a7 7 0 01-14 0M12 18v3"

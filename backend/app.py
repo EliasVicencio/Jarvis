@@ -1,8 +1,3 @@
-"""
-app.py — Backend Flask para Jarvis.
-Wake word via Azure Speech en loop (sin Vosk, sin PyAudio).
-"""
-
 import os
 import queue
 import threading
@@ -119,6 +114,13 @@ def api_comando():
             _wake_detector.reanudar()
     elif resultado.get("accion") == "abrir_noticias":
         _accion_queue.put("abrir_noticias")
+        # Responder inmediatamente sin esperar que Flask hable
+        # para que el frontend abra el panel sin delay
+        threading.Thread(
+            target=lambda: jarvis_core.hablar(resultado["respuesta"]),
+            daemon=True
+        ).start()
+        return jsonify(resultado)
 
     if hablar:
         if _wake_detector and resultado.get("accion") not in ("pausar", "reanudar"):
