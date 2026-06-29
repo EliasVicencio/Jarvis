@@ -33,30 +33,78 @@ _recognizer.energy_threshold = 300  # sensibilidad al ruido
 def hablar(texto):
     """Convierte texto a voz con Edge TTS (gratuito, sin cuenta)."""
     print(f"🤖 Jarvis: {texto}")
+    tmp = None
     try:
-        # Crear archivo temporal para el audio
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-            tmp = f.name
+        # Generar archivo mp3 en carpeta temporal
+        tmp = os.path.join(tempfile.gettempdir(), "jarvis_audio.mp3")
 
-        # Generar audio con edge-tts
         async def _generar():
             comunicar = edge_tts.Communicate(texto, VOZ)
             await comunicar.save(tmp)
 
-        asyncio.run(_generar())
+        # Usar un loop nuevo en un hilo separado para evitar conflicto con Flask
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            pool.submit(asyncio.run, _generar()).result()
+        print(f"🔊 Audio generado: {tmp} ({os.path.getsize(tmp)} bytes)")
 
-        # Reproducir con pygame (funciona en Windows/Mac/Linux sin ffmpeg)
-        import pygame
-        pygame.mixer.init()
-        pygame.mixer.music.load(tmp)
-        pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            pygame.time.Clock().tick(10)
-        pygame.mixer.music.unload()
+        # Intentar reproducir con diferentes métodos
+        reproducido = False
 
-        os.unlink(tmp)
+        # Método 1: pygame
+        if not reproducido:
+            try:
+                import pygame
+                pygame.mixer.pre_init(44100, -16, 2, 512)
+                pygame.mixer.init()
+                pygame.mixer.music.load(tmp)
+                pygame.mixer.music.play()
+                while pygame.mixer.music.get_busy():
+                    pygame.time.Clock().tick(10)
+                pygame.mixer.quit()
+                reproducido = True
+                print("✓ Reproducido con pygame")
+            except Exception as e:
+                print(f"⚠ pygame falló: {e}")
+
+        # Método 2: PowerShell (Windows nativo, siempre funciona)
+        if not reproducido and platform.system() == "Windows":
+            try:
+                resultado = subprocess.run(
+                    ["powershell", "-c",
+                     f"Add-Type -AssemblyName presentationCore; "
+                     f"$mp = New-Object system.windows.media.mediaplayer; "
+                     f"$mp.open('{tmp}'); $mp.Play(); "
+                     f"Start-Sleep -s ([math]::ceiling($mp.NaturalDuration.TimeSpan.TotalSeconds + 1)); "
+                     f"$mp.Stop()"],
+                    capture_output=True, timeout=30
+                )
+                reproducido = True
+                print("✓ Reproducido con PowerShell")
+            except Exception as e:
+                print(f"⚠ PowerShell falló: {e}")
+
+        # Método 3: afplay (macOS)
+        if not reproducido and platform.system() == "Darwin":
+            subprocess.run(["afplay", tmp])
+            reproducido = True
+
+        # Método 4: mpg123 (Linux)
+        if not reproducido and platform.system() == "Linux":
+            subprocess.run(["mpg123", "-q", tmp])
+            reproducido = True
+
+        if not reproducido:
+            print("⚠ No se pudo reproducir el audio en ningún método")
+
     except Exception as e:
         print(f"⚠ Error en síntesis de voz: {e}")
+    finally:
+        if tmp and os.path.exists(tmp):
+            try:
+                os.unlink(tmp)
+            except Exception:
+                pass
     return texto
 
 
@@ -182,7 +230,7 @@ def procesar_comando(comando):
         return {"respuesta": "Abriendo YouTube", "continuar": True, "accion": "abrir_youtube"}
 
     if "abre spotify" in comando:
-        webbrowser.open("https://open.spotify.com/")
+        subprocess.Popen(["spotify.exe"])
         return {"respuesta": "Abriendo Spotify", "continuar": True, "accion": "abrir_spotify"}
 
     if "abre google" in comando or "abre navegador" in comando:
