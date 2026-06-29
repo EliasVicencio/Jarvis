@@ -122,7 +122,9 @@ def procesar_comando(comando):
     Procesa el comando y devuelve:
     {"respuesta": str, "continuar": bool, "accion": str}
     """
-    comando   = comando.lower().strip()
+    # Limpiar puntuación que Azure agrega al texto reconocido
+    comando = comando.lower().strip()
+    comando = comando.rstrip(".,;:!?¿¡")
     continuar = True
     accion    = "desconocido"
 
@@ -159,6 +161,10 @@ def procesar_comando(comando):
         clima  = _obtener_clima(ciudad)
         respuesta = clima if clima else f"No pude obtener el clima de {ciudad}"
         accion    = "clima"
+
+    elif "busca noticias" in comando or "noticias de hoy" in comando:
+        respuesta = "Abriendo Stark Intel"
+        accion    = "abrir_noticias"
 
     elif "busca" in comando or "buscar" in comando:
         match = re.search(r"busca(?:r)?\s+(.+)", comando)

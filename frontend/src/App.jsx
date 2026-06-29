@@ -56,10 +56,12 @@ export default function App() {
   }, []);
 
   // ── Enviar comando ─────────────────────────────────────────────────────
-  const enviarComando = useCallback(async (texto) => {
-    if (!texto.trim() || estadoRef.current !== "inactivo") return;
+  const enviarComando = useCallback(async (texto, forzar = false) => {
+    if (!texto.trim()) return;
+    if (!forzar && estadoRef.current !== "inactivo") return;
     agregarMensaje("usuario", texto);
     setEstado("procesando");
+    estadoRef.current = "procesando";
     try {
       const resp = await fetch(`${API}/comando`, {
         method: "POST",
@@ -68,12 +70,20 @@ export default function App() {
       });
       const data = await resp.json();
       setEstado("hablando");
+      estadoRef.current = "hablando";
       agregarMensaje("jarvis", data.respuesta);
       if (data.accion === "recordatorio_agregado") refrescarRecordatorios();
-      setTimeout(() => setEstado("inactivo"), 1000);
+      if (data.accion === "abrir_noticias") setVista("noticias");
+      if (data.accion === "pausar") setPausado(true);
+      if (data.accion === "reanudar") setPausado(false);
+      setTimeout(() => {
+        setEstado("inactivo");
+        estadoRef.current = "inactivo";
+      }, 1000);
     } catch {
       agregarMensaje("sistema", "Error al contactar a Jarvis.");
       setEstado("inactivo");
+      estadoRef.current = "inactivo";
     }
   }, [agregarMensaje, refrescarRecordatorios]);
 
@@ -85,7 +95,9 @@ export default function App() {
       const resp = await fetch(`${API}/escuchar`, { method: "POST" });
       const data = await resp.json();
       if (data.ok && data.texto) {
-        await enviarComando(data.texto);
+        setEstado("inactivo");
+        estadoRef.current = "inactivo";
+        await enviarComando(data.texto, true);
       } else if (data.mensaje === "Wake word ignorada como comando") {
         // Azure captó "jarvis" — re-escuchar automáticamente para capturar el comando real
         setEstado("inactivo");
@@ -149,6 +161,20 @@ export default function App() {
       }
     }, 500);
 
+    return () => clearInterval(interval);
+  }, []);
+
+  // ── Polling de acciones del backend (abrir_noticias, etc.) ────────────
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const resp = await fetch(`${API}/accion-poll`);
+        const data = await resp.json();
+        if (data.accion === "abrir_noticias") {
+          setVista("noticias");
+        }
+      } catch { /* silencioso */ }
+    }, 600);
     return () => clearInterval(interval);
   }, []); // sin dependencias — usa refs para todo
 

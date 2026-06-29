@@ -24,6 +24,7 @@ app = Flask(__name__)
 CORS(app)
 
 _wake_queue    = queue.Queue()
+_accion_queue  = queue.Queue()   # acciones para el frontend (abrir_noticias, etc.)
 _wake_detector = None
 _wake_activo   = False
 _ultimo_wake   = 0
@@ -116,6 +117,8 @@ def api_comando():
         _jarvis_pausado = False
         if _wake_detector:
             _wake_detector.reanudar()
+    elif resultado.get("accion") == "abrir_noticias":
+        _accion_queue.put("abrir_noticias")
 
     if hablar:
         if _wake_detector and resultado.get("accion") not in ("pausar", "reanudar"):
@@ -170,6 +173,16 @@ def api_wake_status():
 @app.route("/api/estado")
 def api_estado():
     return jsonify({"pausado": _jarvis_pausado})
+
+
+@app.route("/api/accion-poll")
+def api_accion_poll():
+    """El frontend consulta esto para saber si debe ejecutar una acción de UI."""
+    try:
+        accion = _accion_queue.get_nowait()
+        return jsonify({"accion": accion})
+    except queue.Empty:
+        return jsonify({"accion": None})
 
 
 # ── Noticias ───────────────────────────────────────────────────────────────
