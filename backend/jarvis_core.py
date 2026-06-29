@@ -1,4 +1,10 @@
-import azure.cognitiveservices.speech as speechsdk
+"""
+jarvis_core.py — Lógica central de Jarvis.
+Usa edge-tts para síntesis de voz y SpeechRecognition/Google para escuchar.
+Sin Azure, sin costos, sin límites.
+"""
+
+import asyncio
 import datetime
 import webbrowser
 import subprocess
@@ -9,234 +15,214 @@ import os
 import json
 import urllib.request
 import urllib.parse
+import tempfile
 
-import config
-
-speech_config = speechsdk.SpeechConfig(
-    subscription=config.AZURE_SPEECH_KEY,
-    region=config.AZURE_SPEECH_REGION,
-)
-speech_config.speech_recognition_language = config.SPEECH_RECOGNITION_LANGUAGE
-speech_config.speech_synthesis_voice_name = config.AZURE_SPEECH_VOICE
+import edge_tts
+import speech_recognition as sr
 
 RECORDATORIOS_PATH = os.path.join(os.path.dirname(__file__), "recordatorios.txt")
+VOZ = "es-MX-JorgeNeural"
+
+# Reconocedor de voz (reutilizable)
+_recognizer = sr.Recognizer()
+_recognizer.pause_threshold = 1.0   # espera 1s de silencio antes de cortar
+_recognizer.energy_threshold = 300  # sensibilidad al ruido
 
 
-def reconocer_voz():
-    """Escucha el micrófono UNA vez y devuelve el texto (o '' si no entendió)."""
-    recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config)
-    print("🎤 Azure escuchando...")
-    result = recognizer.recognize_once()
-    if result.reason == speechsdk.ResultReason.RecognizedSpeech:
-        texto = result.text.lower().strip()
-        print(f"📝 Entendí: {texto}")
-        return texto
-    print(f"❌ No entendí ({result.reason})")
-    return ""
-
-
+# ── Síntesis de voz ───────────────────────────────────────────────────────
 def hablar(texto):
-    """Convierte texto a voz con la voz configurada."""
-    synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config)
+    """Convierte texto a voz con Edge TTS (gratuito, sin cuenta)."""
     print(f"🤖 Jarvis: {texto}")
-    synthesizer.speak_text_async(texto).get()
+    try:
+        # Crear archivo temporal para el audio
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+            tmp = f.name
+
+        # Generar audio con edge-tts
+        async def _generar():
+            comunicar = edge_tts.Communicate(texto, VOZ)
+            await comunicar.save(tmp)
+
+        asyncio.run(_generar())
+
+        # Reproducir con pygame (funciona en Windows/Mac/Linux sin ffmpeg)
+        import pygame
+        pygame.mixer.init()
+        pygame.mixer.music.load(tmp)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            pygame.time.Clock().tick(10)
+        pygame.mixer.music.unload()
+
+        os.unlink(tmp)
+    except Exception as e:
+        print(f"⚠ Error en síntesis de voz: {e}")
     return texto
 
 
-def _abrir_app_sistema(nombre_app):
+# ── Reconocimiento de voz ─────────────────────────────────────────────────
+def reconocer_voz():
+    """Escucha el micrófono y devuelve el texto reconocido via Google STT."""
+    print("🎤 Escuchando...")
+    try:
+        with sr.Microphone() as mic:
+            _recognizer.adjust_for_ambient_noise(mic, duration=0.3)
+            audio = _recognizer.listen(mic, timeout=8, phrase_time_limit=10)
+
+        texto = _recognizer.recognize_google(audio, language="es-MX")
+        texto = texto.lower().strip()
+        print(f"📝 Entendí: {texto}")
+        return texto
+
+    except sr.WaitTimeoutError:
+        print("❌ Tiempo de espera agotado")
+    except sr.UnknownValueError:
+        print("❌ No se entendió")
+    except sr.RequestError as e:
+        print(f"❌ Error de Google STT: {e}")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+    return ""
+
+
+# ── Utilidades ────────────────────────────────────────────────────────────
+def _abrir_app(nombre):
     sistema = platform.system()
     try:
         if sistema == "Windows":
-            apps = {
-                "calculadora": "calc.exe",
-                "notas": "notepad.exe",
-                "bloc de notas": "notepad.exe",
-            }
-            subprocess.Popen(apps.get(nombre_app, nombre_app))
+            apps = {"calculadora": "calc.exe", "bloc de notas": "notepad.exe", "notas": "notepad.exe"}
+            subprocess.Popen(apps.get(nombre, nombre))
         elif sistema == "Darwin":
-            apps = {
-                "calculadora": "Calculator",
-                "notas": "Notes",
-                "bloc de notas": "TextEdit",
-            }
-            subprocess.Popen(["open", "-a", apps.get(nombre_app, nombre_app)])
+            apps = {"calculadora": "Calculator", "bloc de notas": "TextEdit", "notas": "Notes"}
+            subprocess.Popen(["open", "-a", apps.get(nombre, nombre)])
         else:
-            apps = {
-                "calculadora": "gnome-calculator",
-                "notas": "gedit",
-                "bloc de notas": "gedit",
-            }
-            subprocess.Popen([apps.get(nombre_app, nombre_app)])
+            apps = {"calculadora": "gnome-calculator", "bloc de notas": "gedit", "notas": "gedit"}
+            subprocess.Popen([apps.get(nombre, nombre)])
         return True
     except Exception:
         return False
 
 
-def _obtener_clima(ciudad="Santiago"):
+def _clima(ciudad="Santiago"):
     try:
-        geo_url = (
-            "https://geocoding-api.open-meteo.com/v1/search?"
-            + urllib.parse.urlencode({"name": ciudad, "count": 1, "language": "es"})
-        )
-        with urllib.request.urlopen(geo_url, timeout=5) as resp:
-            geo_data = json.loads(resp.read())
-        if not geo_data.get("results"):
+        geo = "https://geocoding-api.open-meteo.com/v1/search?" + urllib.parse.urlencode(
+            {"name": ciudad, "count": 1, "language": "es"})
+        with urllib.request.urlopen(geo, timeout=5) as r:
+            data = json.loads(r.read())
+        if not data.get("results"):
             return None
-        lugar = geo_data["results"][0]
-        lat, lon = lugar["latitude"], lugar["longitude"]
-        nombre_real = lugar.get("name", ciudad)
-        clima_url = (
-            "https://api.open-meteo.com/v1/forecast?"
-            + urllib.parse.urlencode({
-                "latitude": lat, "longitude": lon,
-                "current": "temperature_2m,weather_code",
-                "timezone": "auto",
-            })
-        )
-        with urllib.request.urlopen(clima_url, timeout=5) as resp:
-            clima_data = json.loads(resp.read())
-        temp   = clima_data["current"]["temperature_2m"]
-        codigo = clima_data["current"]["weather_code"]
-        descripciones = {
-            0: "cielo despejado", 1: "mayormente despejado", 2: "parcialmente nublado",
-            3: "nublado", 45: "neblina", 61: "lluvia ligera", 63: "lluvia moderada",
-            65: "lluvia fuerte", 80: "chubascos", 95: "tormenta eléctrica",
-        }
-        descripcion = descripciones.get(codigo, "condiciones variables")
-        return f"En {nombre_real} hay {temp} grados con {descripcion}"
+        lugar = data["results"][0]
+        url = "https://api.open-meteo.com/v1/forecast?" + urllib.parse.urlencode({
+            "latitude": lugar["latitude"], "longitude": lugar["longitude"],
+            "current": "temperature_2m,weather_code", "timezone": "auto"
+        })
+        with urllib.request.urlopen(url, timeout=5) as r:
+            c = json.loads(r.read())
+        temp = c["current"]["temperature_2m"]
+        desc = {0:"cielo despejado",1:"mayormente despejado",2:"parcialmente nublado",
+                3:"nublado",61:"lluvia ligera",63:"lluvia moderada",80:"chubascos",
+                95:"tormenta eléctrica"}.get(c["current"]["weather_code"], "condiciones variables")
+        return f"En {lugar.get('name', ciudad)} hay {temp} grados con {desc}"
     except Exception:
         return None
 
 
 CHISTES = [
     "¿Por qué los programadores prefieren el frío? Porque odian los bugs.",
-    "¿Cómo se llama el campeón de buceo japonés? Mitsubishi.",
     "Mi código no tiene errores, solo características inesperadas.",
-    "¿Por qué la computadora fue al médico? Porque tenía un virus.",
     "Hay 10 tipos de personas: las que entienden binario y las que no.",
+    "¿Por qué la computadora fue al médico? Porque tenía un virus.",
+    "¿Cómo se llama el campeón de buceo japonés? Mitsubishi.",
 ]
 
 
+# ── Procesamiento de comandos ─────────────────────────────────────────────
 def procesar_comando(comando):
-    """
-    Procesa el comando y devuelve:
-    {"respuesta": str, "continuar": bool, "accion": str}
-    """
-    # Limpiar puntuación que Azure agrega al texto reconocido
-    comando = comando.lower().strip()
-    comando = comando.rstrip(".,;:!?¿¡")
-    continuar = True
-    accion    = "desconocido"
+    comando = comando.lower().strip().rstrip(".,;:!?¿¡")
 
     if "hora" in comando:
-        ahora     = datetime.datetime.now().strftime("%I:%M %p")
-        respuesta = f"Son las {ahora}"
-        accion    = "hora"
+        r = f"Son las {datetime.datetime.now().strftime('%I:%M %p')}"
+        return {"respuesta": r, "continuar": True, "accion": "hora"}
 
-    elif "fecha" in comando or "qué día es" in comando:
-        hoy       = datetime.datetime.now().strftime("%A %d de %B de %Y")
-        respuesta = f"Hoy es {hoy}"
-        accion    = "fecha"
+    if "fecha" in comando or "qué día" in comando:
+        r = f"Hoy es {datetime.datetime.now().strftime('%A %d de %B de %Y')}"
+        return {"respuesta": r, "continuar": True, "accion": "fecha"}
 
-    elif "recuérdame" in comando or "recuerdame" in comando:
-        match = re.search(r"recu[eé]rdame\s+(.+)", comando)
-        if match:
-            recordatorio = match.group(1)
+    if "recuérdame" in comando or "recuerdame" in comando:
+        m = re.search(r"recu[eé]rdame\s+(.+)", comando)
+        if m:
             with open(RECORDATORIOS_PATH, "a", encoding="utf-8") as f:
-                f.write(f"{recordatorio}\n")
-            respuesta = f"Ok, te recordaré: {recordatorio}"
-            accion    = "recordatorio_agregado"
-        else:
-            respuesta = "¿Qué quieres que recuerde?"
-            accion    = "recordatorio_vacio"
+                f.write(m.group(1) + "\n")
+            return {"respuesta": f"Ok, te recordaré: {m.group(1)}", "continuar": True, "accion": "recordatorio_agregado"}
+        return {"respuesta": "¿Qué quieres que recuerde?", "continuar": True, "accion": "recordatorio_vacio"}
 
-    elif "mis recordatorios" in comando or "qué tengo pendiente" in comando:
+    if "mis recordatorios" in comando or "pendiente" in comando:
         recs = obtener_recordatorios()
-        respuesta = ("Tus recordatorios son: " + ", ".join(recs)) if recs else "No tienes recordatorios pendientes"
-        accion    = "listar_recordatorios"
+        r = ("Tus recordatorios: " + ", ".join(recs)) if recs else "No tienes recordatorios pendientes"
+        return {"respuesta": r, "continuar": True, "accion": "listar_recordatorios"}
 
-    elif "clima" in comando or "temperatura" in comando:
-        match  = re.search(r"clima(?:\s+en)?\s+(.+)", comando)
-        ciudad = match.group(1).strip() if match else "Santiago"
-        clima  = _obtener_clima(ciudad)
-        respuesta = clima if clima else f"No pude obtener el clima de {ciudad}"
-        accion    = "clima"
+    if "clima" in comando or "temperatura" in comando:
+        m = re.search(r"clima(?:\s+en)?\s+(.+)", comando)
+        ciudad = m.group(1).strip() if m else "Santiago"
+        c = _clima(ciudad)
+        return {"respuesta": c or f"No pude obtener el clima de {ciudad}", "continuar": True, "accion": "clima"}
 
-    elif "busca noticias" in comando or "noticias de hoy" in comando:
-        respuesta = "Abriendo Stark Intel"
-        accion    = "abrir_noticias"
+    if "busca noticias" in comando or "noticias de hoy" in comando:
+        return {"respuesta": "Abriendo Stark Intel", "continuar": True, "accion": "abrir_noticias"}
 
-    elif "busca" in comando or "buscar" in comando:
-        match = re.search(r"busca(?:r)?\s+(.+)", comando)
-        if match:
-            consulta = match.group(1)
-            webbrowser.open("https://www.google.com/search?q=" + urllib.parse.quote(consulta))
-            respuesta = f"Buscando {consulta} en Google"
-            accion    = "buscar"
-        else:
-            respuesta = "¿Qué quieres que busque?"
-            accion    = "buscar_vacio"
+    if "busca" in comando:
+        m = re.search(r"busca(?:r)?\s+(.+)", comando)
+        if m:
+            webbrowser.open("https://www.google.com/search?q=" + urllib.parse.quote(m.group(1)))
+            return {"respuesta": f"Buscando {m.group(1)} en Google", "continuar": True, "accion": "buscar"}
+        return {"respuesta": "¿Qué quieres que busque?", "continuar": True, "accion": "buscar_vacio"}
 
-    elif "abre navegador" in comando or "abre google" in comando:
-        webbrowser.open("https://www.google.com")
-        respuesta = "Abriendo el navegador"
-        accion    = "abrir_navegador"
-
-    elif "abre youtube" in comando:
+    if "abre youtube" in comando:
         webbrowser.open("https://www.youtube.com")
-        respuesta = "Abriendo YouTube"
-        accion    = "abrir_youtube"
+        return {"respuesta": "Abriendo YouTube", "continuar": True, "accion": "abrir_youtube"}
 
-    elif "abre spotify" in comando:
+    if "abre spotify" in comando:
         webbrowser.open("https://open.spotify.com/")
-        respuesta = "Abriendo Spotify"
-        accion    = "abrir_spotify"
+        return {"respuesta": "Abriendo Spotify", "continuar": True, "accion": "abrir_spotify"}
 
-    elif "calculadora" in comando:
-        ok        = _abrir_app_sistema("calculadora")
-        respuesta = "Abriendo la calculadora" if ok else "No pude abrir la calculadora"
-        accion    = "abrir_calculadora"
+    if "abre google" in comando or "abre navegador" in comando:
+        webbrowser.open("https://www.google.com")
+        return {"respuesta": "Abriendo el navegador", "continuar": True, "accion": "abrir_navegador"}
 
-    elif "bloc de notas" in comando or "abre notas" in comando:
-        ok        = _abrir_app_sistema("bloc de notas")
-        respuesta = "Abriendo el bloc de notas" if ok else "No pude abrir el bloc de notas"
-        accion    = "abrir_notas"
+    if "calculadora" in comando:
+        ok = _abrir_app("calculadora")
+        return {"respuesta": "Abriendo la calculadora" if ok else "No pude abrir la calculadora",
+                "continuar": True, "accion": "abrir_calculadora"}
 
-    elif "chiste" in comando or "cuéntame algo" in comando:
-        respuesta = random.choice(CHISTES)
-        accion    = "chiste"
+    if "bloc de notas" in comando or "abre notas" in comando:
+        ok = _abrir_app("bloc de notas")
+        return {"respuesta": "Abriendo el bloc de notas" if ok else "No pude abrir el bloc de notas",
+                "continuar": True, "accion": "abrir_notas"}
 
-    elif "ayuda" in comando or "qué puedes hacer" in comando or "comandos" in comando:
-        respuesta = (
-            "Puedo decirte la hora y la fecha, crear recordatorios, "
-            "darte el clima, buscar en Google, abrir el navegador, "
-            "YouTube, Spotify, la calculadora o el bloc de notas, "
-            "y contarte un chiste."
-        )
-        accion = "ayuda"
+    if "chiste" in comando:
+        return {"respuesta": random.choice(CHISTES), "continuar": True, "accion": "chiste"}
 
-    elif any(p in comando for p in ["para", "pausa", "detente", "descansa", "silencio"]):
-        respuesta = "Entendido, me pongo en pausa. Di Jarvis cuando me necesites."
-        accion    = "pausar"
+    if "ayuda" in comando or "qué puedes" in comando or "comandos" in comando:
+        return {"respuesta": "Puedo decirte la hora, la fecha, el clima, buscar en Google, "
+                             "abrir YouTube, Spotify, la calculadora, guardar recordatorios y contarte un chiste.",
+                "continuar": True, "accion": "ayuda"}
 
-    elif any(p in comando for p in ["actívate", "activar", "despausa", "vuelve", "reanuda"]):
-        respuesta = "De vuelta. ¿En qué te ayudo?"
-        accion    = "reanudar"
+    if any(p in comando for p in ["para", "pausa", "detente", "silencio"]):
+        return {"respuesta": "Entendido, me pongo en pausa. Di Jarvis cuando me necesites.",
+                "continuar": True, "accion": "pausar"}
 
-    elif "adiós" in comando or "adios" in comando or "apagado" in comando:
-        respuesta  = "Hasta luego"
-        continuar  = False
-        accion     = "despedida"
+    if any(p in comando for p in ["actívate", "activar", "despausa", "reanuda"]):
+        return {"respuesta": "De vuelta. ¿En qué te ayudo?", "continuar": True, "accion": "reanudar"}
 
-    else:
-        respuesta = f"No sé cómo hacer eso todavía. Estoy aprendiendo"
-        accion    = "desconocido"
+    if "adiós" in comando or "adios" in comando or "apagado" in comando:
+        return {"respuesta": "Hasta luego", "continuar": False, "accion": "despedida"}
 
-    return {"respuesta": respuesta, "continuar": continuar, "accion": accion}
+    return {"respuesta": "No sé cómo hacer eso todavía. Estoy aprendiendo.",
+            "continuar": True, "accion": "desconocido"}
 
 
 def obtener_recordatorios():
     if os.path.exists(RECORDATORIOS_PATH):
         with open(RECORDATORIOS_PATH, "r", encoding="utf-8") as f:
-            return [l.strip() for l in f.readlines() if l.strip()]
+            return [l.strip() for l in f if l.strip()]
     return []

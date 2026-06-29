@@ -1,4 +1,14 @@
-azure-cognitiveservices-speech>=1.40.0
+# Síntesis de voz (gratuito, sin cuenta)
+edge-tts>=6.1.0
+
+# Reconocimiento de voz via Google STT (gratuito)
+SpeechRecognition>=3.10.0
+pyaudio>=0.2.14
+
+# Audio (reproducción de mp3 sin ffmpeg)
+pygame>=2.5.0
+
+# Flask y servidor
 flask>=3.0.0
 flask-cors>=4.0.0
 python-dotenv>=1.0.0

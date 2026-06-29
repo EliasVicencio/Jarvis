@@ -44,7 +44,6 @@ def iniciar_wake_detector():
         from wake_word import WakeWordDetector
         _wake_detector = WakeWordDetector(
             callback=_on_wake,
-            speech_config=jarvis_core.speech_config,
         )
         _wake_detector.start()
         _wake_activo = True
