@@ -1,9 +1,3 @@
-"""
-wake_word.py — Detector de wake word usando SpeechRecognition/Google.
-Sin Azure, sin Vosk, sin PyAudio directo.
-Escucha en loop y detecta la palabra "Jarvis".
-"""
-
 import threading
 import time
 import logging

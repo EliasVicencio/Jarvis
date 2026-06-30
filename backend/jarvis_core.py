@@ -1,9 +1,3 @@
-"""
-jarvis_core.py — Lógica central de Jarvis.
-Usa edge-tts para síntesis de voz y SpeechRecognition/Google para escuchar.
-Sin Azure, sin costos, sin límites.
-"""
-
 import asyncio
 import datetime
 import webbrowser
