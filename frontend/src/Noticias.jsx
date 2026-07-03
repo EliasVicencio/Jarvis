@@ -110,6 +110,84 @@ function StatusPanel() {
   );
 }
 
+// ── Panel de subtítulos con traducción ────────────────────────────────────
+function SubtitulosPanel({ video }) {
+  const [lineas,    setLineas]    = useState([]);
+  const [cargando,  setCargando]  = useState(false);
+  const [error,     setError]     = useState(null);
+  const [lang,      setLang]      = useState(null);
+  const scrollRef = useRef(null);
+
+  const cargar = useCallback(async (id) => {
+    if (!id) return;
+    setCargando(true); setError(null); setLineas([]); setLang(null);
+    try {
+      const r = await fetch(`${API}/subtitulos?id=${id}`);
+      const d = await r.json();
+      if (d.error) { setError(d.error); }
+      else {
+        setLineas(d.subtitulos || []);
+        setLang(d.lang);
+      }
+    } catch { setError("No se pudo conectar con el backend."); }
+    setCargando(false);
+  }, []);
+
+  useEffect(() => { cargar(video?.id); }, [video?.id, cargar]);
+
+  // Auto-scroll al final
+  useEffect(() => {
+    if (scrollRef.current && lineas.length > 0) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [lineas]);
+
+  return (
+    <div className="si-panel si-trad-panel">
+      <div className="si-ph">
+        ◎ SUBTÍTULOS
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          {lang && <span style={{fontSize:7,color:"rgba(45,212,232,0.5)"}}>
+            {lang.startsWith("en") ? "EN→ES" : "ES"}
+          </span>}
+          {video && (
+            <button
+              style={{fontSize:7,padding:"1px 5px",background:"rgba(45,212,232,0.08)",border:"1px solid rgba(45,212,232,0.2)",borderRadius:2,color:"rgba(45,212,232,0.6)",cursor:"pointer"}}
+              onClick={() => cargar(video?.id)}>
+              ↺
+            </button>
+          )}
+          <div className="si-pd"/>
+        </div>
+      </div>
+
+      {cargando ? (
+        <div className="si-loading">
+          <div className="si-spin"/>
+        </div>
+      ) : error ? (
+        <div className="si-trad-empty">
+          <div style={{fontSize:20,opacity:.3,marginBottom:6}}>⚠</div>
+          <div style={{fontSize:9,color:"rgba(45,212,232,0.4)",textAlign:"center",lineHeight:1.5}}>{error}</div>
+        </div>
+      ) : lineas.length === 0 ? (
+        <div className="si-trad-empty">Selecciona un video para ver los subtítulos</div>
+      ) : (
+        <div className="si-trad-scroll" ref={scrollRef}>
+          {lineas.map((l, i) => (
+            <div key={i} className="si-trad-linea">
+              {l.orig && l.orig !== l.trad && (
+                <div className="si-trad-orig">{l.orig}</div>
+              )}
+              <div className="si-trad-texto">{l.trad || l.texto}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Noticias({ onVolver, canalInicial = null }) {
   const [canalIdx,   setCanalIdx]   = useState(0);
   const [videos,     setVideos]     = useState(VIDEOS_FALLBACK);
@@ -139,24 +217,49 @@ export default function Noticias({ onVolver, canalInicial = null }) {
     if (idx !== -1) setCanalIdx(idx);
   }, [canalInicial]);
 
-  // Cargar videos del canal seleccionado
+  // Cargar videos del canal — español primero, inglés con subtítulos como fallback
   const cargarVideos = useCallback(async (idx) => {
     if (!apiKey) { setVideos(VIDEOS_FALLBACK); return; }
     setCargando(true);
     try {
       const canal = CANALES[idx];
-      const url = `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&channelId=${canal.id}&part=snippet&order=date&maxResults=8&type=video`;
-      const resp = await fetch(url);
-      const data = await resp.json();
-      if (data.items?.length) {
-        setVideos(data.items.map(v => ({
-          id:     v.id.videoId,
-          titulo: v.snippet.title,
-          canal:  v.snippet.channelTitle,
-          tag:    canal.tag,
-          canalIdx: idx,
-        })));
+      const base  = `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&channelId=${canal.id}&part=snippet&order=date&type=video`;
+
+      // 1. Buscar videos en español
+      const respEs = await fetch(`${base}&maxResults=8&relevanceLanguage=es`);
+      const dataEs = await respEs.json();
+      const videosEs = (dataEs.items || []).map(v => ({
+        id:       v.id.videoId,
+        titulo:   v.snippet.title,
+        canal:    v.snippet.channelTitle,
+        tag:      canal.tag,
+        lang:     "es",
+        canalIdx: idx,
+      }));
+
+      // 2. Si hay menos de 4 en español, completar con inglés
+      let videosFinales = videosEs;
+      if (videosEs.length < 4) {
+        const respEn = await fetch(`${base}&maxResults=${8 - videosEs.length}&relevanceLanguage=en`);
+        const dataEn = await respEn.json();
+        const videosEn = (dataEn.items || [])
+          .filter(v => !videosEs.find(e => e.id === v.id.videoId))
+          .map(v => ({
+            id:       v.id.videoId,
+            titulo:   v.snippet.title,
+            canal:    v.snippet.channelTitle,
+            tag:      canal.tag,
+            lang:     "en",
+            canalIdx: idx,
+          }));
+        videosFinales = [...videosEs, ...videosEn];
+      }
+
+      if (videosFinales.length) {
+        setVideos(videosFinales);
         setVideoIdx(0);
+      } else {
+        setVideos(VIDEOS_FALLBACK);
       }
     } catch { setVideos(VIDEOS_FALLBACK); }
     setCargando(false);
@@ -223,6 +326,8 @@ export default function Noticias({ onVolver, canalInicial = null }) {
               <span className="si-vcanal">{canalActual.nombre}</span>
               <span className="si-vtag" style={{background:`${TAG_COLORS[canalActual.tag]}22`,color:TAG_COLORS[canalActual.tag]}}>{canalActual.tag}</span>
               <span className="si-vtitulo">{trunc(video?.titulo||"",60)}</span>
+              {video?.lang === "en" && <span className="si-lang-badge">🌐 EN · SUB ES</span>}
+              {video?.lang === "es" && <span className="si-lang-badge si-lang-es">🔊 ES</span>}
               {!apiKey && <span className="si-no-key">Sin API key — videos de muestra</span>}
             </div>
             {/* Video con autoplay */}
@@ -230,7 +335,7 @@ export default function Noticias({ onVolver, canalInicial = null }) {
               {video && (
                 <iframe
                   key={`${video.id}-${canalIdx}`}
-                  src={`https://www.youtube.com/embed/${video.id}?autoplay=1&mute=0&rel=0&modestbranding=1&enablejsapi=1`}
+                  src={`https://www.youtube.com/embed/${video.id}?autoplay=1&mute=0&rel=0&modestbranding=1&enablejsapi=1&cc_lang_pref=es&cc_load_policy=${video.lang==="en"?1:0}&hl=es`}
                   title={video.titulo}
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -325,6 +430,7 @@ export default function Noticias({ onVolver, canalInicial = null }) {
             </div>
           </div>
           <StatusPanel />
+          <SubtitulosPanel video={video} />
         </div>
 
       </div>
