@@ -256,6 +256,9 @@ def procesar_comando(comando):
     if any(p in comando for p in ["actívate", "activar", "despausa", "reanuda"]):
         return {"respuesta": "De vuelta. ¿En qué te ayudo?", "continuar": True, "accion": "reanudar"}
 
+    if any(p in comando for p in ["abre mapa", "abrir mapa", "stark maps", "mapa"]):
+        return {"respuesta": "Abriendo Stark Maps", "continuar": True, "accion": "abrir_mapa"}
+
     if "adiós" in comando or "adios" in comando or "apagado" in comando:
         return {"respuesta": "Hasta luego", "continuar": False, "accion": "despedida"}
 

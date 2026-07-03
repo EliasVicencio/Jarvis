@@ -111,10 +111,8 @@ def api_comando():
         _jarvis_pausado = False
         if _wake_detector:
             _wake_detector.reanudar()
-    elif resultado.get("accion") == "abrir_noticias":
-        _accion_queue.put("abrir_noticias")
-        # Responder inmediatamente sin esperar que Flask hable
-        # para que el frontend abra el panel sin delay
+    elif resultado.get("accion") in ("abrir_noticias", "abrir_mapa"):
+        _accion_queue.put(resultado["accion"])
         threading.Thread(
             target=lambda: jarvis_core.hablar(resultado["respuesta"]),
             daemon=True

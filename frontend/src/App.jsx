@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import "./App.css";
 import Noticias from "./Noticias";
 import "./Noticias.css";
+import Mapa from "./Mapa";
+import "./Mapa.css";
 
 const API = "http://localhost:5000/api";
 
@@ -10,6 +12,7 @@ const COMANDOS = [
   { texto: "qué fecha es",       icono: "◴" },
   { texto: "clima en Santiago",  icono: "☁" },
   { texto: "stark intel",        icono: "◈", accion: "noticias" },
+  { texto: "abre mapa",         icono: "◎", accion: "mapa" },
   { texto: "abre youtube",       icono: "▶" },
   { texto: "abre spotify",       icono: "♫" },
   { texto: "abre calculadora",   icono: "⬚" },
@@ -58,7 +61,14 @@ export default function App() {
       const data = await resp.json();
       setEstado("hablando");
       estadoRef.current = "hablando";
-      if (data.accion === "abrir_noticias") setVista("noticias");
+      if (data.accion === "abrir_noticias") {
+        setEstado("hablando"); estadoRef.current = "hablando";
+        setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      }
+      if (data.accion === "abrir_mapa") {
+        setEstado("hablando"); estadoRef.current = "hablando";
+        setTimeout(() => { setVista("mapa"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      }
       setTimeout(() => {
         setEstado("inactivo");
         estadoRef.current = "inactivo";
@@ -140,6 +150,10 @@ export default function App() {
     return <Noticias onVolver={() => setVista("principal")} />;
   }
 
+  if (vista === "mapa") {
+    return <Mapa onVolver={() => setVista("principal")} />;
+  }
+
   return (
     <div className="shell">
       <div className="bg-grid" />
@@ -160,6 +174,9 @@ export default function App() {
 
         <button className="nav-btn" onClick={() => setVista("noticias")}>
           ◈ Stark Intel
+        </button>
+        <button className="nav-btn" onClick={() => setVista("mapa")}>
+          ◎ Stark Maps
         </button>
 
         <div className="status-pills">
