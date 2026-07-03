@@ -111,6 +111,13 @@ def api_comando():
         _jarvis_pausado = False
         if _wake_detector:
             _wake_detector.reanudar()
+    elif resultado.get("accion") == "cambiar_canal":
+        _accion_queue.put(f"cambiar_canal:{resultado.get('dato', '')}")
+        threading.Thread(
+            target=lambda: jarvis_core.hablar(resultado["respuesta"]),
+            daemon=True
+        ).start()
+        return jsonify(resultado)
     elif resultado.get("accion") in ("abrir_noticias", "abrir_mapa"):
         _accion_queue.put(resultado["accion"])
         threading.Thread(
@@ -129,6 +136,12 @@ def api_comando():
                 _wake_detector.reanudar()
 
     return jsonify(resultado)
+
+
+@app.route("/api/youtube-key", methods=["GET"])
+def api_youtube_key():
+    key = os.environ.get("YOUTUBE_API_KEY", "")
+    return jsonify({"key": key})
 
 
 @app.route("/api/hablar", methods=["POST"])

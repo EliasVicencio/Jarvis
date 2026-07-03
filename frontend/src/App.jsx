@@ -37,6 +37,8 @@ export default function App() {
   const [backendOk,   setBackendOk]   = useState(null);
   const [wakeActivo,  setWakeActivo]  = useState(false);
   const [wakeFlash,   setWakeFlash]   = useState(null);
+  const [busquedaMapa,  setBusquedaMapa]  = useState(null);
+  const [canalNoticias, setCanalNoticias] = useState(null);
 
   const estadoRef   = useRef("inactivo");
   const escucharRef = useRef(null);
@@ -61,6 +63,17 @@ export default function App() {
       const data = await resp.json();
       setEstado("hablando");
       estadoRef.current = "hablando";
+      if (data.accion && data.accion.startsWith("cambiar_canal:")) {
+        const canal = data.accion.replace("cambiar_canal:", "");
+        setEstado("hablando"); estadoRef.current = "hablando";
+        setCanalNoticias(canal);
+        setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      }
+      if (data.accion === "cambiar_canal" && data.dato) {
+        setEstado("hablando"); estadoRef.current = "hablando";
+        setCanalNoticias(data.dato);
+        setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      }
       if (data.accion === "abrir_noticias") {
         setEstado("hablando"); estadoRef.current = "hablando";
         setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
@@ -147,7 +160,7 @@ export default function App() {
   const fechaStr = hora.toLocaleDateString("es-CL",  { weekday: "long", day: "numeric", month: "long" });
 
   if (vista === "noticias") {
-    return <Noticias onVolver={() => setVista("principal")} />;
+    return <Noticias onVolver={() => { setVista("principal"); setCanalNoticias(null); }} canalInicial={canalNoticias} />;
   }
 
   if (vista === "mapa") {

@@ -256,6 +256,14 @@ def procesar_comando(comando):
     if any(p in comando for p in ["actívate", "activar", "despausa", "reanuda"]):
         return {"respuesta": "De vuelta. ¿En qué te ayudo?", "continuar": True, "accion": "reanudar"}
 
+    # Cambiar canal en Stark Intel
+    patrones_canal = ["cambia de canal a ", "cambia a canal ", "pon el canal ", "pon ", "cambia al canal ", "cambia a "]
+    for patron in patrones_canal:
+        if patron in comando:
+            canal = comando.split(patron, 1)[1].strip()
+            if canal:
+                return {"respuesta": f"Cambiando a {canal}", "continuar": True, "accion": "cambiar_canal", "dato": canal}
+
     if any(p in comando for p in ["abre mapa", "abrir mapa", "stark maps", "mapa"]):
         return {"respuesta": "Abriendo Stark Maps", "continuar": True, "accion": "abrir_mapa"}
 
