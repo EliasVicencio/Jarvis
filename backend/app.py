@@ -8,6 +8,9 @@ import urllib.parse
 import json as _json
 
 from flask import Flask, request, jsonify
+import imaplib, email as emaillib
+from email.header import decode_header
+from datetime import datetime
 from flask_cors import CORS
 
 import jarvis_core
@@ -231,6 +234,61 @@ def api_subtitulos():
     except Exception as e:
         logger.error(f"Error subtítulos: {e}")
         return jsonify({"error": str(e), "subtitulos": []})
+
+
+@app.route("/api/historial")
+def api_historial():
+    return jsonify({"historial": _historial})
+
+
+@app.route("/api/memoria")
+def api_memoria():
+    return jsonify({"memoria": _memoria_sem})
+
+
+@app.route("/api/emails")
+def api_emails():
+    user = os.environ.get("EMAIL_USER", "")
+    pwd  = os.environ.get("EMAIL_PASS", "")
+    if not user or not pwd:
+        return jsonify({"error": "Credenciales no configuradas", "emails": []})
+    try:
+        M = imaplib.IMAP4_SSL("imap.gmail.com")
+        M.login(user, pwd)
+        M.select("INBOX")
+        _, ids = M.search(None, "ALL")
+        email_ids = ids[0].split()[-20:]  # últimos 20
+        emails = []
+        for eid in reversed(email_ids):
+            _, data = M.fetch(eid, "(RFC822)")
+            msg = emaillib.message_from_bytes(data[0][1])
+            asunto_raw = decode_header(msg["Subject"] or "")[0]
+            asunto = asunto_raw[0].decode(asunto_raw[1] or "utf-8") if isinstance(asunto_raw[0], bytes) else (asunto_raw[0] or "Sin asunto")
+            de_raw = decode_header(msg["From"] or "")[0]
+            de = de_raw[0].decode(de_raw[1] or "utf-8") if isinstance(de_raw[0], bytes) else (de_raw[0] or "")
+            fecha = msg["Date"] or ""
+            cuerpo = ""
+            if msg.is_multipart():
+                for part in msg.walk():
+                    if part.get_content_type() == "text/plain":
+                        cuerpo = part.get_payload(decode=True).decode("utf-8", errors="replace")[:2000]
+                        break
+            else:
+                cuerpo = msg.get_payload(decode=True).decode("utf-8", errors="replace")[:2000]
+            emails.append({
+                "id":      eid.decode(),
+                "de":      de,
+                "asunto":  asunto,
+                "preview": cuerpo[:80].replace("\n"," "),
+                "cuerpo":  cuerpo,
+                "fecha":   fecha,
+                "leido":   False,
+            })
+        M.logout()
+        return jsonify({"emails": emails})
+    except Exception as e:
+        logger.error(f"Error IMAP: {e}")
+        return jsonify({"error": str(e), "emails": []})
 
 
 @app.route("/api/youtube-key", methods=["GET"])

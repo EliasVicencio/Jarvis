@@ -23,6 +23,7 @@ _recognizer.pause_threshold = 1.0   # espera 1s de silencio antes de cortar
 _recognizer.energy_threshold = 300  # sensibilidad al ruido
 
 
+# ── Helpers ──────────────────────────────────────────────────────────────────
 # ── Síntesis de voz ───────────────────────────────────────────────────────
 def hablar(texto):
     """Convierte texto a voz con Edge TTS (gratuito, sin cuenta)."""
@@ -182,6 +183,7 @@ CHISTES = [
 def procesar_comando(comando):
     comando = comando.lower().strip().rstrip(".,;:!?¿¡")
 
+
     if "hora" in comando:
         r = f"Son las {datetime.datetime.now().strftime('%I:%M %p')}"
         return {"respuesta": r, "continuar": True, "accion": "hora"}
@@ -266,6 +268,44 @@ def procesar_comando(comando):
 
     if any(p in comando for p in ["abre mapa", "abrir mapa", "stark maps", "mapa"]):
         return {"respuesta": "Abriendo Stark Maps", "continuar": True, "accion": "abrir_mapa"}
+
+    # Crear carpeta en el escritorio
+    patrones_crear = ["crea una carpeta", "crea carpeta", "crear carpeta", "nueva carpeta"]
+    for patron in patrones_crear:
+        if patron in comando:
+            nombre = comando.split(patron, 1)[1].strip()
+            # Eliminar cualquier palabra de tiempo que STT agrega tras un número
+            import re
+            nombre = re.sub(r'\s+(minutos?|segundos?|horas?|d[ií]as?|metros?|grados?)$', '', nombre, flags=re.IGNORECASE).strip()
+            if not nombre: break
+            try:
+                import pathlib
+                escritorio = pathlib.Path(r"C:\Users\evice\Desktop")
+                carpeta = escritorio / nombre
+                carpeta.mkdir(parents=True, exist_ok=True)
+                return {"respuesta": f"Carpeta '{nombre}' creada en el escritorio", "continuar": True, "accion": "carpeta_creada"}
+            except Exception as e:
+                return {"respuesta": f"No pude crear la carpeta: {e}", "continuar": True, "accion": "error"}
+
+    # Eliminar carpeta del escritorio
+    patrones_eliminar = ["elimina la carpeta", "elimina carpeta", "borra la carpeta", "borra carpeta", "eliminar carpeta", "borrar carpeta"]
+    for patron in patrones_eliminar:
+        if patron in comando:
+            nombre = comando.split(patron, 1)[1].strip()
+            # Eliminar cualquier palabra de tiempo que STT agrega tras un número
+            import re
+            nombre = re.sub(r'\s+(minutos?|segundos?|horas?|d[ií]as?|metros?|grados?)$', '', nombre, flags=re.IGNORECASE).strip()
+            if not nombre: break
+            try:
+                import pathlib, shutil
+                escritorio = pathlib.Path(r"C:\Users\evice\Desktop")
+                carpeta = escritorio / nombre
+                if not carpeta.exists():
+                    return {"respuesta": f"No encontré la carpeta '{nombre}' en el escritorio", "continuar": True, "accion": "carpeta_no_existe"}
+                shutil.rmtree(carpeta)
+                return {"respuesta": f"Carpeta '{nombre}' eliminada del escritorio", "continuar": True, "accion": "carpeta_eliminada"}
+            except Exception as e:
+                return {"respuesta": f"No pude eliminar la carpeta: {e}", "continuar": True, "accion": "error"}
 
     if "adiós" in comando or "adios" in comando or "apagado" in comando:
         return {"respuesta": "Hasta luego", "continuar": False, "accion": "despedida"}

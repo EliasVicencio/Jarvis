@@ -4,6 +4,8 @@ import Noticias from "./Noticias";
 import "./Noticias.css";
 import Mapa from "./Mapa";
 import "./Mapa.css";
+import MissionControl from "./MissionControl";
+import "./MissionControl.css";
 
 const API = "http://localhost:5000/api";
 
@@ -164,7 +166,11 @@ export default function App() {
   }
 
   if (vista === "mapa") {
-    return <Mapa onVolver={() => setVista("principal")} />;
+    return <Mapa onVolver={() => { setVista("principal"); setBusquedaMapa(null); }} busquedaInicial={busquedaMapa} />;
+  }
+
+  if (vista === "mission") {
+    return <MissionControl onVolver={() => setVista("principal")} />;
   }
 
   return (
@@ -190,6 +196,9 @@ export default function App() {
         </button>
         <button className="nav-btn" onClick={() => setVista("mapa")}>
           ◎ Stark Maps
+        </button>
+        <button className="nav-btn" onClick={() => setVista("mission")}>
+          ▸ Mission Control
         </button>
 
         <div className="status-pills">
