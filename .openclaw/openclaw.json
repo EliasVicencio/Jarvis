@@ -18,8 +18,9 @@
       "groupAllowFrom": ["+TU_NUMERO_WHATSAPP"]
     },
     "discord": {
-      "enabled": false,
-      "botToken": "TU_TOKEN_DE_DISCORD"
+      "enabled": true,
+      "botToken": "${DISCORD_BOT_TOKEN}",
+      "dmPolicy": "pairing"
     }
   },
   "skills": {
