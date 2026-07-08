@@ -21,7 +21,7 @@ timeout /t 2 /nobreak >nul
 
 :: 3. Arrancar frontend Tauri
 echo [3/3] Arrancando interfaz Tauri...
-npm run tauri dev
+npm run dev
 
 echo.
 echo Jarvis + OpenClaw corriendo.
