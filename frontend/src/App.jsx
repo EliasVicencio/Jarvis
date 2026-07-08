@@ -39,8 +39,10 @@ export default function App() {
   const [backendOk,   setBackendOk]   = useState(null);
   const [wakeActivo,  setWakeActivo]  = useState(false);
   const [wakeFlash,   setWakeFlash]   = useState(null);
-  const [busquedaMapa,  setBusquedaMapa]  = useState(null);
-  const [canalNoticias, setCanalNoticias] = useState(null);
+  const [busquedaMapa,    setBusquedaMapa]    = useState(null);
+  const [canalNoticias,   setCanalNoticias]   = useState(null);
+  const [openclawStatus,  setOpenclawStatus]  = useState(null);
+  const [usarOpenclaw,    setUsarOpenclaw]    = useState(true);
 
   const estadoRef   = useRef("inactivo");
   const escucharRef = useRef(null);
@@ -56,6 +58,24 @@ export default function App() {
     if (!forzar && estadoRef.current !== "inactivo") return;
     setEstado("procesando");
     estadoRef.current = "procesando";
+
+    // Si OpenClaw está activo, preguntarle primero para comandos no triviales
+    if (usarOpenclaw && openclawStatus && texto.length > 10) {
+      try {
+        const ocResp = await fetch(`${API}/openclaw/preguntar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pregunta: texto, hablar: true }),
+        });
+        const ocData = await ocResp.json();
+        if (ocData.ok) {
+          setEstado("inactivo");
+          estadoRef.current = "inactivo";
+          return;
+        }
+      } catch {}
+    }
+
     try {
       const resp = await fetch(`${API}/comando`, {
         method: "POST",
@@ -130,6 +150,20 @@ export default function App() {
         setWakeActivo(data.wake_activo || false);
       })
       .catch(() => setBackendOk(false));
+  }, []);
+
+  // ── OpenClaw status ────────────────────────────────────────────────────
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const resp = await fetch(`${API}/openclaw/estado`);
+        const data = await resp.json();
+        setOpenclawStatus(data.disponible ? data.version : null);
+      } catch { setOpenclawStatus(null); }
+    };
+    check();
+    const id = setInterval(check, 15000);
+    return () => clearInterval(id);
   }, []);
 
   // ── Polling wake word ──────────────────────────────────────────────────
@@ -209,6 +243,10 @@ export default function App() {
           <div className="status-pill" data-ok={wakeActivo}>
             <span className="status-dot" />
             {wakeActivo ? "Wake word activo" : "Wake word inactivo"}
+          </div>
+          <div className="status-pill" data-ok={!!openclawStatus}>
+            <span className="status-dot" />
+            {openclawStatus ? `OC ${openclawStatus}` : "OC offline"}
           </div>
         </div>
 

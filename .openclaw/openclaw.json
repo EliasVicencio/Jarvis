@@ -1,0 +1,33 @@
+{
+  "agent": {
+    "model": "copilot/gpt-4o",
+    "workspace": ".openclaw/workspace"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": false,
+      "botToken": "TU_TOKEN_DE_TELEGRAM"
+    },
+    "whatsapp": {
+      "enabled": true,
+      "dmPolicy": "pairing",
+      "allowFrom": ["+TU_NUMERO_WHATSAPP"],
+      "groupPolicy": "allowlist",
+      "groupAllowFrom": ["+TU_NUMERO_WHATSAPP"]
+    },
+    "discord": {
+      "enabled": false,
+      "botToken": "TU_TOKEN_DE_DISCORD"
+    }
+  },
+  "skills": {
+    "jarvis": {
+      "path": ".openclaw/workspace/skills/jarvis"
+    }
+  },
+  "messages": {
+    "groupChat": {
+      "mentionPatterns": ["@jarvis", "jarvis"]
+    }
+  }
+}

@@ -14,6 +14,8 @@ from datetime import datetime
 from flask_cors import CORS
 
 import jarvis_core
+import requests
+import subprocess
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -399,6 +401,109 @@ def api_noticias():
     except Exception as e:
         logger.error(f"Error obteniendo noticias: {e}")
         return jsonify({"error": str(e), "noticias": []})
+
+
+# ── Email Send ────────────────────────────────────────────────────────────
+
+@app.route("/api/enviar-email", methods=["POST"])
+def api_enviar_email():
+    """Envía un email vía SMTP."""
+    data = request.get_json(force=True) or {}
+    para = data.get("para", "")
+    asunto = data.get("asunto", "")
+    cuerpo = data.get("cuerpo", "")
+
+    if not para or not asunto or not cuerpo:
+        return jsonify({"error": "Faltan campos: para, asunto, cuerpo"}), 400
+
+    user = os.environ.get("EMAIL_USER", "")
+    pwd = os.environ.get("EMAIL_PASS", "")
+
+    if not user or not pwd:
+        return jsonify({"error": "Credenciales email no configuradas"}), 400
+
+    try:
+        import smtplib
+        from email.message import EmailMessage
+
+        msg = EmailMessage()
+        msg.set_content(cuerpo)
+        msg["Subject"] = asunto
+        msg["From"] = user
+        msg["To"] = para
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(user, pwd)
+            smtp.send_message(msg)
+
+        logger.info(f"Email enviado a {para}: {asunto}")
+        return jsonify({"ok": True, "mensaje": f"Email enviado a {para}"})
+    except Exception as e:
+        logger.error(f"Error enviando email: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ── OpenClaw Integration ──────────────────────────────────────────────────
+
+OPENCLAW_CMD = "openclaw"
+
+def _openclaw_agent_preguntar(pregunta: str) -> str:
+    try:
+        cmd = [OPENCLAW_CMD, "agent", "--message", pregunta, "--thinking", "low", "--json"]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if result.returncode == 0 and result.stdout.strip():
+            try:
+                data = _json.loads(result.stdout)
+                return data.get("response", data.get("message", result.stdout))
+            except _json.JSONDecodeError:
+                return result.stdout.strip()
+        elif result.stderr:
+            logger.error(f"OpenClaw error: {result.stderr}")
+        return ""
+    except FileNotFoundError:
+        logger.warning("OpenClaw no instalado globalmente")
+        return ""
+    except Exception as e:
+        logger.error(f"Error OpenClaw: {e}")
+        return ""
+
+
+@app.route("/api/openclaw/preguntar", methods=["POST"])
+def api_openclaw_preguntar():
+    data = request.get_json(force=True) or {}
+    pregunta = data.get("pregunta", "")
+    hablar_resultado = data.get("hablar", True)
+
+    if not pregunta:
+        return jsonify({"error": "Falta pregunta"}), 400
+
+    respuesta = _openclaw_agent_preguntar(pregunta)
+
+    if not respuesta:
+        return jsonify({"respuesta": "No pude contactar a OpenClaw", "ok": False})
+
+    if hablar_resultado and respuesta:
+        if _wake_detector:
+            _wake_detector.pausar()
+        try:
+            jarvis_core.hablar(respuesta)
+        finally:
+            if _wake_detector:
+                _wake_detector.reanudar()
+
+    return jsonify({"respuesta": respuesta, "ok": True})
+
+
+@app.route("/api/openclaw/estado")
+def api_openclaw_estado():
+    try:
+        result = subprocess.run([OPENCLAW_CMD, "--version"], capture_output=True, text=True, timeout=10)
+        disponible = result.returncode == 0
+        return jsonify({"disponible": disponible, "version": result.stdout.strip() if disponible else None})
+    except FileNotFoundError:
+        return jsonify({"disponible": False, "version": None})
+    except Exception as e:
+        return jsonify({"disponible": False, "version": None, "error": str(e)})
 
 
 # ── Arranque ───────────────────────────────────────────────────────────────

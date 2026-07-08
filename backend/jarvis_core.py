@@ -310,6 +310,26 @@ def procesar_comando(comando):
     if "adiós" in comando or "adios" in comando or "apagado" in comando:
         return {"respuesta": "Hasta luego", "continuar": False, "accion": "despedida"}
 
+    # Preguntar a OpenClaw si no reconocimos el comando
+    try:
+        import subprocess
+        cmd = ["openclaw", "agent", "--message", comando, "--thinking", "low", "--json"]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode == 0 and result.stdout.strip():
+            try:
+                data = json.loads(result.stdout)
+                respuesta_oc = data.get("response", data.get("message", ""))
+                if respuesta_oc:
+                    return {"respuesta": respuesta_oc, "continuar": True, "accion": "openclaw"}
+            except json.JSONDecodeError:
+                pass
+            if result.stdout.strip():
+                return {"respuesta": result.stdout.strip(), "continuar": True, "accion": "openclaw"}
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"⚠ OpenClaw error: {e}")
+
     return {"respuesta": "No sé cómo hacer eso todavía. Estoy aprendiendo.",
             "continuar": True, "accion": "desconocido"}
 

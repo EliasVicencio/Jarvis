@@ -15,6 +15,9 @@ src-tauri/target/
 frontend/node_modules/
 frontend/dist/
 
+# OpenClaw workspace (skills, memories)
+.openclaw/workspace/
+
 # OS
 .DS_Store
 Thumbs.db

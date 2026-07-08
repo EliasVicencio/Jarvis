@@ -1,7 +1,7 @@
-# Jarvis — App de Escritorio con Tauri
+# Jarvis — App de Escritorio con Tauri + OpenClaw 🦞
 
-Asistente de voz personal con ventana nativa (Tauri), frontend React/Vite
-y backend Python/Flask con Azure Speech.
+Asistente de voz personal con ventana nativa (Tauri), frontend React/Vite,
+backend Python/Flask con Azure Speech, y **OpenClaw** como cerebro AI.
 
 ```
 ┌──────────────────────────────────────────┐
@@ -46,15 +46,18 @@ Tu clave anterior quedó expuesta en el código. Regenerarla es gratis y tarda
 
 ```
 jarvis_tauri/
+├── .openclaw/              ← configuración de OpenClaw
+│   ├── openclaw.json       ← agente, canales, skills
+│   └── workspace/skills/jarvis/SKILL.md
 ├── backend/
-│   ├── app.py              ← servidor Flask (API REST)
-│   ├── jarvis_core.py      ← lógica de Jarvis: voz + comandos
+│   ├── app.py              ← servidor Flask (API REST + OpenClaw bridge)
+│   ├── jarvis_core.py      ← lógica de Jarvis: voz + comandos + OC fallback
 │   ├── config.py           ← lee la clave desde .env
 │   ├── .env.example        ← plantilla → copiar como .env
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx         ← interfaz React
+│   │   ├── App.jsx         ← interfaz React (con OC status)
 │   │   ├── App.css         ← estilos HUD oscuro
 │   │   └── index.jsx
 │   ├── index.html
@@ -65,6 +68,9 @@ jarvis_tauri/
 │   ├── build.rs
 │   ├── Cargo.toml
 │   └── tauri.conf.json     ← configuración de la ventana y build
+├── scripts/
+│   ├── arrancar_openclaw.bat
+│   └── arrancar_jarvis_completo.bat
 └── .gitignore
 ```
 
@@ -116,11 +122,35 @@ npm install -g @tauri-apps/cli
 
 ---
 
+## Instalar OpenClaw (nuevo cerebro AI)
+
+OpenClaw es el agente AI que le da inteligencia real a Jarvis.
+
+```bash
+npm install -g openclaw@latest
+openclaw onboard   # primera vez: configura el agente
+```
+
+Configura tu modelo en `.openclaw/openclaw.json`. Por defecto usa `copilot/gpt-4o`.
+
 ## Correr en modo desarrollo
 
-Necesitas **dos terminales**:
+### Opción 1 — Todo junto (recomendado)
 
-**Terminal 1 — Backend Flask:**
+```bash
+scripts\arrancar_jarvis_completo.bat
+```
+
+Esto arranca: OpenClaw Gateway → Backend Flask → App Tauri
+
+### Opción 2 — Manual (tres terminales)
+
+**Terminal 1 — OpenClaw Gateway:**
+```bash
+openclaw gateway --port 18789 --verbose
+```
+
+**Terminal 2 — Backend Flask:**
 ```bash
 cd backend
 venv\Scripts\activate     # o source venv/bin/activate en Mac/Linux
@@ -128,7 +158,7 @@ python app.py
 ```
 Deberías ver: `🤖 Jarvis backend corriendo en http://localhost:5000`
 
-**Terminal 2 — App Tauri (React + ventana nativa):**
+**Terminal 3 — App Tauri (React + ventana nativa):**
 ```bash
 # desde la raíz del proyecto (jarvis_tauri/)
 npm run tauri dev
@@ -172,6 +202,26 @@ El instalador queda en `src-tauri/target/release/bundle/`.
 | "cuéntame un chiste"          | Dice un chiste                      |
 | "qué puedes hacer" / "ayuda"  | Lista todos los comandos            |
 | "adiós"                       | Se despide                          |
+
+### Comandos potenciados por OpenClaw
+
+Cualquier comando que Jarvis no reconozca se envía automáticamente a OpenClaw.
+Ejemplos: *"organiza mis archivos del escritorio"*, *"resume este artículo"*, *"envía un correo"*, etc.
+
+### Comunicación remota
+
+Con OpenClaw también puedes hablar con Jarvis desde:
+- **WhatsApp**: escanea el QR con `openclaw channels login --channel whatsapp`
+- **Telegram**: configura tu bot token en `.openclaw/openclaw.json`
+- **Discord**: configura tu bot token
+- **WebChat**: `http://localhost:18789`
+
+### Email
+
+Jarvis puede leer y enviar correos electrónicos:
+1. Configura `EMAIL_USER` y `EMAIL_PASS` en `backend/.env`
+2. Usa una **contraseña de aplicación** de Google (no tu contraseña normal)
+3. Desde OpenClaw: pídele que revise tu bandeja de entrada o que envíe un correo
 
 ---
 
