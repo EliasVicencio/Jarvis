@@ -307,6 +307,63 @@ def procesar_comando(comando):
             except Exception as e:
                 return {"respuesta": f"No pude eliminar la carpeta: {e}", "continuar": True, "accion": "error"}
 
+    # WhatsApp
+    patrones_wa = [r"envía un mensaje a (\+?\d+).*?diciendo (.+)", r"envía un whatsapp a (\+?\d+).*?diciendo (.+)",
+                   r"manda un mensaje a (\+?\d+).*?diciendo (.+)", r"manda un whatsapp a (\+?\d+).*?diciendo (.+)",
+                   r"whatsapp a (\+?\d+).*?diciendo (.+)"]
+    for p in patrones_wa:
+        m = re.search(p, comando, re.IGNORECASE)
+        if m:
+            numero, texto = m.group(1), m.group(2)
+            try:
+                import subprocess, urllib.request, urllib.parse
+                data = json.dumps({"numero": numero, "mensaje": texto}).encode()
+                req = urllib.request.Request("http://localhost:5000/api/whatsapp/enviar",
+                                             data=data, headers={"Content-Type": "application/json"},
+                                             method="POST")
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    resp = json.loads(r.read())
+                if resp.get("ok"):
+                    return {"respuesta": f"Mensaje enviado a {numero}", "continuar": True, "accion": "whatsapp_enviado"}
+                return {"respuesta": f"Error enviando WhatsApp: {resp.get('error', 'desconocido')}", "continuar": True, "accion": "whatsapp_error"}
+            except Exception as e:
+                return {"respuesta": f"No pude enviar el WhatsApp: {e}", "continuar": True, "accion": "whatsapp_error"}
+
+    # Email
+    m = re.search(r"envía un email a (\S+@\S+).*?asunto (.+?) (?:diciendo|cuerpo|con contenido) (.+)", comando, re.IGNORECASE)
+    if not m:
+        m = re.search(r"envía un correo a (\S+@\S+).*?asunto (.+?) (?:diciendo|cuerpo|con contenido) (.+)", comando, re.IGNORECASE)
+    if not m:
+        m = re.search(r"email a (\S+@\S+).*?asunto (.+?) (?:diciendo|cuerpo|con contenido) (.+)", comando, re.IGNORECASE)
+    if m:
+        para, asunto, cuerpo = m.group(1), m.group(2), m.group(3)
+        try:
+            import urllib.request
+            data = json.dumps({"para": para, "asunto": asunto, "cuerpo": cuerpo}).encode()
+            req = urllib.request.Request("http://localhost:5000/api/enviar-email",
+                                         data=data, headers={"Content-Type": "application/json"},
+                                         method="POST")
+            with urllib.request.urlopen(req, timeout=15) as r:
+                resp = json.loads(r.read())
+            if resp.get("ok"):
+                return {"respuesta": f"Email enviado a {para}", "continuar": True, "accion": "email_enviado"}
+            return {"respuesta": f"Error enviando email: {resp.get('error', 'desconocido')}", "continuar": True, "accion": "email_error"}
+        except Exception as e:
+            return {"respuesta": f"No pude enviar el email: {e}", "continuar": True, "accion": "email_error"}
+
+    if "mis emails" in comando or "mis correos" in comando or "bandeja" in comando:
+        try:
+            import urllib.request
+            with urllib.request.urlopen("http://localhost:5000/api/emails", timeout=10) as r:
+                data = json.loads(r.read())
+            emails = data.get("emails", [])
+            if not emails:
+                return {"respuesta": "No tienes emails en la bandeja de entrada", "continuar": True, "accion": "emails_vacio"}
+            resumen = ". ".join(f"{e['de']}: {e['asunto']}" for e in emails[:5])
+            return {"respuesta": f"Tus últimos emails: {resumen}", "continuar": True, "accion": "listar_emails"}
+        except Exception as e:
+            return {"respuesta": f"No pude leer los emails: {e}", "continuar": True, "accion": "emails_error"}
+
     if "adiós" in comando or "adios" in comando or "apagado" in comando:
         return {"respuesta": "Hasta luego", "continuar": False, "accion": "despedida"}
 
