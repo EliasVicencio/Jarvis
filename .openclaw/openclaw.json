@@ -5,8 +5,10 @@
   },
   "channels": {
     "telegram": {
-      "enabled": false,
-      "botToken": "TU_TOKEN_DE_TELEGRAM"
+      "enabled": true,
+      "botToken": "8899539220:AAFacmqK0Azb-ZKMC5o4B5a5hxBdFirQwVs",
+      "dmPolicy": "pairing",
+      "allowFrom": ["*"]
     },
     "whatsapp": {
       "enabled": true,
