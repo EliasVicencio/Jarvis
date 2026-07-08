@@ -506,6 +506,37 @@ def api_openclaw_estado():
         return jsonify({"disponible": False, "version": None, "error": str(e)})
 
 
+# ── WhatsApp Send ─────────────────────────────────────────────────────────
+
+@app.route("/api/whatsapp/enviar", methods=["POST"])
+def api_whatsapp_enviar():
+    """Envía un mensaje por WhatsApp a través de OpenClaw."""
+    data = request.get_json(force=True) or {}
+    numero = data.get("numero", "")
+    mensaje = data.get("mensaje", "")
+
+    if not numero or not mensaje:
+        return jsonify({"error": "Faltan campos: numero, mensaje"}), 400
+
+    try:
+        result = subprocess.run(
+            [OPENCLAW_CMD, "message", "send",
+             "--channel", "whatsapp",
+             "--target", numero,
+             "--message", mensaje],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode == 0:
+            logger.info(f"WhatsApp enviado a {numero}")
+            return jsonify({"ok": True, "mensaje": f"Mensaje enviado a {numero}"})
+        else:
+            logger.error(f"Error WhatsApp: {result.stderr}")
+            return jsonify({"error": result.stderr.strip() or "Error enviando mensaje"}), 500
+    except Exception as e:
+        logger.error(f"Error WhatsApp: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 # ── Arranque ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
