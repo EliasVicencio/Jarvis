@@ -445,7 +445,9 @@ def api_enviar_email():
 
 # ── OpenClaw Integration ──────────────────────────────────────────────────
 
-OPENCLAW_CMD = "openclaw"
+OPENCLAW_CMD = os.path.join(os.environ.get("APPDATA", ""), "npm", "openclaw.cmd")
+if not os.path.exists(OPENCLAW_CMD):
+    OPENCLAW_CMD = "openclaw"  # fallback
 
 def _openclaw_agent_preguntar(pregunta: str) -> str:
     try:

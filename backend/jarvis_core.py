@@ -316,7 +316,6 @@ def procesar_comando(comando):
         if m:
             numero, texto = m.group(1), m.group(2)
             try:
-                import subprocess, urllib.request, urllib.parse
                 data = json.dumps({"numero": numero, "mensaje": texto}).encode()
                 req = urllib.request.Request("http://localhost:5000/api/whatsapp/enviar",
                                              data=data, headers={"Content-Type": "application/json"},
@@ -369,8 +368,10 @@ def procesar_comando(comando):
 
     # Preguntar a OpenClaw si no reconocimos el comando
     try:
-        import subprocess
-        cmd = ["openclaw", "agent", "--message", comando, "--thinking", "low", "--json"]
+        _openclaw = os.path.join(os.environ.get("APPDATA", ""), "npm", "openclaw.cmd")
+        if not os.path.exists(_openclaw):
+            _openclaw = "openclaw"
+        cmd = [_openclaw, "agent", "--message", comando, "--thinking", "low", "--json"]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         if result.returncode == 0 and result.stdout.strip():
             try:

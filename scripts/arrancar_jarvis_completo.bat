@@ -1,11 +1,16 @@
 @echo off
 title Jarvis + OpenClaw
+cd /d "%~dp0.."
+
 echo ============================================
 echo  Jarvis con OpenClaw - Inicio completo
 echo ============================================
 echo.
 
-cd /d "%~dp0.."
+:: Matar procesos anteriores de Flask y pythonw
+echo [0/3] Limpiando procesos anteriores...
+powershell -Command "Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { try { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } catch {} }"
+timeout /t 2 /nobreak >nul
 
 :: 1. Arrancar OpenClaw Gateway
 echo [1/3] Arrancando OpenClaw Gateway...
