@@ -472,7 +472,7 @@ def _openclaw_agent_preguntar(pregunta: str) -> str:
 
 @app.route("/api/openclaw/preguntar", methods=["POST"])
 def api_openclaw_preguntar():
-    data = request.get_json(force=True) or {}
+    data = request.get_json(force=True, silent=True) or {}
     pregunta = data.get("pregunta", "")
     hablar_resultado = data.get("hablar", True)
 
