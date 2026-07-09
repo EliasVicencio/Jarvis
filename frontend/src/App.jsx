@@ -7,7 +7,7 @@ import "./Mapa.css";
 import MissionControl from "./MissionControl";
 import "./MissionControl.css";
 
-const API = "http://localhost:5000/api";
+const API = "/api";
 
 const COMANDOS = [
   { texto: "qué hora es",        icono: "◷" },

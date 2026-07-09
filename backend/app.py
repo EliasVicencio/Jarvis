@@ -16,6 +16,8 @@ from flask_cors import CORS
 import jarvis_core
 import requests
 import subprocess
+from dotenv import load_dotenv
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,7 +43,6 @@ def _on_wake(fuente: str):
     _ultimo_wake = ahora
     logger.info(f"Wake activada: {fuente}")
     _wake_queue.put(fuente)
-
 
 def iniciar_wake_detector():
     global _wake_detector, _wake_activo
@@ -108,6 +109,12 @@ def api_comando():
 
     resultado = jarvis_core.procesar_comando(comando)
 
+    # Si el comando local no lo reconoce, preguntar a Groq
+    if resultado.get("accion") == "desconocido":
+        groq_resp = _llm_preguntar(comando)
+        if groq_resp:
+            resultado = {"respuesta": groq_resp, "accion": "groq", "continuar": True}
+
     if resultado.get("accion") == "pausar":
         _jarvis_pausado = True
         if _wake_detector:
@@ -130,15 +137,6 @@ def api_comando():
             daemon=True
         ).start()
         return jsonify(resultado)
-
-    if hablar:
-        if _wake_detector and resultado.get("accion") not in ("pausar", "reanudar"):
-            _wake_detector.pausar()
-        try:
-            jarvis_core.hablar(resultado["respuesta"])
-        finally:
-            if _wake_detector and resultado.get("accion") != "pausar":
-                _wake_detector.reanudar()
 
     return jsonify(resultado)
 
@@ -443,55 +441,59 @@ def api_enviar_email():
         return jsonify({"error": str(e)}), 500
 
 
-# ── OpenClaw Integration ──────────────────────────────────────────────────
+# ── Groq / LLM Integration ─────────────────────────────────────────────────
 
 OPENCLAW_CMD = os.path.join(os.environ.get("APPDATA", ""), "npm", "openclaw.cmd")
 if not os.path.exists(OPENCLAW_CMD):
-    OPENCLAW_CMD = "openclaw"  # fallback
+    OPENCLAW_CMD = "openclaw"
 
-def _openclaw_agent_preguntar(pregunta: str) -> str:
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+
+def _llm_preguntar(pregunta: str) -> str:
     try:
-        cmd = [OPENCLAW_CMD, "agent", "--message", pregunta, "--thinking", "low", "--json"]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        if result.returncode == 0 and result.stdout.strip():
-            try:
-                data = _json.loads(result.stdout)
-                return data.get("response", data.get("message", result.stdout))
-            except _json.JSONDecodeError:
-                return result.stdout.strip()
-        elif result.stderr:
-            logger.error(f"OpenClaw error: {result.stderr}")
-        return ""
-    except FileNotFoundError:
-        logger.warning("OpenClaw no instalado globalmente")
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [{"role": "user", "content": pregunta}],
+                "max_tokens": 1024,
+                "temperature": 0.7
+            },
+            timeout=30
+        )
+        if resp.ok:
+            data = resp.json()
+            return data["choices"][0]["message"]["content"]
+        logger.error(f"Groq error: {resp.status_code} {resp.text}")
         return ""
     except Exception as e:
-        logger.error(f"Error OpenClaw: {e}")
+        logger.error(f"Error en LLM: {e}")
         return ""
 
 
 @app.route("/api/openclaw/preguntar", methods=["POST"])
 def api_openclaw_preguntar():
     data = request.get_json(force=True, silent=True) or {}
+
     pregunta = data.get("pregunta", "")
-    hablar_resultado = data.get("hablar", True)
 
     if not pregunta:
         return jsonify({"error": "Falta pregunta"}), 400
 
-    respuesta = _openclaw_agent_preguntar(pregunta)
+    # Primero intentar procesador local (hora, fecha, clima, abrir apps, etc.)
+    local = jarvis_core.procesar_comando(pregunta)
+    if local.get("accion") != "desconocido":
+        return jsonify({"respuesta": local.get("respuesta", ""), "ok": True, "accion": local.get("accion"), "dato": local.get("dato")})
+
+    # Fallback a Groq
+    respuesta = _llm_preguntar(pregunta)
 
     if not respuesta:
-        return jsonify({"respuesta": "No pude contactar a OpenClaw", "ok": False})
-
-    if hablar_resultado and respuesta:
-        if _wake_detector:
-            _wake_detector.pausar()
-        try:
-            jarvis_core.hablar(respuesta)
-        finally:
-            if _wake_detector:
-                _wake_detector.reanudar()
+        return jsonify({"respuesta": "No pude contactar a Groq", "ok": False})
 
     return jsonify({"respuesta": respuesta, "ok": True})
 
