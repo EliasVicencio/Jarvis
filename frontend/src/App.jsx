@@ -46,6 +46,9 @@ export default function App() {
 
   const estadoRef   = useRef("inactivo");
   const escucharRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const chunksRef        = useRef([]);
+  const streamRef        = useRef(null);
   const hora = useReloj();
 
   useEffect(() => { estadoRef.current = estado; }, [estado]);
@@ -114,30 +117,112 @@ export default function App() {
     }
   }, []);
 
-  // ── Escuchar micrófono ─────────────────────────────────────────────────
-  const escucharMicrofono = useCallback(async () => {
-    if (estadoRef.current !== "inactivo") return;
-    setEstado("escuchando");
+  // ── Enviar el audio grabado al backend (transcribe, procesa y responde en voz) ──
+  const enviarAudioGrabado = useCallback(async () => {
+    setEstado("procesando");
+    estadoRef.current = "procesando";
+    const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+    chunksRef.current = [];
+
+    if (blob.size < 1000) {
+      setEstado("inactivo");
+      estadoRef.current = "inactivo";
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("audio", blob, "voz.webm");
+
     try {
-      const resp = await fetch(`${API}/escuchar`, { method: "POST" });
+      const resp = await fetch(`${API}/voice-comando`, { method: "POST", body: formData });
       const data = await resp.json();
-      if (data.ok && data.texto) {
+
+      if (!data.ok) {
         setEstado("inactivo");
         estadoRef.current = "inactivo";
-        await enviarComando(data.texto, true);
-      } else if (data.mensaje === "Wake word ignorada como comando") {
-        setEstado("inactivo");
-        estadoRef.current = "inactivo";
-        setTimeout(() => escucharRef.current?.(), 300);
-      } else {
-        setEstado("inactivo");
-        estadoRef.current = "inactivo";
+        if (data.mensaje === "Wake word ignorada como comando") {
+          setTimeout(() => escucharRef.current?.(), 300);
+        }
+        return;
       }
-    } catch {
+
+      setEstado("hablando");
+      estadoRef.current = "hablando";
+
+      if (data.audio_base64) {
+        const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
+        audio.onended = () => {
+          setEstado("inactivo");
+          estadoRef.current = "inactivo";
+        };
+        audio.onerror = () => {
+          setEstado("inactivo");
+          estadoRef.current = "inactivo";
+        };
+        audio.play().catch(() => {
+          setEstado("inactivo");
+          estadoRef.current = "inactivo";
+        });
+      } else {
+        setTimeout(() => {
+          setEstado("inactivo");
+          estadoRef.current = "inactivo";
+        }, 1000);
+      }
+
+      if (data.accion === "abrir_noticias") {
+        setTimeout(() => setVista("noticias"), 800);
+      }
+      if (data.accion === "abrir_mapa") {
+        setTimeout(() => setVista("mapa"), 800);
+      }
+      if (data.accion && data.accion.startsWith("cambiar_canal:")) {
+        setCanalNoticias(data.accion.replace("cambiar_canal:", ""));
+        setTimeout(() => setVista("noticias"), 800);
+      }
+    } catch (err) {
+      console.error("Error enviando audio:", err);
       setEstado("inactivo");
       estadoRef.current = "inactivo";
     }
-  }, [enviarComando]);
+  }, []);
+
+  // ── Escuchar micrófono (grabación real en el navegador) ─────────────────
+  const escucharMicrofono = useCallback(async () => {
+    if (estadoRef.current === "escuchando") {
+      mediaRecorderRef.current?.stop();
+      return;
+    }
+    if (estadoRef.current !== "inactivo") return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+
+      const mr = new MediaRecorder(stream);
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        streamRef.current?.getTracks().forEach(t => t.stop());
+        enviarAudioGrabado();
+      };
+      mediaRecorderRef.current = mr;
+      mr.start();
+
+      setEstado("escuchando");
+      estadoRef.current = "escuchando";
+
+      setTimeout(() => {
+        if (mediaRecorderRef.current?.state === "recording") {
+          mediaRecorderRef.current.stop();
+        }
+      }, 10000);
+    } catch (err) {
+      console.error("No se pudo acceder al micrófono:", err);
+      setEstado("inactivo");
+      estadoRef.current = "inactivo";
+    }
+  }, [enviarAudioGrabado]);
 
   useEffect(() => { escucharRef.current = escucharMicrofono; }, [escucharMicrofono]);
 
