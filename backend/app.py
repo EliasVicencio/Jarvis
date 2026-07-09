@@ -582,8 +582,8 @@ def _arrancar_telegram_bot():
     script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "telegram_bot.py")
     _telegram_process = subprocess.Popen(
         [sys.executable, script],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=open("/tmp/telegram_bot.log", "a"),
+        stderr=subprocess.STDOUT,
     )
     logger.info(f"Telegram bot iniciado (PID {_telegram_process.pid})")
 
