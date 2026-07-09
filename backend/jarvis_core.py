@@ -297,31 +297,23 @@ def procesar_comando(comando):
     if "busca" in comando:
         m = re.search(r"busca(?:r)?\s+(.+)", comando)
         if m:
-            webbrowser.open("https://www.google.com/search?q=" + urllib.parse.quote(m.group(1)))
-            return {"respuesta": f"Buscando {m.group(1)} en Google", "continuar": True, "accion": "buscar"}
+            return {"respuesta": f"Buscando {m.group(1)} en Google", "continuar": True, "accion": "buscar", "dato": m.group(1)}
         return {"respuesta": "¿Qué quieres que busque?", "continuar": True, "accion": "buscar_vacio"}
 
     if "abre youtube" in comando:
-        webbrowser.open("https://www.youtube.com")
         return {"respuesta": "Abriendo YouTube", "continuar": True, "accion": "abrir_youtube"}
 
     if "abre spotify" in comando:
-        subprocess.Popen(["spotify.exe"])
         return {"respuesta": "Abriendo Spotify", "continuar": True, "accion": "abrir_spotify"}
 
     if "abre google" in comando or "abre navegador" in comando:
-        webbrowser.open("https://www.google.com")
         return {"respuesta": "Abriendo el navegador", "continuar": True, "accion": "abrir_navegador"}
 
     if "calculadora" in comando:
-        ok = _abrir_app("calculadora")
-        return {"respuesta": "Abriendo la calculadora" if ok else "No pude abrir la calculadora",
-                "continuar": True, "accion": "abrir_calculadora"}
+        return {"respuesta": "Abriendo la calculadora", "continuar": True, "accion": "abrir_calculadora"}
 
     if "bloc de notas" in comando or "abre notas" in comando:
-        ok = _abrir_app("bloc de notas")
-        return {"respuesta": "Abriendo el bloc de notas" if ok else "No pude abrir el bloc de notas",
-                "continuar": True, "accion": "abrir_notas"}
+        return {"respuesta": "Abriendo el bloc de notas", "continuar": True, "accion": "abrir_notas"}
 
     if "chiste" in comando:
         return {"respuesta": random.choice(CHISTES), "continuar": True, "accion": "chiste"}
@@ -349,43 +341,15 @@ def procesar_comando(comando):
     if any(p in comando for p in ["abre mapa", "abrir mapa", "stark maps", "mapa"]):
         return {"respuesta": "Abriendo Stark Maps", "continuar": True, "accion": "abrir_mapa"}
 
-    # Crear carpeta en el escritorio
-    patrones_crear = ["crea una carpeta", "crea carpeta", "crear carpeta", "nueva carpeta"]
-    for patron in patrones_crear:
+    # Crear carpeta (deshabilitado en servidor remoto)
+    for patron in ["crea una carpeta", "crea carpeta", "crear carpeta", "nueva carpeta"]:
         if patron in comando:
-            nombre = comando.split(patron, 1)[1].strip()
-            # Eliminar cualquier palabra de tiempo que STT agrega tras un número
-            import re
-            nombre = re.sub(r'\s+(minutos?|segundos?|horas?|d[ií]as?|metros?|grados?)$', '', nombre, flags=re.IGNORECASE).strip()
-            if not nombre: break
-            try:
-                import pathlib
-                escritorio = pathlib.Path(r"C:\Users\evice\Desktop")
-                carpeta = escritorio / nombre
-                carpeta.mkdir(parents=True, exist_ok=True)
-                return {"respuesta": f"Carpeta '{nombre}' creada en el escritorio", "continuar": True, "accion": "carpeta_creada"}
-            except Exception as e:
-                return {"respuesta": f"No pude crear la carpeta: {e}", "continuar": True, "accion": "error"}
+            return {"respuesta": "No puedo crear carpetas en el servidor remoto", "continuar": True, "accion": "desconocido"}
 
-    # Eliminar carpeta del escritorio
-    patrones_eliminar = ["elimina la carpeta", "elimina carpeta", "borra la carpeta", "borra carpeta", "eliminar carpeta", "borrar carpeta"]
-    for patron in patrones_eliminar:
+    # Eliminar carpeta (deshabilitado en servidor remoto)
+    for patron in ["elimina la carpeta", "elimina carpeta", "borra la carpeta", "borra carpeta", "eliminar carpeta", "borrar carpeta"]:
         if patron in comando:
-            nombre = comando.split(patron, 1)[1].strip()
-            # Eliminar cualquier palabra de tiempo que STT agrega tras un número
-            import re
-            nombre = re.sub(r'\s+(minutos?|segundos?|horas?|d[ií]as?|metros?|grados?)$', '', nombre, flags=re.IGNORECASE).strip()
-            if not nombre: break
-            try:
-                import pathlib, shutil
-                escritorio = pathlib.Path(r"C:\Users\evice\Desktop")
-                carpeta = escritorio / nombre
-                if not carpeta.exists():
-                    return {"respuesta": f"No encontré la carpeta '{nombre}' en el escritorio", "continuar": True, "accion": "carpeta_no_existe"}
-                shutil.rmtree(carpeta)
-                return {"respuesta": f"Carpeta '{nombre}' eliminada del escritorio", "continuar": True, "accion": "carpeta_eliminada"}
-            except Exception as e:
-                return {"respuesta": f"No pude eliminar la carpeta: {e}", "continuar": True, "accion": "error"}
+            return {"respuesta": "No puedo eliminar carpetas en el servidor remoto", "continuar": True, "accion": "desconocido"}
 
     # WhatsApp
     patrones_wa = [r"envía un mensaje a (\+?\d+).*?diciendo (.+)", r"envía un whatsapp a (\+?\d+).*?diciendo (.+)",
@@ -445,28 +409,6 @@ def procesar_comando(comando):
 
     if "adiós" in comando or "adios" in comando or "apagado" in comando:
         return {"respuesta": "Hasta luego", "continuar": False, "accion": "despedida"}
-
-    # Preguntar a OpenClaw si no reconocimos el comando
-    try:
-        _openclaw = os.path.join(os.environ.get("APPDATA", ""), "npm", "openclaw.cmd")
-        if not os.path.exists(_openclaw):
-            _openclaw = "openclaw"
-        cmd = [_openclaw, "agent", "--message", comando, "--thinking", "low", "--json"]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        if result.returncode == 0 and result.stdout.strip():
-            try:
-                data = json.loads(result.stdout)
-                respuesta_oc = data.get("response", data.get("message", ""))
-                if respuesta_oc:
-                    return {"respuesta": respuesta_oc, "continuar": True, "accion": "openclaw"}
-            except json.JSONDecodeError:
-                pass
-            if result.stdout.strip():
-                return {"respuesta": result.stdout.strip(), "continuar": True, "accion": "openclaw"}
-    except FileNotFoundError:
-        pass
-    except Exception as e:
-        print(f"⚠ OpenClaw error: {e}")
 
     return {"respuesta": "No sé cómo hacer eso todavía. Estoy aprendiendo.",
             "continuar": True, "accion": "desconocido"}

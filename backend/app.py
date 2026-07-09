@@ -6,8 +6,6 @@ import logging
 import urllib.request
 import urllib.parse
 import json as _json
-import base64
-import tempfile
 
 from flask import Flask, request, jsonify
 import imaplib, email as emaillib
@@ -18,7 +16,9 @@ from flask_cors import CORS
 import jarvis_core
 import requests
 import subprocess
-from pydub import AudioSegment
+import sys
+from dotenv import load_dotenv
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -100,89 +100,6 @@ def api_escuchar():
     return jsonify({"texto": texto, "ok": True})
 
 
-@app.route("/api/voice-comando", methods=["POST"])
-def api_voice_comando():
-    """
-    Recibe un audio grabado en el NAVEGADOR (MediaRecorder, webm/ogg),
-    lo transcribe, procesa el comando, genera la respuesta en voz,
-    la reenvía como nota de voz a Telegram, y devuelve el audio
-    (en base64) para reproducirlo también en la interfaz web.
-    """
-    global _jarvis_pausado
-
-    if "audio" not in request.files:
-        return jsonify({"ok": False, "error": "Falta el archivo de audio"}), 400
-
-    audio_file = request.files["audio"]
-    tmp_dir = tempfile.gettempdir()
-    ts = int(time.time() * 1000)
-    entrada_path = os.path.join(tmp_dir, f"jarvis_in_{ts}.webm")
-    wav_path     = os.path.join(tmp_dir, f"jarvis_in_{ts}.wav")
-    audio_file.save(entrada_path)
-
-    try:
-        # 1. Convertir el audio del navegador (webm/ogg) a wav (requiere ffmpeg instalado)
-        try:
-            audio = AudioSegment.from_file(entrada_path)
-            audio.export(wav_path, format="wav")
-        except Exception as e:
-            logger.error(f"Error convirtiendo audio: {e}")
-            return jsonify({"ok": False, "error": "No se pudo procesar el audio (revisa que ffmpeg esté instalado)"}), 500
-
-        # 2. Transcribir con Google STT
-        texto = jarvis_core.transcribir_archivo(wav_path)
-        if not texto:
-            return jsonify({"ok": False, "error": "No se entendió el audio"})
-
-        # 3. Ignorar si solo dijo la wake word
-        texto_limpio = texto.strip().rstrip(".").lower()
-        if texto_limpio in ("jarvis", "jarvi", "jarbes", "harvis"):
-            return jsonify({"ok": False, "mensaje": "Wake word ignorada como comando"})
-
-        # 4. Procesar el comando (misma lógica que usa el bot de Telegram y el input de texto)
-        resultado = jarvis_core.procesar_comando(texto)
-        respuesta_texto = resultado.get("respuesta", "")
-
-        if resultado.get("accion") == "pausar":
-            _jarvis_pausado = True
-        elif resultado.get("accion") == "reanudar":
-            _jarvis_pausado = False
-
-        # 5. Generar el audio de respuesta (mp3) sin reproducirlo en el servidor
-        mp3_path = jarvis_core.generar_audio_mp3(respuesta_texto)
-
-        # 6. Convertir a ogg/opus para Telegram (formato requerido para notas de voz)
-        ogg_path = mp3_path.replace(".mp3", ".ogg")
-        try:
-            AudioSegment.from_file(mp3_path).export(ogg_path, format="ogg", codec="libopus")
-        except Exception as e:
-            logger.error(f"Error convirtiendo a ogg para Telegram: {e}")
-            ogg_path = None
-
-        # 7. Enviar a Telegram: contexto (lo que dijiste) + nota de voz con la respuesta
-        jarvis_core.enviar_texto_telegram(f"🎙️ Tú (voz web): {texto}")
-        if ogg_path:
-            jarvis_core.enviar_voz_telegram(ogg_path, caption=respuesta_texto[:200])
-
-        # 8. Codificar el mp3 en base64 para devolverlo al navegador y reproducirlo ahí
-        with open(mp3_path, "rb") as f:
-            audio_b64 = base64.b64encode(f.read()).decode("utf-8")
-
-        resultado["ok"] = True
-        resultado["texto_usuario"] = texto
-        resultado["audio_base64"] = audio_b64
-        return jsonify(resultado)
-
-    finally:
-        # Limpieza de temporales
-        for p in (entrada_path, wav_path):
-            try:
-                if os.path.exists(p):
-                    os.remove(p)
-            except Exception:
-                pass
-
-
 @app.route("/api/comando", methods=["POST"])
 def api_comando():
     global _jarvis_pausado
@@ -193,6 +110,12 @@ def api_comando():
         return jsonify({"error": "Falta comando"}), 400
 
     resultado = jarvis_core.procesar_comando(comando)
+
+    # Si el comando local no lo reconoce, preguntar a Groq
+    if resultado.get("accion") == "desconocido":
+        groq_resp = _llm_preguntar(comando)
+        if groq_resp:
+            resultado = {"respuesta": groq_resp, "accion": "groq", "continuar": True}
 
     if resultado.get("accion") == "pausar":
         _jarvis_pausado = True
@@ -216,15 +139,6 @@ def api_comando():
             daemon=True
         ).start()
         return jsonify(resultado)
-
-    if hablar:
-        if _wake_detector and resultado.get("accion") not in ("pausar", "reanudar"):
-            _wake_detector.pausar()
-        try:
-            jarvis_core.hablar(resultado["respuesta"])
-        finally:
-            if _wake_detector and resultado.get("accion") != "pausar":
-                _wake_detector.reanudar()
 
     return jsonify(resultado)
 
@@ -529,55 +443,59 @@ def api_enviar_email():
         return jsonify({"error": str(e)}), 500
 
 
-# ── OpenClaw Integration ──────────────────────────────────────────────────
+# ── Groq / LLM Integration ─────────────────────────────────────────────────
 
 OPENCLAW_CMD = os.path.join(os.environ.get("APPDATA", ""), "npm", "openclaw.cmd")
 if not os.path.exists(OPENCLAW_CMD):
-    OPENCLAW_CMD = "openclaw"  # fallback
+    OPENCLAW_CMD = "openclaw"
 
-def _openclaw_agent_preguntar(pregunta: str) -> str:
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+
+def _llm_preguntar(pregunta: str) -> str:
     try:
-        cmd = [OPENCLAW_CMD, "agent", "--message", pregunta, "--thinking", "low", "--json"]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        if result.returncode == 0 and result.stdout.strip():
-            try:
-                data = _json.loads(result.stdout)
-                return data.get("response", data.get("message", result.stdout))
-            except _json.JSONDecodeError:
-                return result.stdout.strip()
-        elif result.stderr:
-            logger.error(f"OpenClaw error: {result.stderr}")
-        return ""
-    except FileNotFoundError:
-        logger.warning("OpenClaw no instalado globalmente")
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [{"role": "user", "content": pregunta}],
+                "max_tokens": 1024,
+                "temperature": 0.7
+            },
+            timeout=30
+        )
+        if resp.ok:
+            data = resp.json()
+            return data["choices"][0]["message"]["content"]
+        logger.error(f"Groq error: {resp.status_code} {resp.text}")
         return ""
     except Exception as e:
-        logger.error(f"Error OpenClaw: {e}")
+        logger.error(f"Error en LLM: {e}")
         return ""
 
 
 @app.route("/api/openclaw/preguntar", methods=["POST"])
 def api_openclaw_preguntar():
-    data = request.get_json(force=True) or {}
+    data = request.get_json(force=True, silent=True) or {}
+
     pregunta = data.get("pregunta", "")
-    hablar_resultado = data.get("hablar", True)
 
     if not pregunta:
         return jsonify({"error": "Falta pregunta"}), 400
 
-    respuesta = _openclaw_agent_preguntar(pregunta)
+    # Primero intentar procesador local (hora, fecha, clima, abrir apps, etc.)
+    local = jarvis_core.procesar_comando(pregunta)
+    if local.get("accion") != "desconocido":
+        return jsonify({"respuesta": local.get("respuesta", ""), "ok": True, "accion": local.get("accion"), "dato": local.get("dato")})
+
+    # Fallback a Groq
+    respuesta = _llm_preguntar(pregunta)
 
     if not respuesta:
-        return jsonify({"respuesta": "No pude contactar a OpenClaw", "ok": False})
-
-    if hablar_resultado and respuesta:
-        if _wake_detector:
-            _wake_detector.pausar()
-        try:
-            jarvis_core.hablar(respuesta)
-        finally:
-            if _wake_detector:
-                _wake_detector.reanudar()
+        return jsonify({"respuesta": "No pude contactar a Groq", "ok": False})
 
     return jsonify({"respuesta": respuesta, "ok": True})
 
@@ -625,9 +543,56 @@ def api_whatsapp_enviar():
         return jsonify({"error": str(e)}), 500
 
 
+# ── Deploy Frontend ──────────────────────────────────────────────────────────
+
+import zipfile
+import io
+import shutil
+
+FRONTEND_DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend", "dist")
+
+@app.route("/api/deploy", methods=["POST"])
+def api_deploy():
+    """Acepta un ZIP del frontend build y lo extrae en dist/."""
+    if "file" not in request.files:
+        return jsonify({"error": "No se recibió archivo"}), 400
+    file = request.files["file"]
+    if file.filename == "" or not file.filename.endswith(".zip"):
+        return jsonify({"error": "Debe ser un archivo .zip"}), 400
+    try:
+        z = zipfile.ZipFile(io.BytesIO(file.read()))
+        if os.path.exists(FRONTEND_DIST):
+            shutil.rmtree(FRONTEND_DIST)
+        os.makedirs(FRONTEND_DIST, exist_ok=True)
+        z.extractall(FRONTEND_DIST)
+        logger.info(f"Frontend desplegado: {len(z.namelist())} archivos extraídos")
+        return jsonify({"ok": True, "archivos": len(z.namelist())})
+    except Exception as e:
+        logger.error(f"Error en deploy: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ── Telegram Bot (proceso separado) ─────────────────────────────────────────
+
+TELEGRAM_TOKEN = "8899539220:AAFacmqK0Azb-ZKMC5o4B5a5hxBdFirQwVs"
+
+_telegram_process = None
+
+def _arrancar_telegram_bot():
+    import subprocess
+    global _telegram_process
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "telegram_bot.py")
+    _telegram_process = subprocess.Popen(
+        [sys.executable, script],
+        stdout=open("/tmp/telegram_bot.log", "a"),
+        stderr=subprocess.STDOUT,
+    )
+    logger.info(f"Telegram bot iniciado (PID {_telegram_process.pid})")
+
 # ── Arranque ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     threading.Thread(target=iniciar_wake_detector, daemon=True).start()
+    _arrancar_telegram_bot()
     print("🤖 Jarvis backend corriendo en http://localhost:5000")
     app.run(debug=False, port=5000, threaded=True)
