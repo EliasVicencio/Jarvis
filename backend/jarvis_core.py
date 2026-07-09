@@ -7,12 +7,17 @@ import random
 import re
 import os
 import json
+import time
 import urllib.request
 import urllib.parse
 import tempfile
 
 import edge_tts
 import speech_recognition as sr
+import requests
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 RECORDATORIOS_PATH = os.path.join(os.path.dirname(__file__), "recordatorios.txt")
 VOZ = "es-MX-JorgeNeural"
@@ -126,6 +131,81 @@ def reconocer_voz():
     except Exception as e:
         print(f"❌ Error: {e}")
     return ""
+
+
+# ── Transcripción desde archivo (audio subido por el navegador) ──────────
+def transcribir_archivo(path_wav):
+    """Transcribe un .wav ya convertido (16-bit PCM) usando Google STT."""
+    try:
+        with sr.AudioFile(path_wav) as source:
+            audio = _recognizer.record(source)
+        texto = _recognizer.recognize_google(audio, language="es-MX")
+        texto = texto.lower().strip()
+        print(f"📝 Entendí (archivo): {texto}")
+        return texto
+    except sr.UnknownValueError:
+        print("❌ No se entendió el audio")
+        return ""
+    except sr.RequestError as e:
+        print(f"❌ Error de Google STT: {e}")
+        return ""
+    except Exception as e:
+        print(f"❌ Error transcribiendo archivo: {e}")
+        return ""
+
+
+# ── Generar audio sin reproducirlo localmente ─────────────────────────────
+def generar_audio_mp3(texto, output_path=None):
+    """Genera un mp3 con Edge TTS y devuelve la ruta del archivo (no lo reproduce)."""
+    if output_path is None:
+        output_path = os.path.join(
+            tempfile.gettempdir(), f"jarvis_tts_{os.getpid()}_{int(time.time() * 1000)}.mp3"
+        )
+
+    async def _generar():
+        comunicar = edge_tts.Communicate(texto, VOZ)
+        await comunicar.save(output_path)
+
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor() as pool:
+        pool.submit(asyncio.run, _generar()).result()
+
+    return output_path
+
+
+# ── Envío de notas de voz / mensajes a Telegram ───────────────────────────
+def enviar_texto_telegram(texto, chat_id=None):
+    """Envía un mensaje de texto al chat de Telegram configurado."""
+    chat_id = chat_id or TELEGRAM_CHAT_ID
+    if not TELEGRAM_BOT_TOKEN or not chat_id:
+        return False
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        requests.post(url, data={"chat_id": chat_id, "text": texto}, timeout=10)
+        return True
+    except Exception as e:
+        print(f"⚠ Error enviando texto a Telegram: {e}")
+        return False
+
+
+def enviar_voz_telegram(path_ogg, chat_id=None, caption=None):
+    """Envía una nota de voz (.ogg/opus) al chat de Telegram configurado."""
+    chat_id = chat_id or TELEGRAM_CHAT_ID
+    if not TELEGRAM_BOT_TOKEN or not chat_id:
+        print("⚠ TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID no configurados")
+        return False
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendVoice"
+        with open(path_ogg, "rb") as f:
+            files = {"voice": f}
+            data = {"chat_id": chat_id}
+            if caption:
+                data["caption"] = caption[:1024]
+            requests.post(url, data=data, files=files, timeout=20)
+        return True
+    except Exception as e:
+        print(f"⚠ Error enviando voz a Telegram: {e}")
+        return False
 
 
 # ── Utilidades ────────────────────────────────────────────────────────────

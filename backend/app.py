@@ -6,6 +6,8 @@ import logging
 import urllib.request
 import urllib.parse
 import json as _json
+import base64
+import tempfile
 
 from flask import Flask, request, jsonify
 import imaplib, email as emaillib
@@ -16,6 +18,7 @@ from flask_cors import CORS
 import jarvis_core
 import requests
 import subprocess
+from pydub import AudioSegment
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -95,6 +98,89 @@ def api_escuchar():
         return jsonify({"texto": "", "ok": False, "mensaje": "Wake word ignorada como comando"})
 
     return jsonify({"texto": texto, "ok": True})
+
+
+@app.route("/api/voice-comando", methods=["POST"])
+def api_voice_comando():
+    """
+    Recibe un audio grabado en el NAVEGADOR (MediaRecorder, webm/ogg),
+    lo transcribe, procesa el comando, genera la respuesta en voz,
+    la reenvía como nota de voz a Telegram, y devuelve el audio
+    (en base64) para reproducirlo también en la interfaz web.
+    """
+    global _jarvis_pausado
+
+    if "audio" not in request.files:
+        return jsonify({"ok": False, "error": "Falta el archivo de audio"}), 400
+
+    audio_file = request.files["audio"]
+    tmp_dir = tempfile.gettempdir()
+    ts = int(time.time() * 1000)
+    entrada_path = os.path.join(tmp_dir, f"jarvis_in_{ts}.webm")
+    wav_path     = os.path.join(tmp_dir, f"jarvis_in_{ts}.wav")
+    audio_file.save(entrada_path)
+
+    try:
+        # 1. Convertir el audio del navegador (webm/ogg) a wav (requiere ffmpeg instalado)
+        try:
+            audio = AudioSegment.from_file(entrada_path)
+            audio.export(wav_path, format="wav")
+        except Exception as e:
+            logger.error(f"Error convirtiendo audio: {e}")
+            return jsonify({"ok": False, "error": "No se pudo procesar el audio (revisa que ffmpeg esté instalado)"}), 500
+
+        # 2. Transcribir con Google STT
+        texto = jarvis_core.transcribir_archivo(wav_path)
+        if not texto:
+            return jsonify({"ok": False, "error": "No se entendió el audio"})
+
+        # 3. Ignorar si solo dijo la wake word
+        texto_limpio = texto.strip().rstrip(".").lower()
+        if texto_limpio in ("jarvis", "jarvi", "jarbes", "harvis"):
+            return jsonify({"ok": False, "mensaje": "Wake word ignorada como comando"})
+
+        # 4. Procesar el comando (misma lógica que usa el bot de Telegram y el input de texto)
+        resultado = jarvis_core.procesar_comando(texto)
+        respuesta_texto = resultado.get("respuesta", "")
+
+        if resultado.get("accion") == "pausar":
+            _jarvis_pausado = True
+        elif resultado.get("accion") == "reanudar":
+            _jarvis_pausado = False
+
+        # 5. Generar el audio de respuesta (mp3) sin reproducirlo en el servidor
+        mp3_path = jarvis_core.generar_audio_mp3(respuesta_texto)
+
+        # 6. Convertir a ogg/opus para Telegram (formato requerido para notas de voz)
+        ogg_path = mp3_path.replace(".mp3", ".ogg")
+        try:
+            AudioSegment.from_file(mp3_path).export(ogg_path, format="ogg", codec="libopus")
+        except Exception as e:
+            logger.error(f"Error convirtiendo a ogg para Telegram: {e}")
+            ogg_path = None
+
+        # 7. Enviar a Telegram: contexto (lo que dijiste) + nota de voz con la respuesta
+        jarvis_core.enviar_texto_telegram(f"🎙️ Tú (voz web): {texto}")
+        if ogg_path:
+            jarvis_core.enviar_voz_telegram(ogg_path, caption=respuesta_texto[:200])
+
+        # 8. Codificar el mp3 en base64 para devolverlo al navegador y reproducirlo ahí
+        with open(mp3_path, "rb") as f:
+            audio_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+        resultado["ok"] = True
+        resultado["texto_usuario"] = texto
+        resultado["audio_base64"] = audio_b64
+        return jsonify(resultado)
+
+    finally:
+        # Limpieza de temporales
+        for p in (entrada_path, wav_path):
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
 
 
 @app.route("/api/comando", methods=["POST"])

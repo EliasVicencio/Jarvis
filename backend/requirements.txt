@@ -8,6 +8,9 @@ pyaudio>=0.2.14
 # Audio (reproducción de mp3 sin ffmpeg)
 pygame>=2.5.0
 
+# Conversión de audio para el flujo de voz web + Telegram (requiere ffmpeg instalado en el sistema)
+pydub>=0.25.1
+
 # Flask y servidor
 flask>=3.0.0
 flask-cors>=4.0.0
