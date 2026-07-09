@@ -569,44 +569,27 @@ def api_deploy():
         return jsonify({"error": str(e)}), 500
 
 
-# ── Telegram Bot ────────────────────────────────────────────────────────────
+# ── Telegram Bot (proceso separado) ─────────────────────────────────────────
 
 TELEGRAM_TOKEN = "8899539220:AAFacmqK0Azb-ZKMC5o4B5a5hxBdFirQwVs"
 
-def _iniciar_telegram_bot():
-    try:
-        from telegram import Update
-        from telegram.ext import Application, MessageHandler, filters
+_telegram_process = None
 
-        async def _telegram_handler(update: Update, _context):
-            if not update.message or not update.message.text:
-                return
-            texto = update.message.text.strip()
-            chat_id = update.message.chat_id
-            user = update.message.from_user
-            logger.info(f"Telegram [{user.first_name}]: {texto}")
-
-            # Procesar igual que la web
-            resultado = jarvis_core.procesar_comando(texto)
-            if resultado.get("accion") == "desconocido":
-                groq_resp = _llm_preguntar(texto)
-                if groq_resp:
-                    resultado = {"respuesta": groq_resp, "accion": "groq"}
-
-            respuesta = resultado.get("respuesta", "No entendí.")
-            await update.message.reply_text(respuesta)
-
-        app_bot = Application.builder().token(TELEGRAM_TOKEN).build()
-        app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _telegram_handler))
-        logger.info("Telegram bot iniciando (long polling)...")
-        app_bot.run_polling(allowed_updates=["message"])
-    except Exception as e:
-        logger.error(f"Error en Telegram bot: {e}")
+def _arrancar_telegram_bot():
+    import subprocess
+    global _telegram_process
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "telegram_bot.py")
+    _telegram_process = subprocess.Popen(
+        [sys.executable, script],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    logger.info(f"Telegram bot iniciado (PID {_telegram_process.pid})")
 
 # ── Arranque ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     threading.Thread(target=iniciar_wake_detector, daemon=True).start()
-    threading.Thread(target=_iniciar_telegram_bot, daemon=True).start()
+    _arrancar_telegram_bot()
     print("🤖 Jarvis backend corriendo en http://localhost:5000")
     app.run(debug=False, port=5000, threaded=True)
