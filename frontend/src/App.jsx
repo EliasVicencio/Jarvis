@@ -7,7 +7,7 @@ import "./Mapa.css";
 import MissionControl from "./MissionControl";
 import "./MissionControl.css";
 
-const API = "http://localhost:5000/api";
+const API = "/api";
 
 const COMANDOS = [
   { texto: "qué hora es",        icono: "◷" },
@@ -41,16 +41,28 @@ export default function App() {
   const [wakeFlash,   setWakeFlash]   = useState(null);
   const [busquedaMapa,    setBusquedaMapa]    = useState(null);
   const [canalNoticias,   setCanalNoticias]   = useState(null);
-  const [openclawStatus,  setOpenclawStatus]  = useState(null);
+  const [openclawStatus,  setOpenclawStatus]  = useState("ok");
   const [usarOpenclaw,    setUsarOpenclaw]    = useState(true);
+  const [tarjetas, setTarjetas] = useState([]);
 
   const estadoRef   = useRef("inactivo");
   const escucharRef = useRef(null);
+  const scrollRef   = useRef(null);
   const hora = useReloj();
 
   useEffect(() => { estadoRef.current = estado; }, [estado]);
 
   const refrescarRecordatorios = useCallback(() => {}, []);
+
+  // ── Browser TTS ────────────────────────────────────────────────────────
+  const hablarBrowser = useCallback((texto) => {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(texto);
+    utter.lang = "es-MX";
+    utter.rate = 1.1;
+    window.speechSynthesis.speak(utter);
+  }, []);
 
   // ── Enviar comando ─────────────────────────────────────────────────────
   const enviarComando = useCallback(async (texto, forzar = false) => {
@@ -65,12 +77,20 @@ export default function App() {
         const ocResp = await fetch(`${API}/openclaw/preguntar`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pregunta: texto, hablar: true }),
+          body: JSON.stringify({ pregunta: texto, hablar: false }),
         });
         const ocData = await ocResp.json();
         if (ocData.ok) {
           setEstado("inactivo");
           estadoRef.current = "inactivo";
+          setTarjetas(prev => [{ pregunta: texto, respuesta: ocData.respuesta || "" }, ...prev]);
+          if (ocData.respuesta) hablarBrowser(ocData.respuesta);
+          if (ocData.accion === "abrir_noticias" || ocData.accion === "stark_intel") setVista("noticias");
+          if (ocData.accion === "abrir_mapa") setVista("mapa");
+          if (ocData.accion === "abrir_youtube") window.open("https://youtube.com");
+          if (ocData.accion === "abrir_spotify") window.open("https://open.spotify.com");
+          if (ocData.accion === "buscar" && ocData.dato) window.open("https://google.com/search?q=" + encodeURIComponent(ocData.dato));
+          if (ocData.accion === "abrir_navegador") window.open("https://google.com");
           return;
         }
       } catch {}
@@ -80,11 +100,15 @@ export default function App() {
       const resp = await fetch(`${API}/comando`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comando: texto, hablar: true }),
+        body: JSON.stringify({ comando: texto, hablar: false }),
       });
       const data = await resp.json();
       setEstado("hablando");
       estadoRef.current = "hablando";
+      if (data.respuesta) {
+        setTarjetas(prev => [{ pregunta: texto, respuesta: data.respuesta }, ...prev]);
+        hablarBrowser(data.respuesta);
+      }
       if (data.accion && data.accion.startsWith("cambiar_canal:")) {
         const canal = data.accion.replace("cambiar_canal:", "");
         setEstado("hablando"); estadoRef.current = "hablando";
@@ -114,30 +138,44 @@ export default function App() {
     }
   }, []);
 
+  // ── Browser Speech Recognition (fallback a server-side si no disponible) ─
+  const reconocerVozBrowser = useCallback(() => {
+    return new Promise((resolve) => {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) { resolve(""); return; }
+      const sr = new SpeechRecognition();
+      sr.lang = "es-MX";
+      sr.interimResults = false;
+      sr.maxAlternatives = 1;
+      sr.continuous = false;
+      let resolved = false;
+      const done = (text) => { if (!resolved) { resolved = true; resolve(text); } };
+      sr.onresult = (e) => done(e.results[0][0].transcript.toLowerCase());
+      sr.onerror = () => done("");
+      sr.onend = () => done("");
+      sr.start();
+    });
+  }, []);
+
+  // ── Auto-scroll cuando llegan nuevas tarjetas ──────────────────────────
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [tarjetas]);
+
   // ── Escuchar micrófono ─────────────────────────────────────────────────
   const escucharMicrofono = useCallback(async () => {
     if (estadoRef.current !== "inactivo") return;
     setEstado("escuchando");
-    try {
-      const resp = await fetch(`${API}/escuchar`, { method: "POST" });
-      const data = await resp.json();
-      if (data.ok && data.texto) {
-        setEstado("inactivo");
-        estadoRef.current = "inactivo";
-        await enviarComando(data.texto, true);
-      } else if (data.mensaje === "Wake word ignorada como comando") {
-        setEstado("inactivo");
-        estadoRef.current = "inactivo";
-        setTimeout(() => escucharRef.current?.(), 300);
-      } else {
-        setEstado("inactivo");
-        estadoRef.current = "inactivo";
-      }
-    } catch {
+    const texto = await reconocerVozBrowser();
+    if (texto) {
+      setEstado("inactivo");
+      estadoRef.current = "inactivo";
+      await enviarComando(texto, false);
+    } else {
       setEstado("inactivo");
       estadoRef.current = "inactivo";
     }
-  }, [enviarComando]);
+  }, [enviarComando, reconocerVozBrowser]);
 
   useEffect(() => { escucharRef.current = escucharMicrofono; }, [escucharMicrofono]);
 
@@ -259,54 +297,69 @@ export default function App() {
       {/* ── Cuerpo ─────────────────────────────────────────── */}
       <main className="main-body">
 
-        {/* Chips arriba */}
-        <div className="chips-row">
-          {COMANDOS.map(c => (
-            <button
-              key={c.texto}
-              className="chip"
-              onClick={() => c.accion === "noticias" ? setVista("noticias") : enviarComando(c.texto)}
-              disabled={estado !== "inactivo"}
+        <div className="scroll-area" ref={scrollRef}>
+          {/* Chips arriba */}
+          <div className="chips-row">
+            {COMANDOS.map(c => (
+              <button
+                key={c.texto}
+                className="chip"
+                onClick={() => c.accion === "noticias" ? setVista("noticias") : enviarComando(c.texto)}
+                disabled={estado !== "inactivo"}
+              >
+                <span className="chip-icon">{c.icono}</span>
+                {c.texto}
+              </button>
+            ))}
+          </div>
+
+          {/* Anillo central */}
+          <div className="core-wrap">
+            <div
+              className={`ring estado-${estado}${wakeFlash ? " ring-wake" : ""}`}
+              onClick={escucharMicrofono}
+              role="button"
+              tabIndex={0}
+              aria-label="Activar micrófono"
+              onKeyDown={e => e.key === "Enter" && escucharMicrofono()}
             >
-              <span className="chip-icon">{c.icono}</span>
-              {c.texto}
-            </button>
+              <div className="ring-outer" />
+              <div className="ring-mid"   />
+              <div className="ring-inner" />
+              <div className="ring-core"><MicSVG /></div>
+            </div>
+            <p className="estado-label">{labelEstado(estado)}</p>
+            <p className="hint">
+              {wakeActivo ? "Di «Jarvis» para activar" : "Toca el núcleo o escribe abajo"}
+            </p>
+          </div>
+
+          {/* Tarjetas de respuesta */}
+          {tarjetas.map((t, i) => (
+            <div key={i} className="tarjeta">
+              <div className="tarjeta-pregunta">❯ {t.pregunta}</div>
+              <div className="tarjeta-respuesta">{t.respuesta}</div>
+            </div>
           ))}
         </div>
 
-        {/* Anillo central */}
-        <div className="core-wrap">
-          <div
-            className={`ring estado-${estado}${wakeFlash ? " ring-wake" : ""}`}
-            onClick={escucharMicrofono}
-            role="button"
-            tabIndex={0}
-            aria-label="Activar micrófono"
-            onKeyDown={e => e.key === "Enter" && escucharMicrofono()}
-          >
-            <div className="ring-outer" />
-            <div className="ring-mid"   />
-            <div className="ring-inner" />
-            <div className="ring-core"><MicSVG /></div>
-          </div>
-          <p className="estado-label">{labelEstado(estado)}</p>
-          <p className="hint">
-            {wakeActivo ? "Di «Jarvis» para activar" : "Toca el núcleo o escribe abajo"}
-          </p>
-        </div>
+        <div className="bottom-area">
+          {/* Enlace a Telegram / Chat */}
+          <a href="/chat/" target="_blank" className="chat-link">💬 Chat vía Telegram</a>
 
-        {/* Input centrado abajo */}
-        <form className="input-row" onSubmit={handleEnviar}>
-          <input
-            className="txt-input"
-            type="text"
-            placeholder="Escribe un comando…"
-            value={inputManual}
-            onChange={e => setInputManual(e.target.value)}
-            disabled={estado !== "inactivo"}
-          />
-          <button className="btn-send" type="submit" disabled={estado !== "inactivo"}>➤</button>
-        </form>
+          {/* Input centrado abajo */}
+          <form className="input-row" onSubmit={handleEnviar}>
+            <input
+              className="txt-input"
+              type="text"
+              placeholder="Escribe un comando…"
+              value={inputManual}
+              onChange={e => setInputManual(e.target.value)}
+              disabled={estado !== "inactivo"}
+            />
+            <button className="btn-send" type="submit" disabled={estado !== "inactivo"}>➤</button>
+          </form>
+        </div>
 
       </main>
     </div>

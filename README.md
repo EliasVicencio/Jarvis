@@ -1,243 +1,318 @@
-# Jarvis — App de Escritorio con Tauri + OpenClaw 🦞
+# Jarvis — Asistente Personal 24/7 en Oracle Cloud 🚀
 
-Asistente de voz personal con ventana nativa (Tauri), frontend React/Vite,
-backend Python/Flask con Azure Speech, y **OpenClaw** como cerebro AI.
-
-```
-┌──────────────────────────────────────────┐
-│  Ventana Tauri (app nativa de escritorio) │
-│  ┌────────────────────────────────────┐  │
-│  │   Frontend React  (Vite)           │  │
-│  └──────────────┬─────────────────────┘  │
-└─────────────────┼────────────────────────┘
-                  │  HTTP → localhost:5000
-          ┌───────▼────────┐
-          │  Flask backend  │
-          │  Azure Speech   │
-          └────────────────┘
-```
-
----
-
-## ⚠️ Antes de empezar — regenera tu clave de Azure
-
-Tu clave anterior quedó expuesta en el código. Regenerarla es gratis y tarda
-30 segundos:
-
-1. Entra a https://portal.azure.com
-2. Busca tu recurso de Speech → "Claves y punto de conexión"
-3. Clic en "Regenerar clave 1"
-4. Copia la clave nueva
-
----
-
-## Prerequisitos
-
-| Herramienta | Cómo instalar                        | Verificar           |
-|-------------|--------------------------------------|---------------------|
-| Rust        | https://rustup.rs                    | `rustc --version`   |
-| C++ Build Tools (solo Windows) | https://visualstudio.microsoft.com/visual-cpp-build-tools → marcar "Desarrollo de escritorio con C++" | — |
-| Node.js 18+ | https://nodejs.org (versión LTS)     | `node --version`    |
-| Python 3.10+| https://python.org                   | `python --version`  |
-
----
-
-## Estructura del proyecto
+Asistente de voz personal con interfaz web React, backend Python/Flask,
+cerebro **Groq** (LLM gratuito) y canales **Telegram/WhatsApp** vía OpenClaw Gateway.
 
 ```
-jarvis_tauri/
-├── .openclaw/              ← configuración de OpenClaw
-│   ├── openclaw.json       ← agente, canales, skills
-│   └── workspace/skills/jarvis/SKILL.md
-├── backend/
-│   ├── app.py              ← servidor Flask (API REST + OpenClaw bridge)
-│   ├── jarvis_core.py      ← lógica de Jarvis: voz + comandos + OC fallback
-│   ├── config.py           ← lee la clave desde .env
-│   ├── .env.example        ← plantilla → copiar como .env
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx         ← interfaz React (con OC status)
-│   │   ├── App.css         ← estilos HUD oscuro
-│   │   └── index.jsx
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.js
-├── src-tauri/
-│   ├── src/main.rs         ← código Rust de Tauri
-│   ├── build.rs
-│   ├── Cargo.toml
-│   └── tauri.conf.json     ← configuración de la ventana y build
-├── scripts/
-│   ├── arrancar_openclaw.bat
-│   └── arrancar_jarvis_completo.bat
-└── .gitignore
+┌── Tu navegador (PC/celular) ──────────────────────┐
+│  https://129.80.59.180:8080                        │
+│  ┌──────────────────────────────────────────────┐  │
+│  │  Frontend React + Vite                       │  │
+│  │  • Reconocimiento de voz (Web Speech API)    │  │
+│  │  • Síntesis de voz (speechSynthesis)         │  │
+│  └──────────────────┬───────────────────────────┘  │
+└─────────────────────┼──────────────────────────────┘
+                      │ HTTPS (nginx proxy)
+          ┌───────────▼───────────┐
+          │   Oracle Cloud VM     │
+          │   (Always Free)       │
+          │  ┌─────────────────┐  │
+          │  │ Flask Backend   │  │
+          │  │ :5000           │  │
+          │  │ • Procesador    │  │
+          │  │   local (hora,  │  │
+          │  │   clima, etc.)  │  │
+          │  │ • Fallback Groq │  │
+          │  └────────┬────────┘  │
+          │           │           │
+          │  ┌────────▼────────┐  │
+          │  │ OpenClaw Gateway│  │
+          │  │ :18789          │  │
+          │  │ • Telegram Bot  │  │
+          │  │ • WhatsApp      │  │
+          │  └─────────────────┘  │
+          └───────────────────────┘
 ```
 
 ---
 
-## Instalación paso a paso
+## 🌐 Acceso
 
-### 1. Configurar el backend
+| Vía | URL / Datos |
+|-----|-------------|
+| **Web** | `https://129.80.59.180:8080` |
+| **Telegram** | `@jarvis_elias_vicencio_bot` |
+| **API** | `POST https://129.80.59.180:8080/api/openclaw/preguntar` |
+
+El certificado es autofirmado → al entrar por primera vez hacé clic en
+**Advanced → Proceed to 129.80.59.180 (unsafe)**.
+
+---
+
+## 🧠 Arquitectura
+
+| Componente | Tecnología | Función |
+|------------|-----------|---------|
+| **Frontend** | React + Vite | Interfaz web, voz por Web Speech API |
+| **Backend** | Python Flask | Comandos locales + proxy a Groq |
+| **LLM** | Groq (`llama-3.1-8b-instant`) | Respuestas inteligentes |
+| **Gateway** | OpenClaw 2026.6 | Canales Telegram/WhatsApp |
+| **Servidor** | Oracle Cloud VM.Standard.E2.1.Micro | 1 GB RAM, 2 GB swap |
+| **Web server** | nginx | HTTPS + proxy inverso |
+
+---
+
+## 📋 Comandos disponibles
+
+### Procesador local (rápidos, sin IA)
+
+| Comando | Respuesta |
+|---------|-----------|
+| "qué hora es" | Hora actual del servidor |
+| "qué fecha es" | Fecha actual |
+| "clima en [ciudad]" | Clima vía Open-Meteo (gratis) |
+| "cuéntame un chiste" | Chiste aleatorio |
+| "mis recordatorios" | Lista recordatorios guardados |
+| "recuérdame [algo]" | Guarda recordatorio |
+| "abre youtube" | Abre YouTube en tu navegador |
+| "abre spotify" | Abre Spotify Web |
+| "busca [algo]" | Busca en Google |
+| "stark intel" | Abre vista de noticias |
+| "abre mapa" | Abre Stark Maps |
+| "qué puedes hacer" / "ayuda" | Lista de comandos |
+
+### Groq (IA, cualquier pregunta)
+
+Cualquier comando que el procesador local no reconozca se envía a Groq.
+
+Ejemplos: *"cuanto es 2+2"*, *"explica la teoría de la relatividad"*, *"escribe un poema"*, etc.
+
+---
+
+## 🚀 Despliegue en Oracle Cloud
+
+### Prerrequisitos
+
+- VM Ubuntu 22.04 (Always Free) con puerto 8080 abierto
+- Node.js 22+, Python 3.10+, nginx
+
+### 1. Clonar el repositorio
+
+```bash
+git clone <repo> /home/ubuntu/Jarvis
+cd /home/ubuntu/Jarvis
+```
+
+### 2. Backend
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+cd backend
+pip install -r requirements.txt
+```
+
+Crear `.env`:
+
+```env
+GROQ_API_KEY=gsk_tu_clave_aqui
+OPENAI_API_KEY=gsk_tu_clave_aqui
+OPENAI_BASE_URL=https://api.groq.com/openai/v1
+```
+
+### 3. Frontend
+
+```bash
+cd frontend
+npm install --legacy-peer-deps
+npm run build
+```
+
+### 4. nginx
+
+```nginx
+server {
+    listen 8080 ssl;
+    server_name _;
+
+    ssl_certificate     /etc/ssl/certs/jarvis-selfsigned.crt;
+    ssl_certificate_key /etc/ssl/private/jarvis-selfsigned.key;
+
+    root /home/ubuntu/Jarvis/frontend/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+### 5. Certificado autofirmado
+
+```bash
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /etc/ssl/private/jarvis-selfsigned.key \
+  -out /etc/ssl/certs/jarvis-selfsigned.crt \
+  -subj '/CN=129.80.59.180'
+```
+
+### 6. systemd (servicios automáticos)
+
+**jarvis-backend.service**:
+```ini
+[Unit]
+Description=Jarvis Flask Backend
+After=network.target
+
+[Service]
+WorkingDirectory=/home/ubuntu/Jarvis/backend
+ExecStart=/home/ubuntu/Jarvis/venv/bin/python app.py
+Restart=always
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**jarvis-gateway.service**:
+```ini
+[Unit]
+Description=OpenClaw Gateway
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/openclaw gateway run --force
+Restart=always
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### 7. Telegram Bot
+
+En `/home/ubuntu/.openclaw/openclaw.json`:
+
+```json
+{
+  "agents": { "main": { "model": "openai/llama-3.1-8b-instant" } },
+  "gateway": {
+    "mode": "local",
+    "auth": { "token": "jarvis-dev-token-2026" },
+    "channels": {
+      "telegram": { "botToken": "8899539220:AAFacmqK0Azb-ZKMC5o4B5a5hxBdFirQwVs" }
+    }
+  }
+}
+```
+
+### 8. Firewall
+
+```bash
+sudo iptables -I INPUT -p tcp --dport 8080 -j ACCEPT
+```
+
+---
+
+## 🔧 Desarrollo local (Windows)
+
+### Prerrequisitos
+
+| Herramienta | Versión |
+|-------------|---------|
+| Node.js | 18+ |
+| Python | 3.10+ |
+| OpenClaw CLI | 2026.x (`npm install -g openclaw@latest`) |
+
+### Backend
 
 ```bash
 cd backend
 python -m venv venv
-
-# Windows:
 venv\Scripts\activate
-# Mac/Linux:
-source venv/bin/activate
-
 pip install -r requirements.txt
+copy .env.example .env   # editar con tu GROQ_API_KEY
+python app.py
 ```
 
-Crea el archivo `.env` (nunca lo subas a git):
-
-```bash
-cp .env.example .env
-```
-
-Abre `.env` y pega tu clave nueva de Azure:
-
-```
-AZURE_SPEECH_KEY=pega_tu_clave_aqui
-AZURE_SPEECH_REGION=eastus
-AZURE_SPEECH_VOICE=es-MX-JorgeNeural
-SPEECH_RECOGNITION_LANGUAGE=es-MX
-```
-
-### 2. Instalar dependencias del frontend
+### Frontend
 
 ```bash
 cd frontend
-npm install
+npm install --legacy-peer-deps
+npm run dev
 ```
 
-### 3. Instalar la CLI de Tauri
+### OpenClaw Gateway (Telegram/WhatsApp)
 
 ```bash
-npm install -g @tauri-apps/cli
+openclaw gateway run --force
 ```
 
 ---
 
-## Instalar OpenClaw (nuevo cerebro AI)
+## 🤝 Canales
 
-OpenClaw es el agente AI que le da inteligencia real a Jarvis.
-
-```bash
-npm install -g openclaw@latest
-openclaw onboard   # primera vez: configura el agente
-```
-
-Configura tu modelo en `.openclaw/openclaw.json`. Por defecto usa `copilot/gpt-4o`.
-
-## Correr en modo desarrollo
-
-### Opción 1 — Todo junto (recomendado)
-
-```bash
-scripts\arrancar_jarvis_completo.bat
-```
-
-Esto arranca: OpenClaw Gateway → Backend Flask → App Tauri
-
-### Opción 2 — Manual (tres terminales)
-
-**Terminal 1 — OpenClaw Gateway:**
-```bash
-openclaw gateway --port 18789 --verbose
-```
-
-**Terminal 2 — Backend Flask:**
-```bash
-cd backend
-venv\Scripts\activate     # o source venv/bin/activate en Mac/Linux
-python app.py
-```
-Deberías ver: `🤖 Jarvis backend corriendo en http://localhost:5000`
-
-**Terminal 3 — App Tauri (React + ventana nativa):**
-```bash
-# desde la raíz del proyecto (jarvis_tauri/)
-npm run tauri dev
-```
-
-Esto:
-1. Arranca Vite con el frontend React en localhost:5173
-2. Compila el código Rust de Tauri
-3. Abre la ventana nativa de escritorio con la interfaz de Jarvis
-
-> La primera vez que compila Rust puede tardar 2-5 minutos. Las siguientes
-> veces es mucho más rápido.
+| Canal | Estado |
+|-------|--------|
+| 🌐 Web UI | ✅ `https://129.80.59.180:8080` |
+| ✈️ Telegram | ✅ `@jarvis_elias_vicencio_bot` |
+| 💬 WhatsApp | Configurable vía OpenClaw |
+| 💻 Discord | Configurable vía OpenClaw |
 
 ---
 
-## Generar el instalador (.exe / .dmg / .deb)
+## 📁 Estructura del proyecto
 
-```bash
-# Asegúrate de que el backend esté detenido antes de hacer el build
-npm run tauri build
+```
+Jarvis/
+├── backend/
+│   ├── app.py              ← Flask: API REST + Groq + proxy
+│   ├── jarvis_core.py      ← Lógica local: hora, clima, comandos
+│   ├── wake_word.py        ← Detector de wake word (Azure/Google)
+│   ├── config.py           ← Config desde .env
+│   ├── .env                ← Claves (GROQ_API_KEY)
+│   ├── requirements.txt
+│   └── venv/               ← Entorno virtual Python
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx         ← React: UI + voz browser + TTS
+│   │   ├── App.css         ← Estilos HUD oscuro
+│   │   ├── index.jsx
+│   │   ├── Noticias.jsx    ← Stark Intel
+│   │   ├── Mapa.jsx        ← Stark Maps
+│   │   └── MissionControl.jsx
+│   ├── index.html
+│   ├── package.json
+│   └── dist/               ← Build estático (servido por nginx)
+└── README.md
 ```
 
-El instalador queda en `src-tauri/target/release/bundle/`.
-
 ---
 
-## Comandos disponibles en Jarvis
+## ❓ Solución de problemas
 
-| Lo que dices                  | Qué hace                            |
-|-------------------------------|-------------------------------------|
-| "qué hora es"                 | Dice la hora actual                 |
-| "qué fecha es"                | Dice la fecha de hoy                |
-| "recuérdame [algo]"           | Guarda un recordatorio              |
-| "mis recordatorios"           | Lista los recordatorios             |
-| "clima en [ciudad]"           | Clima actual (Open-Meteo, gratis)   |
-| "busca [algo]"                | Abre Google con la búsqueda         |
-| "abre youtube"                | Abre YouTube en el navegador        |
-| "abre spotify"                | Abre Spotify                        |
-| "abre calculadora"            | Abre la calculadora del sistema     |
-| "abre bloc de notas"          | Abre el bloc de notas               |
-| "cuéntame un chiste"          | Dice un chiste                      |
-| "qué puedes hacer" / "ayuda"  | Lista todos los comandos            |
-| "adiós"                       | Se despide                          |
+**"Backend offline" en la web**
+→ Verificar que el backend esté corriendo: `sudo systemctl status jarvis-backend`
 
-### Comandos potenciados por OpenClaw
+**El micrófono no funciona**
+→ El sitio requiere HTTPS. Usar `https://129.80.59.180:8080`
+→ En Brave, desactivar el escudo (🛡️ → Shields Down) para el sitio
 
-Cualquier comando que Jarvis no reconozca se envía automáticamente a OpenClaw.
-Ejemplos: *"organiza mis archivos del escritorio"*, *"resume este artículo"*, *"envía un correo"*, etc.
+**No se escucha la voz**
+→ El navegador debe tener permisos de audio. Usar speechSynthesis del browser.
+→ Brave: desactivar Shields
 
-### Comunicación remota
+**Error 502 Bad Gateway**
+→ nginx no puede conectar con Flask. Verificar: `sudo systemctl restart jarvis-backend`
 
-Con OpenClaw también puedes hablar con Jarvis desde:
-- **WhatsApp**: escanea el QR con `openclaw channels login --channel whatsapp`
-- **Telegram**: configura tu bot token en `.openclaw/openclaw.json`
-- **Discord**: configura tu bot token
-- **WebChat**: `http://localhost:18789`
-
-### Email
-
-Jarvis puede leer y enviar correos electrónicos:
-1. Configura `EMAIL_USER` y `EMAIL_PASS` en `backend/.env`
-2. Usa una **contraseña de aplicación** de Google (no tu contraseña normal)
-3. Desde OpenClaw: pídele que revise tu bandeja de entrada o que envíe un correo
-
----
-
-## Solución de problemas comunes
-
-**"No se pudo conectar con el backend"**
-→ Asegúrate de que `python app.py` esté corriendo en otra terminal.
-
-**Error de clave de Azure**
-→ Verifica que el archivo `.env` existe en la carpeta `backend/` y que la
-  clave es correcta (sin espacios extra).
-
-**Error al compilar Rust la primera vez**
-→ En Windows, verifica que instalaste las C++ Build Tools y reiniciaste
-  la terminal después de instalar Rust.
-
-**El micrófono no responde**
-→ Azure Speech usa el micrófono predeterminado del sistema. Verifica en
-  Configuración → Sonido que el micrófono correcto esté seleccionado.
+**OpenClaw no responde**
+→ Verificar gateway: `sudo systemctl status jarvis-gateway`
+→ Verificar modelo en `~/.openclaw/openclaw.json`

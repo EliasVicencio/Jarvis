@@ -108,6 +108,12 @@ def api_comando():
 
     resultado = jarvis_core.procesar_comando(comando)
 
+    # Si el comando local no lo reconoce, preguntar a Groq
+    if resultado.get("accion") == "desconocido":
+        groq_resp = _llm_preguntar(comando)
+        if groq_resp:
+            resultado = {"respuesta": groq_resp, "accion": "groq", "continuar": True}
+
     if resultado.get("accion") == "pausar":
         _jarvis_pausado = True
         if _wake_detector:
@@ -130,15 +136,6 @@ def api_comando():
             daemon=True
         ).start()
         return jsonify(resultado)
-
-    if hablar:
-        if _wake_detector and resultado.get("accion") not in ("pausar", "reanudar"):
-            _wake_detector.pausar()
-        try:
-            jarvis_core.hablar(resultado["respuesta"])
-        finally:
-            if _wake_detector and resultado.get("accion") != "pausar":
-                _wake_detector.reanudar()
 
     return jsonify(resultado)
 
@@ -443,55 +440,59 @@ def api_enviar_email():
         return jsonify({"error": str(e)}), 500
 
 
-# ── OpenClaw Integration ──────────────────────────────────────────────────
+# ── Groq / LLM Integration ─────────────────────────────────────────────────
 
 OPENCLAW_CMD = os.path.join(os.environ.get("APPDATA", ""), "npm", "openclaw.cmd")
 if not os.path.exists(OPENCLAW_CMD):
-    OPENCLAW_CMD = "openclaw"  # fallback
+    OPENCLAW_CMD = "openclaw"
 
-def _openclaw_agent_preguntar(pregunta: str) -> str:
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
+
+def _llm_preguntar(pregunta: str) -> str:
     try:
-        cmd = [OPENCLAW_CMD, "agent", "--message", pregunta, "--thinking", "low", "--json"]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        if result.returncode == 0 and result.stdout.strip():
-            try:
-                data = _json.loads(result.stdout)
-                return data.get("response", data.get("message", result.stdout))
-            except _json.JSONDecodeError:
-                return result.stdout.strip()
-        elif result.stderr:
-            logger.error(f"OpenClaw error: {result.stderr}")
-        return ""
-    except FileNotFoundError:
-        logger.warning("OpenClaw no instalado globalmente")
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [{"role": "user", "content": pregunta}],
+                "max_tokens": 1024,
+                "temperature": 0.7
+            },
+            timeout=30
+        )
+        if resp.ok:
+            data = resp.json()
+            return data["choices"][0]["message"]["content"]
+        logger.error(f"Groq error: {resp.status_code} {resp.text}")
         return ""
     except Exception as e:
-        logger.error(f"Error OpenClaw: {e}")
+        logger.error(f"Error en LLM: {e}")
         return ""
 
 
 @app.route("/api/openclaw/preguntar", methods=["POST"])
 def api_openclaw_preguntar():
-    data = request.get_json(force=True) or {}
+    data = request.get_json(force=True, silent=True) or {}
+
     pregunta = data.get("pregunta", "")
-    hablar_resultado = data.get("hablar", True)
 
     if not pregunta:
         return jsonify({"error": "Falta pregunta"}), 400
 
-    respuesta = _openclaw_agent_preguntar(pregunta)
+    # Primero intentar procesador local (hora, fecha, clima, abrir apps, etc.)
+    local = jarvis_core.procesar_comando(pregunta)
+    if local.get("accion") != "desconocido":
+        return jsonify({"respuesta": local.get("respuesta", ""), "ok": True, "accion": local.get("accion"), "dato": local.get("dato")})
+
+    # Fallback a Groq
+    respuesta = _llm_preguntar(pregunta)
 
     if not respuesta:
-        return jsonify({"respuesta": "No pude contactar a OpenClaw", "ok": False})
-
-    if hablar_resultado and respuesta:
-        if _wake_detector:
-            _wake_detector.pausar()
-        try:
-            jarvis_core.hablar(respuesta)
-        finally:
-            if _wake_detector:
-                _wake_detector.reanudar()
+        return jsonify({"respuesta": "No pude contactar a Groq", "ok": False})
 
     return jsonify({"respuesta": respuesta, "ok": True})
 
@@ -536,6 +537,35 @@ def api_whatsapp_enviar():
             return jsonify({"error": result.stderr.strip() or "Error enviando mensaje"}), 500
     except Exception as e:
         logger.error(f"Error WhatsApp: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ── Deploy Frontend ──────────────────────────────────────────────────────────
+
+import zipfile
+import io
+import shutil
+
+FRONTEND_DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend", "dist")
+
+@app.route("/api/deploy", methods=["POST"])
+def api_deploy():
+    """Acepta un ZIP del frontend build y lo extrae en dist/."""
+    if "file" not in request.files:
+        return jsonify({"error": "No se recibió archivo"}), 400
+    file = request.files["file"]
+    if file.filename == "" or not file.filename.endswith(".zip"):
+        return jsonify({"error": "Debe ser un archivo .zip"}), 400
+    try:
+        z = zipfile.ZipFile(io.BytesIO(file.read()))
+        if os.path.exists(FRONTEND_DIST):
+            shutil.rmtree(FRONTEND_DIST)
+        os.makedirs(FRONTEND_DIST, exist_ok=True)
+        z.extractall(FRONTEND_DIST)
+        logger.info(f"Frontend desplegado: {len(z.namelist())} archivos extraídos")
+        return jsonify({"ok": True, "archivos": len(z.namelist())})
+    except Exception as e:
+        logger.error(f"Error en deploy: {e}")
         return jsonify({"error": str(e)}), 500
 
 
