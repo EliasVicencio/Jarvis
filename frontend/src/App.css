@@ -243,19 +243,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 .btn-send:hover:not(:disabled) { background: rgba(45,212,232,0.24); }
 
-.chat-link {
-  display: inline-block;
-  margin-bottom: 12px;
-  padding: 8px 18px;
-  background: var(--panel2);
-  border: 1px solid var(--cyan-dim);
-  border-radius: 20px;
-  color: var(--cyan);
-  font-size: 13px;
-  text-decoration: none;
-  transition: background 0.2s;
-}
-.chat-link:hover { background: rgba(45,212,232,0.12); }
 
 .tarjeta {
   width: 100%;
