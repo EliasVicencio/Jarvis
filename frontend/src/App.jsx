@@ -7,7 +7,7 @@ import "./Mapa.css";
 import MissionControl from "./MissionControl";
 import "./MissionControl.css";
 
-const API = "http://localhost:5000/api";
+const API = "/api";
 
 const COMANDOS = [
   { texto: "qué hora es",        icono: "◷" },
@@ -41,19 +41,28 @@ export default function App() {
   const [wakeFlash,   setWakeFlash]   = useState(null);
   const [busquedaMapa,    setBusquedaMapa]    = useState(null);
   const [canalNoticias,   setCanalNoticias]   = useState(null);
-  const [openclawStatus,  setOpenclawStatus]  = useState(null);
+  const [openclawStatus,  setOpenclawStatus]  = useState("ok");
   const [usarOpenclaw,    setUsarOpenclaw]    = useState(true);
+  const [tarjetas, setTarjetas] = useState([]);
 
   const estadoRef   = useRef("inactivo");
   const escucharRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const chunksRef        = useRef([]);
-  const streamRef        = useRef(null);
+  const scrollRef   = useRef(null);
   const hora = useReloj();
 
   useEffect(() => { estadoRef.current = estado; }, [estado]);
 
   const refrescarRecordatorios = useCallback(() => {}, []);
+
+  // ── Browser TTS ────────────────────────────────────────────────────────
+  const hablarBrowser = useCallback((texto) => {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(texto);
+    utter.lang = "es-MX";
+    utter.rate = 1.1;
+    window.speechSynthesis.speak(utter);
+  }, []);
 
   // ── Enviar comando ─────────────────────────────────────────────────────
   const enviarComando = useCallback(async (texto, forzar = false) => {
@@ -68,12 +77,20 @@ export default function App() {
         const ocResp = await fetch(`${API}/openclaw/preguntar`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pregunta: texto, hablar: true }),
+          body: JSON.stringify({ pregunta: texto, hablar: false }),
         });
         const ocData = await ocResp.json();
         if (ocData.ok) {
           setEstado("inactivo");
           estadoRef.current = "inactivo";
+          setTarjetas(prev => [{ pregunta: texto, respuesta: ocData.respuesta || "" }, ...prev]);
+          if (ocData.respuesta) hablarBrowser(ocData.respuesta);
+          if (ocData.accion === "abrir_noticias" || ocData.accion === "stark_intel") setVista("noticias");
+          if (ocData.accion === "abrir_mapa") setVista("mapa");
+          if (ocData.accion === "abrir_youtube") window.open("https://youtube.com");
+          if (ocData.accion === "abrir_spotify") window.open("https://open.spotify.com");
+          if (ocData.accion === "buscar" && ocData.dato) window.open("https://google.com/search?q=" + encodeURIComponent(ocData.dato));
+          if (ocData.accion === "abrir_navegador") window.open("https://google.com");
           return;
         }
       } catch {}
@@ -83,11 +100,15 @@ export default function App() {
       const resp = await fetch(`${API}/comando`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comando: texto, hablar: true }),
+        body: JSON.stringify({ comando: texto, hablar: false }),
       });
       const data = await resp.json();
       setEstado("hablando");
       estadoRef.current = "hablando";
+      if (data.respuesta) {
+        setTarjetas(prev => [{ pregunta: texto, respuesta: data.respuesta }, ...prev]);
+        hablarBrowser(data.respuesta);
+      }
       if (data.accion && data.accion.startsWith("cambiar_canal:")) {
         const canal = data.accion.replace("cambiar_canal:", "");
         setEstado("hablando"); estadoRef.current = "hablando";
@@ -117,112 +138,44 @@ export default function App() {
     }
   }, []);
 
-  // ── Enviar el audio grabado al backend (transcribe, procesa y responde en voz) ──
-  const enviarAudioGrabado = useCallback(async () => {
-    setEstado("procesando");
-    estadoRef.current = "procesando";
-    const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-    chunksRef.current = [];
-
-    if (blob.size < 1000) {
-      setEstado("inactivo");
-      estadoRef.current = "inactivo";
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("audio", blob, "voz.webm");
-
-    try {
-      const resp = await fetch(`${API}/voice-comando`, { method: "POST", body: formData });
-      const data = await resp.json();
-
-      if (!data.ok) {
-        setEstado("inactivo");
-        estadoRef.current = "inactivo";
-        if (data.mensaje === "Wake word ignorada como comando") {
-          setTimeout(() => escucharRef.current?.(), 300);
-        }
-        return;
-      }
-
-      setEstado("hablando");
-      estadoRef.current = "hablando";
-
-      if (data.audio_base64) {
-        const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
-        audio.onended = () => {
-          setEstado("inactivo");
-          estadoRef.current = "inactivo";
-        };
-        audio.onerror = () => {
-          setEstado("inactivo");
-          estadoRef.current = "inactivo";
-        };
-        audio.play().catch(() => {
-          setEstado("inactivo");
-          estadoRef.current = "inactivo";
-        });
-      } else {
-        setTimeout(() => {
-          setEstado("inactivo");
-          estadoRef.current = "inactivo";
-        }, 1000);
-      }
-
-      if (data.accion === "abrir_noticias") {
-        setTimeout(() => setVista("noticias"), 800);
-      }
-      if (data.accion === "abrir_mapa") {
-        setTimeout(() => setVista("mapa"), 800);
-      }
-      if (data.accion && data.accion.startsWith("cambiar_canal:")) {
-        setCanalNoticias(data.accion.replace("cambiar_canal:", ""));
-        setTimeout(() => setVista("noticias"), 800);
-      }
-    } catch (err) {
-      console.error("Error enviando audio:", err);
-      setEstado("inactivo");
-      estadoRef.current = "inactivo";
-    }
+  // ── Browser Speech Recognition (fallback a server-side si no disponible) ─
+  const reconocerVozBrowser = useCallback(() => {
+    return new Promise((resolve) => {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) { resolve(""); return; }
+      const sr = new SpeechRecognition();
+      sr.lang = "es-MX";
+      sr.interimResults = false;
+      sr.maxAlternatives = 1;
+      sr.continuous = false;
+      let resolved = false;
+      const done = (text) => { if (!resolved) { resolved = true; resolve(text); } };
+      sr.onresult = (e) => done(e.results[0][0].transcript.toLowerCase());
+      sr.onerror = () => done("");
+      sr.onend = () => done("");
+      sr.start();
+    });
   }, []);
 
-  // ── Escuchar micrófono (grabación real en el navegador) ─────────────────
+  // ── Auto-scroll cuando llegan nuevas tarjetas ──────────────────────────
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [tarjetas]);
+
+  // ── Escuchar micrófono ─────────────────────────────────────────────────
   const escucharMicrofono = useCallback(async () => {
-    if (estadoRef.current === "escuchando") {
-      mediaRecorderRef.current?.stop();
-      return;
-    }
     if (estadoRef.current !== "inactivo") return;
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      chunksRef.current = [];
-
-      const mr = new MediaRecorder(stream);
-      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mr.onstop = () => {
-        streamRef.current?.getTracks().forEach(t => t.stop());
-        enviarAudioGrabado();
-      };
-      mediaRecorderRef.current = mr;
-      mr.start();
-
-      setEstado("escuchando");
-      estadoRef.current = "escuchando";
-
-      setTimeout(() => {
-        if (mediaRecorderRef.current?.state === "recording") {
-          mediaRecorderRef.current.stop();
-        }
-      }, 10000);
-    } catch (err) {
-      console.error("No se pudo acceder al micrófono:", err);
+    setEstado("escuchando");
+    const texto = await reconocerVozBrowser();
+    if (texto) {
+      setEstado("inactivo");
+      estadoRef.current = "inactivo";
+      await enviarComando(texto, false);
+    } else {
       setEstado("inactivo");
       estadoRef.current = "inactivo";
     }
-  }, [enviarAudioGrabado]);
+  }, [enviarComando, reconocerVozBrowser]);
 
   useEffect(() => { escucharRef.current = escucharMicrofono; }, [escucharMicrofono]);
 
@@ -344,54 +297,69 @@ export default function App() {
       {/* ── Cuerpo ─────────────────────────────────────────── */}
       <main className="main-body">
 
-        {/* Chips arriba */}
-        <div className="chips-row">
-          {COMANDOS.map(c => (
-            <button
-              key={c.texto}
-              className="chip"
-              onClick={() => c.accion === "noticias" ? setVista("noticias") : enviarComando(c.texto)}
-              disabled={estado !== "inactivo"}
+        <div className="scroll-area" ref={scrollRef}>
+          {/* Chips arriba */}
+          <div className="chips-row">
+            {COMANDOS.map(c => (
+              <button
+                key={c.texto}
+                className="chip"
+                onClick={() => c.accion === "noticias" ? setVista("noticias") : enviarComando(c.texto)}
+                disabled={estado !== "inactivo"}
+              >
+                <span className="chip-icon">{c.icono}</span>
+                {c.texto}
+              </button>
+            ))}
+          </div>
+
+          {/* Anillo central */}
+          <div className="core-wrap">
+            <div
+              className={`ring estado-${estado}${wakeFlash ? " ring-wake" : ""}`}
+              onClick={escucharMicrofono}
+              role="button"
+              tabIndex={0}
+              aria-label="Activar micrófono"
+              onKeyDown={e => e.key === "Enter" && escucharMicrofono()}
             >
-              <span className="chip-icon">{c.icono}</span>
-              {c.texto}
-            </button>
+              <div className="ring-outer" />
+              <div className="ring-mid"   />
+              <div className="ring-inner" />
+              <div className="ring-core"><MicSVG /></div>
+            </div>
+            <p className="estado-label">{labelEstado(estado)}</p>
+            <p className="hint">
+              {wakeActivo ? "Di «Jarvis» para activar" : "Toca el núcleo o escribe abajo"}
+            </p>
+          </div>
+
+          {/* Tarjetas de respuesta */}
+          {tarjetas.map((t, i) => (
+            <div key={i} className="tarjeta">
+              <div className="tarjeta-pregunta">❯ {t.pregunta}</div>
+              <div className="tarjeta-respuesta">{t.respuesta}</div>
+            </div>
           ))}
         </div>
 
-        {/* Anillo central */}
-        <div className="core-wrap">
-          <div
-            className={`ring estado-${estado}${wakeFlash ? " ring-wake" : ""}`}
-            onClick={escucharMicrofono}
-            role="button"
-            tabIndex={0}
-            aria-label="Activar micrófono"
-            onKeyDown={e => e.key === "Enter" && escucharMicrofono()}
-          >
-            <div className="ring-outer" />
-            <div className="ring-mid"   />
-            <div className="ring-inner" />
-            <div className="ring-core"><MicSVG /></div>
-          </div>
-          <p className="estado-label">{labelEstado(estado)}</p>
-          <p className="hint">
-            {wakeActivo ? "Di «Jarvis» para activar" : "Toca el núcleo o escribe abajo"}
-          </p>
-        </div>
+        <div className="bottom-area">
+          {/* Enlace a Telegram */}
+          <a href="https://t.me/jarvis_elias_vicencio_bot" target="_blank" className="chat-link">💬 Chat vía Telegram</a>
 
-        {/* Input centrado abajo */}
-        <form className="input-row" onSubmit={handleEnviar}>
-          <input
-            className="txt-input"
-            type="text"
-            placeholder="Escribe un comando…"
-            value={inputManual}
-            onChange={e => setInputManual(e.target.value)}
-            disabled={estado !== "inactivo"}
-          />
-          <button className="btn-send" type="submit" disabled={estado !== "inactivo"}>➤</button>
-        </form>
+          {/* Input centrado abajo */}
+          <form className="input-row" onSubmit={handleEnviar}>
+            <input
+              className="txt-input"
+              type="text"
+              placeholder="Escribe un comando…"
+              value={inputManual}
+              onChange={e => setInputManual(e.target.value)}
+              disabled={estado !== "inactivo"}
+            />
+            <button className="btn-send" type="submit" disabled={estado !== "inactivo"}>➤</button>
+          </form>
+        </div>
 
       </main>
     </div>
