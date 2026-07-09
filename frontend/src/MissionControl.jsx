@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import "./MissionControl.css";
 
-const API = "/api";
+const API = "http://localhost:5000/api";
 
 // ── Utilidades ────────────────────────────────────────────────────────────────
 function fmtHora(iso) {
