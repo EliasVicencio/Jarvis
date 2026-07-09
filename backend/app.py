@@ -6,6 +6,9 @@ import logging
 import urllib.request
 import urllib.parse
 import json as _json
+import sys
+import base64
+import tempfile
 
 from flask import Flask, request, jsonify
 import imaplib, email as emaillib
@@ -16,7 +19,7 @@ from flask_cors import CORS
 import jarvis_core
 import requests
 import subprocess
-import sys
+from pydub import AudioSegment
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -100,6 +103,32 @@ def api_escuchar():
     return jsonify({"texto": texto, "ok": True})
 
 
+def _generar_audio_base64(texto):
+    """Genera el mp3 de una respuesta y lo devuelve en base64 para el navegador."""
+    try:
+        mp3_path = jarvis_core.generar_audio_mp3(texto)
+        with open(mp3_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode("utf-8")
+        os.remove(mp3_path)
+        return b64
+    except Exception as e:
+        logger.error(f"Error generando audio: {e}")
+        return None
+
+
+def _reenviar_a_telegram(texto_usuario, respuesta_texto, prefijo="⌨️ Tú (texto)"):
+    """Reenvía un comando y su respuesta como nota de voz al chat de Telegram."""
+    try:
+        jarvis_core.enviar_texto_telegram(f"{prefijo}: {texto_usuario}")
+        mp3_path = jarvis_core.generar_audio_mp3(respuesta_texto)
+        ogg_path = mp3_path.replace(".mp3", ".ogg")
+        AudioSegment.from_file(mp3_path).export(ogg_path, format="ogg", codec="libopus")
+        jarvis_core.enviar_voz_telegram(ogg_path, caption=respuesta_texto[:200])
+        os.remove(mp3_path)
+    except Exception as e:
+        logger.error(f"Error reenviando a Telegram: {e}")
+
+
 @app.route("/api/comando", methods=["POST"])
 def api_comando():
     global _jarvis_pausado
@@ -127,20 +156,83 @@ def api_comando():
             _wake_detector.reanudar()
     elif resultado.get("accion") == "cambiar_canal":
         _accion_queue.put(f"cambiar_canal:{resultado.get('dato', '')}")
-        threading.Thread(
-            target=lambda: jarvis_core.hablar(resultado["respuesta"]),
-            daemon=True
-        ).start()
+        resultado["audio_base64"] = _generar_audio_base64(resultado["respuesta"])
         return jsonify(resultado)
     elif resultado.get("accion") in ("abrir_noticias", "abrir_mapa"):
         _accion_queue.put(resultado["accion"])
-        threading.Thread(
-            target=lambda: jarvis_core.hablar(resultado["respuesta"]),
-            daemon=True
-        ).start()
+        resultado["audio_base64"] = _generar_audio_base64(resultado["respuesta"])
         return jsonify(resultado)
 
+    respuesta_texto = resultado.get("respuesta", "")
+    if respuesta_texto:
+        resultado["audio_base64"] = _generar_audio_base64(respuesta_texto)
+        _reenviar_a_telegram(comando, respuesta_texto)
+
     return jsonify(resultado)
+
+
+@app.route("/api/voice-comando", methods=["POST"])
+def api_voice_comando():
+    """
+    Recibe un audio grabado en el navegador, lo transcribe, procesa el comando,
+    genera la respuesta en voz, la reenvía a Telegram, y devuelve el audio
+    en base64 para reproducirlo también en la web.
+    """
+    global _jarvis_pausado
+
+    if "audio" not in request.files:
+        return jsonify({"ok": False, "error": "Falta el archivo de audio"}), 400
+
+    audio_file = request.files["audio"]
+    tmp_dir = tempfile.gettempdir()
+    ts = int(time.time() * 1000)
+    entrada_path = os.path.join(tmp_dir, f"jarvis_in_{ts}.webm")
+    wav_path     = os.path.join(tmp_dir, f"jarvis_in_{ts}.wav")
+    audio_file.save(entrada_path)
+
+    try:
+        try:
+            audio = AudioSegment.from_file(entrada_path)
+            audio.export(wav_path, format="wav")
+        except Exception as e:
+            logger.error(f"Error convirtiendo audio: {e}")
+            return jsonify({"ok": False, "error": "No se pudo procesar el audio"}), 500
+
+        texto = jarvis_core.transcribir_archivo(wav_path)
+        if not texto:
+            return jsonify({"ok": False, "error": "No se entendió el audio"})
+
+        texto_limpio = texto.strip().rstrip(".").lower()
+        if texto_limpio in ("jarvis", "jarvi", "jarbes", "harvis"):
+            return jsonify({"ok": False, "mensaje": "Wake word ignorada como comando"})
+
+        resultado = jarvis_core.procesar_comando(texto)
+
+        if resultado.get("accion") == "desconocido":
+            groq_resp = _llm_preguntar(texto)
+            if groq_resp:
+                resultado = {"respuesta": groq_resp, "accion": "groq", "continuar": True}
+
+        if resultado.get("accion") == "pausar":
+            _jarvis_pausado = True
+        elif resultado.get("accion") == "reanudar":
+            _jarvis_pausado = False
+
+        respuesta_texto = resultado.get("respuesta", "")
+        resultado["ok"] = True
+        resultado["texto_usuario"] = texto
+        resultado["audio_base64"] = _generar_audio_base64(respuesta_texto)
+        _reenviar_a_telegram(texto, respuesta_texto, prefijo="🎙️ Tú (voz web)")
+
+        return jsonify(resultado)
+
+    finally:
+        for p in (entrada_path, wav_path):
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
 
 
 @app.route("/api/subtitulos")
@@ -573,8 +665,6 @@ def api_deploy():
 
 
 # ── Telegram Bot (proceso separado) ─────────────────────────────────────────
-
-TELEGRAM_TOKEN = "8899539220:AAFacmqK0Azb-ZKMC5o4B5a5hxBdFirQwVs"
 
 _telegram_process = None
 
