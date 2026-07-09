@@ -16,10 +16,6 @@ from flask_cors import CORS
 import jarvis_core
 import requests
 import subprocess
-from pydub import AudioSegment
-from dotenv import load_dotenv
-load_dotenv()
-
 import sys
 from dotenv import load_dotenv
 load_dotenv()
@@ -48,6 +44,7 @@ def _on_wake(fuente: str):
     _ultimo_wake = ahora
     logger.info(f"Wake activada: {fuente}")
     _wake_queue.put(fuente)
+
 
 def iniciar_wake_detector():
     global _wake_detector, _wake_activo
