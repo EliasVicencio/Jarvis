@@ -48,6 +48,9 @@ export default function App() {
   const estadoRef   = useRef("inactivo");
   const escucharRef = useRef(null);
   const scrollRef   = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const chunksRef        = useRef([]);
+  const streamRef        = useRef(null);
   const hora = useReloj();
 
   useEffect(() => { estadoRef.current = estado; }, [estado]);
@@ -152,7 +155,7 @@ export default function App() {
       let resolved = false;
       const done = (text) => { if (!resolved) { resolved = true; resolve(text); } };
       sr.onresult = (e) => done(e.results[0][0].transcript.toLowerCase());
-      sr.onerror = () => done("");
+      sr.onerror = (e) => { console.error("SpeechRecognition error:", e.error); done(""); };
       sr.onend = () => done("");
       sr.start();
     });
@@ -163,22 +166,97 @@ export default function App() {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [tarjetas]);
 
-  // ── Escuchar micrófono ─────────────────────────────────────────────────
-  const escucharMicrofono = useCallback(async () => {
-    if (estadoRef.current !== "inactivo") return;
-    setEstado("escuchando");
-    const texto = await reconocerVozBrowser();
-    if (texto) {
+  // ── Enviar el audio grabado al backend (transcribe, procesa, responde) ──
+  const enviarAudioGrabado = useCallback(async () => {
+    setEstado("procesando");
+    estadoRef.current = "procesando";
+    const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+    chunksRef.current = [];
+
+    if (blob.size < 1000) {
       setEstado("inactivo");
       estadoRef.current = "inactivo";
-      await enviarComando(texto, false);
-    } else {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("audio", blob, "voz.webm");
+
+    try {
+      const resp = await fetch(`${API}/voice-comando`, { method: "POST", body: formData });
+      const data = await resp.json();
+
+      if (!data.ok) {
+        setEstado("inactivo");
+        estadoRef.current = "inactivo";
+        if (data.mensaje === "Wake word ignorada como comando") {
+          setTimeout(() => escucharRef.current?.(), 300);
+        }
+        return;
+      }
+
+      setEstado("hablando");
+      estadoRef.current = "hablando";
+      setTarjetas([{ pregunta: data.texto_usuario || "", respuesta: data.respuesta || "" }]);
+      if (data.respuesta) hablarBrowser(data.respuesta);
+
+      if (data.accion && data.accion.startsWith("cambiar_canal:")) {
+        const canal = data.accion.replace("cambiar_canal:", "");
+        setCanalNoticias(canal);
+        setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      } else if (data.accion === "cambiar_canal" && data.dato) {
+        setCanalNoticias(data.dato);
+        setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      } else if (data.accion === "abrir_noticias") {
+        setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      } else if (data.accion === "abrir_mapa") {
+        setTimeout(() => { setVista("mapa"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      } else {
+        setTimeout(() => { setEstado("inactivo"); estadoRef.current = "inactivo"; }, 1000);
+      }
+    } catch (err) {
+      console.error("Error enviando audio:", err);
       setEstado("inactivo");
       estadoRef.current = "inactivo";
     }
-  }, [enviarComando, reconocerVozBrowser]);
+  }, [hablarBrowser]);
 
-  useEffect(() => { escucharRef.current = escucharMicrofono; }, [escucharMicrofono]);
+  // ── Escuchar micrófono (grabación real en el navegador, transcripción en el servidor) ──
+  const escucharMicrofono = useCallback(async () => {
+    if (estadoRef.current === "escuchando") {
+      mediaRecorderRef.current?.stop();
+      return;
+    }
+    if (estadoRef.current !== "inactivo") return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+
+      const mr = new MediaRecorder(stream);
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        streamRef.current?.getTracks().forEach(t => t.stop());
+        enviarAudioGrabado();
+      };
+      mediaRecorderRef.current = mr;
+      mr.start();
+
+      setEstado("escuchando");
+      estadoRef.current = "escuchando";
+
+      setTimeout(() => {
+        if (mediaRecorderRef.current?.state === "recording") {
+          mediaRecorderRef.current.stop();
+        }
+      }, 10000);
+    } catch (err) {
+      console.error("No se pudo acceder al micrófono:", err);
+      setEstado("inactivo");
+      estadoRef.current = "inactivo";
+    }
+  }, [enviarAudioGrabado]);
 
   // ── Carga inicial ──────────────────────────────────────────────────────
   useEffect(() => {
