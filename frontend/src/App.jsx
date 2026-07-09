@@ -344,9 +344,6 @@ export default function App() {
         </div>
 
         <div className="bottom-area">
-          {/* Enlace a Telegram */}
-          <a href="https://t.me/jarvis_elias_vicencio_bot" target="_blank" className="chat-link">💬 Chat vía Telegram</a>
-
           {/* Input centrado abajo */}
           <form className="input-row" onSubmit={handleEnviar}>
             <input
