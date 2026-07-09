@@ -553,9 +553,23 @@ def _llm_preguntar(pregunta: str) -> str:
             },
             json={
                 "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": pregunta}],
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "Eres JARVIS, el asistente de inteligencia artificial personal de Elías. "
+                            "Respondes en español de Chile, con un tono cercano, ingenioso y un poco "
+                            "sarcástico, similar al JARVIS de Iron Man: leal, eficiente, y con un humor "
+                            "seco ocasional. Nunca digas que eres un modelo de lenguaje de Meta, Llama, "
+                            "ni menciones tecnicismos sobre tu funcionamiento interno — actúa siempre "
+                            "como JARVIS. Sé conciso: respuestas de máximo 2-3 frases salvo que te pidan "
+                            "explícitamente más detalle."
+                        )
+                    },
+                    {"role": "user", "content": pregunta}
+                ],
                 "max_tokens": 1024,
-                "temperature": 0.7
+                "temperature": 0.8
             },
             timeout=30
         )
