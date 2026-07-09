@@ -13,9 +13,9 @@
     "whatsapp": {
       "enabled": true,
       "dmPolicy": "pairing",
-      "allowFrom": ["+TU_NUMERO_WHATSAPP"],
+      "allowFrom": ["+56949337970"],
       "groupPolicy": "allowlist",
-      "groupAllowFrom": ["+TU_NUMERO_WHATSAPP"]
+      "groupAllowFrom": ["+56949337970"]
     },
     "discord": {
       "enabled": true,
