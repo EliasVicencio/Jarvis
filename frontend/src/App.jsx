@@ -70,6 +70,7 @@ export default function App() {
     if (!forzar && estadoRef.current !== "inactivo") return;
     setEstado("procesando");
     estadoRef.current = "procesando";
+    setTarjetas([]);
 
     // Si OpenClaw está activo, preguntarle primero para comandos no triviales
     if (usarOpenclaw && openclawStatus && texto.length > 10) {
@@ -83,7 +84,7 @@ export default function App() {
         if (ocData.ok) {
           setEstado("inactivo");
           estadoRef.current = "inactivo";
-          setTarjetas(prev => [{ pregunta: texto, respuesta: ocData.respuesta || "" }, ...prev]);
+          setTarjetas([{ pregunta: texto, respuesta: ocData.respuesta || "" }]);
           if (ocData.respuesta) hablarBrowser(ocData.respuesta);
           if (ocData.accion === "abrir_noticias" || ocData.accion === "stark_intel") setVista("noticias");
           if (ocData.accion === "abrir_mapa") setVista("mapa");
@@ -106,7 +107,7 @@ export default function App() {
       setEstado("hablando");
       estadoRef.current = "hablando";
       if (data.respuesta) {
-        setTarjetas(prev => [{ pregunta: texto, respuesta: data.respuesta }, ...prev]);
+        setTarjetas([{ pregunta: texto, respuesta: data.respuesta }]);
         hablarBrowser(data.respuesta);
       }
       if (data.accion && data.accion.startsWith("cambiar_canal:")) {
