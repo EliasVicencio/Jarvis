@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import "./Noticias.css";
 
-const API = "http://localhost:5000/api";
+const API = "/api";
 
 // ── Canales disponibles ────────────────────────────────────────────────────
 const CANALES = [
