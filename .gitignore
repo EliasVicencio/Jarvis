@@ -4,8 +4,8 @@ backend/.env
 # Python
 __pycache__/
 *.pyc
+venv/
 backend/venv/
-backend/.venv/
 backend/recordatorios.txt
 
 # Rust / Tauri build
