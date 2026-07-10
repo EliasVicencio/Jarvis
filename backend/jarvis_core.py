@@ -269,7 +269,13 @@ def procesar_comando(comando):
         return {"respuesta": r, "continuar": True, "accion": "hora"}
 
     if "fecha" in comando or "qué día" in comando:
-        r = f"Hoy es {datetime.datetime.now().strftime('%A %d de %B de %Y')}"
+        _dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+        _meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
+                  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+        _ahora = datetime.datetime.now()
+        _dia_semana = _dias[_ahora.weekday()]
+        _mes = _meses[_ahora.month - 1]
+        r = f"Hoy es {_dia_semana} {_ahora.day} de {_mes} de {_ahora.year}"
         return {"respuesta": r, "continuar": True, "accion": "fecha"}
 
     if "recuérdame" in comando or "recuerdame" in comando:
