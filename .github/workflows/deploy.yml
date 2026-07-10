@@ -1,0 +1,27 @@
+name: Deploy a Oracle Cloud
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conectar y desplegar por SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/ubuntu/Jarvis
+            git pull origin main
+            cd frontend
+            npm install --no-audit --no-fund
+            npm run build
+            cd ..
+            sudo systemctl restart jarvis-backend.service
+            sudo systemctl restart jarvis-frontend.service
+            echo "✅ Deploy completado"
