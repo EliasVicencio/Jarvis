@@ -86,7 +86,8 @@
 .si-rw{display:flex;align-items:center;justify-content:center;padding:8px;flex-shrink:0;border-bottom:1px solid rgba(45,212,232,0.07)}
 .si-rc{position:relative;width:100px;height:100px}
 .si-rc svg{position:absolute;inset:0}
-.si-radar-line{transform-origin:50px 50px;animation:si-rspin 4s linear infinite}
+.si-radar-wrap{display:flex;justify-content:center;align-items:center;width:100%}
+.si-radar-line{transform-origin:60px 60px;animation:si-rspin 4s linear infinite}
 @keyframes si-rspin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .si-rcc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
 .si-rl{font-size:10px;letter-spacing:0.1em;color:rgba(45,212,232,0.4)}

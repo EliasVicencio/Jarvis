@@ -650,6 +650,23 @@ def api_whatsapp_enviar():
         logger.error(f"Error WhatsApp: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/proyectos-estado")
+def api_proyectos_estado():
+    """Verifica en vivo si Jarvis y Hyperion (frontend/backend) están respondiendo."""
+    proyectos = [
+        {"nombre": "Jarvis Backend",     "url": "http://127.0.0.1:5000/api/estado"},
+        {"nombre": "Hyperion Frontend",  "url": "https://hyperion-core.vercel.app"},
+        {"nombre": "Hyperion Backend",   "url": "https://hyperion-pi-nine.vercel.app/health/deep"},
+    ]
+    resultado = []
+    for p in proyectos:
+        try:
+            r = requests.get(p["url"], timeout=5)
+            ok = r.status_code < 500
+        except Exception:
+            ok = False
+        resultado.append({"nombre": p["nombre"], "ok": ok})
+    return jsonify({"proyectos": resultado})
 
 # ── Deploy Frontend ──────────────────────────────────────────────────────────
 

@@ -86,24 +86,31 @@ function GithubPanel() {
   );
 }
 
-function StatusPanel() {
-  const items = [
-    {label:"Backend Flask",val:"OK·5000",ok:true},
-    {label:"Wake Word",val:"ACTIVO",ok:true},
-    {label:"Edge TTS",val:"LISTO",ok:true},
-    {label:"Google STT",val:"LISTO",ok:true},
-    {label:"NewsAPI",val:"ONLINE",ok:true},
-    {label:"GitHub API",val:"ONLINE",ok:true},
-    {label:"CoinGecko",val:"ONLINE",ok:true},
-  ];
+function ProyectosPanel() {
+  const [proyectos, setProyectos] = useState([]);
+
+  useEffect(() => {
+    const cargar = () => {
+      fetch(`${API}/proyectos-estado`)
+        .then(r => r.json())
+        .then(d => setProyectos(d.proyectos || []))
+        .catch(() => {});
+    };
+    cargar();
+    const id = setInterval(cargar, 60000); // revisa cada 60s
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <div className="si-panel si-panel-flex">
-      <div className="si-ph">▸ ESTADO SISTEMA <div className="si-pd"/></div>
-      {items.map((it,i) => (
+      <div className="si-ph">▸ ESTADO DE PROYECTOS <div className="si-pd"/></div>
+      {proyectos.length === 0 ? (
+        <div className="si-srow"><span className="si-sn">Verificando…</span></div>
+      ) : proyectos.map((p, i) => (
         <div key={i} className="si-srow">
-          <div className={it.ok?"si-sdg":"si-sda"}/>
-          <span className="si-sn">{it.label}</span>
-          <span className="si-sv3">{it.val}</span>
+          <div className={p.ok ? "si-sdg" : "si-sda"}/>
+          <span className="si-sn">{p.nombre}</span>
+          <span className="si-sv3">{p.ok ? "ONLINE" : "CAÍDO"}</span>
         </div>
       ))}
     </div>
@@ -429,7 +436,7 @@ export default function Noticias({ onVolver, canalInicial = null }) {
               </div>
             </div>
           </div>
-          <StatusPanel />
+          <ProyectosPanel />
           <SubtitulosPanel video={video} />
         </div>
 
