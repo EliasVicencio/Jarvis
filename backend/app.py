@@ -408,11 +408,23 @@ def api_hablar():
             _wake_detector.reanudar()
     return jsonify({"ok": True})
 
-
 @app.route("/api/recordatorios")
 def api_recordatorios():
     return jsonify({"recordatorios": jarvis_core.obtener_recordatorios()})
 
+
+@app.route("/api/recordatorios", methods=["POST"])
+def api_recordatorios_agregar():
+    data = request.get_json(force=True) or {}
+    texto = data.get("texto", "")
+    recs = jarvis_core.agregar_recordatorio(texto)
+    return jsonify({"recordatorios": recs})
+
+
+@app.route("/api/recordatorios/<int:indice>", methods=["DELETE"])
+def api_recordatorios_eliminar(indice):
+    recs = jarvis_core.eliminar_recordatorio(indice)
+    return jsonify({"recordatorios": recs})
 
 @app.route("/api/saludo")
 def api_saludo():

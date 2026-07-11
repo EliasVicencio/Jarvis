@@ -425,3 +425,22 @@ def obtener_recordatorios():
         with open(RECORDATORIOS_PATH, "r", encoding="utf-8") as f:
             return [l.strip() for l in f if l.strip()]
     return []
+
+
+def agregar_recordatorio(texto):
+    texto = texto.strip()
+    if not texto:
+        return obtener_recordatorios()
+    with open(RECORDATORIOS_PATH, "a", encoding="utf-8") as f:
+        f.write(texto + "\n")
+    return obtener_recordatorios()
+
+
+def eliminar_recordatorio(indice):
+    recs = obtener_recordatorios()
+    if 0 <= indice < len(recs):
+        recs.pop(indice)
+        with open(RECORDATORIOS_PATH, "w", encoding="utf-8") as f:
+            for r in recs:
+                f.write(r + "\n")
+    return recs

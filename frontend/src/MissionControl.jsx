@@ -481,6 +481,87 @@ function BandejaTab() {
   );
 }
 
+// ── PESTAÑA 4: RECORDATORIOS ───────────────────────────────────────────────
+function RecordatoriosTab() {
+  const [recordatorios, setRecordatorios] = useState([]);
+  const [nuevo, setNuevo] = useState("");
+  const [cargando, setCargando] = useState(true);
+
+  const cargar = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/recordatorios`);
+      const d = await r.json();
+      setRecordatorios(d.recordatorios || []);
+    } catch {}
+    setCargando(false);
+  }, []);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const agregar = async () => {
+    if (!nuevo.trim()) return;
+    try {
+      const r = await fetch(`${API}/recordatorios`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texto: nuevo }),
+      });
+      const d = await r.json();
+      setRecordatorios(d.recordatorios || []);
+      setNuevo("");
+    } catch {}
+  };
+
+  const eliminar = async (idx) => {
+    try {
+      const r = await fetch(`${API}/recordatorios/${idx}`, { method: "DELETE" });
+      const d = await r.json();
+      setRecordatorios(d.recordatorios || []);
+    } catch {}
+  };
+
+  return (
+    <div style={{ padding: 10, height: "100%", display: "flex", flexDirection: "column" }}>
+      <div className="mc-panel" style={{ flex: 1, minHeight: 0 }}>
+        <div className="mc-ph">▸ RECORDATORIOS <div className="mc-pd" /></div>
+
+        <div style={{ display: "flex", gap: 8, padding: 10 }}>
+          <input
+            className="mc-input"
+            placeholder="Escribe un nuevo recordatorio…"
+            value={nuevo}
+            onChange={e => setNuevo(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && agregar()}
+          />
+          <button className="mc-btn-save" onClick={agregar}>+ AGREGAR</button>
+        </div>
+
+        <div className="mc-scroll" style={{ flex: 1 }}>
+          {cargando ? (
+            <div className="mc-loading"><div className="mc-spin" /></div>
+          ) : recordatorios.length === 0 ? (
+            <div className="mc-empty">No tienes recordatorios pendientes</div>
+          ) : recordatorios.map((r, i) => (
+            <div key={i} className="mc-mod-row">
+              <div className="mc-mdot mc-green" />
+              <div className="mc-mod-body">
+                <div className="mc-mod-name">{r}</div>
+              </div>
+              <button
+                className="mc-btn-cancel"
+                style={{ flexShrink: 0 }}
+                onClick={() => eliminar(i)}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
 export default function MissionControl({ onVolver }) {
   const [tab, setTab] = useState("sistema");
@@ -509,6 +590,7 @@ export default function MissionControl({ onVolver }) {
             {id:"sistema",   icon:"◎", label:"SISTEMA"},
             {id:"contenido", icon:"⬡", label:"CONTENIDO"},
             {id:"bandeja",   icon:"◈", label:"BANDEJA"},
+            {id:"recordatorios", icon:"✎", label:"RECORDATORIOS"},
           ].map(t => (
             <button key={t.id}
               className={`mc-tab ${tab===t.id?"mc-tab-on":""}`}
@@ -528,6 +610,7 @@ export default function MissionControl({ onVolver }) {
         {tab === "sistema"   && <SistemaTab />}
         {tab === "contenido" && <ContenidoTab />}
         {tab === "bandeja"   && <BandejaTab />}
+        {tab === "recordatorios" && <RecordatoriosTab />}
       </div>
     </div>
   );
