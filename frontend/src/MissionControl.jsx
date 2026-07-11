@@ -354,20 +354,46 @@ function BandejaTab() {
   const [filtro,    setFiltro]    = useState("todos"); // todos | no-leídos
   const [conectado, setConectado] = useState(false);
 
+  const LEIDOS_KEY = "jarvis_emails_leidos";
+
+  const obtenerLeidosGuardados = () => {
+    try { return new Set(JSON.parse(localStorage.getItem(LEIDOS_KEY) || "[]")); }
+    catch { return new Set(); }
+  };
+
+  const guardarComoLeido = (messageId) => {
+    if (!messageId) return;
+    const set = obtenerLeidosGuardados();
+    set.add(messageId);
+    localStorage.setItem(LEIDOS_KEY, JSON.stringify([...set]));
+  };
+
   const cargarEmails = useCallback(async () => {
     try {
       const r = await fetch(`${API}/emails`);
       const d = await r.json();
       if (d.error) { setError(d.error); setConectado(false); }
-      else { setEmails(d.emails||[]); setConectado(true); if(d.emails?.length) setSelEmail(d.emails[0]); }
+      else {
+        const leidosGuardados = obtenerLeidosGuardados();
+        const emailsConLeido = (d.emails || []).map(e => ({
+          ...e,
+          leido: e.leido || leidosGuardados.has(e.message_id),
+        }));
+        setEmails(emailsConLeido);
+        setConectado(true);
+        if (emailsConLeido.length) setSelEmail(emailsConLeido[0]);
+      }
     } catch { setError("No se pudo conectar con el backend."); setConectado(false); }
     setCargando(false);
   }, []);
 
   useEffect(() => { cargarEmails(); }, [cargarEmails]);
 
-  const marcarLeido = (id) => setEmails(prev => prev.map(e=>e.id===id?{...e,leido:true}:e));
-  const seleccionar = (email) => { setSelEmail(email); marcarLeido(email.id); setReply(""); };
+  const marcarLeido = (email) => {
+    setEmails(prev => prev.map(e => e.id === email.id ? { ...e, leido: true } : e));
+    guardarComoLeido(email.message_id);
+  };
+  const seleccionar = (email) => { setSelEmail(email); marcarLeido(email); setReply(""); };
   const noLeidos = emails.filter(e=>!e.leido).length;
 
   const AVATAR_COLORS = ["#2DD4E8","#4ADE80","#F2A93B","#F87171","#A78BFA","#F472B6"];

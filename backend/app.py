@@ -361,6 +361,7 @@ def api_emails():
             de_raw = decode_header(msg["From"] or "")[0]
             de = de_raw[0].decode(de_raw[1] or "utf-8") if isinstance(de_raw[0], bytes) else (de_raw[0] or "")
             fecha = msg["Date"] or ""
+            message_id = (msg["Message-ID"] or "").strip()
             cuerpo = ""
             if msg.is_multipart():
                 for part in msg.walk():
@@ -370,13 +371,14 @@ def api_emails():
             else:
                 cuerpo = msg.get_payload(decode=True).decode("utf-8", errors="replace")[:2000]
             emails.append({
-                "id":      eid.decode(),
-                "de":      de,
-                "asunto":  asunto,
-                "preview": cuerpo[:80].replace("\n"," "),
-                "cuerpo":  cuerpo,
-                "fecha":   fecha,
-                "leido":   False,
+                "id":         eid.decode(),
+                "message_id": message_id,
+                "de":         de,
+                "asunto":     asunto,
+                "preview":    cuerpo[:80].replace("\n"," "),
+                "cuerpo":     cuerpo,
+                "fecha":      fecha,
+                "leido":      False,
             })
         M.logout()
         return jsonify({"emails": emails})
