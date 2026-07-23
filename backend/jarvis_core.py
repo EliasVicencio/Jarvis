@@ -258,7 +258,39 @@ CHISTES = [
     "Hay 10 tipos de personas: las que entienden binario y las que no.",
     "¿Por qué la computadora fue al médico? Porque tenía un virus.",
     "¿Cómo se llama el campeón de buceo japonés? Mitsubishi.",
-]
+]  # Respaldo, solo se usa si Groq no está disponible
+
+
+def generar_chiste_llm():
+    """Genera un chiste corto y original con Groq. Si falla, usa la lista local como respaldo."""
+    if GROQ_API_KEY_MEM:
+        try:
+            resp = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
+                json={
+                    "model": "llama-3.1-8b-instant",
+                    "messages": [
+                        {"role": "system", "content": (
+                            "Eres JARVIS. Cuenta UN chiste corto, ingenioso y original en español "
+                            "de Chile (puede ser de programación, de la vida cotidiana, un juego de "
+                            "palabras, o humor absurdo). Máximo 2 líneas. Responde SOLO con el "
+                            "chiste, sin introducción, sin explicación, sin comillas."
+                        )},
+                        {"role": "user", "content": "Cuéntame un chiste"}
+                    ],
+                    "max_tokens": 120,
+                    "temperature": 1.0
+                },
+                timeout=10
+            )
+            if resp.ok:
+                chiste = resp.json()["choices"][0]["message"]["content"].strip()
+                if chiste:
+                    return chiste
+        except Exception as e:
+            print(f"⚠ Error generando chiste con Groq: {e}")
+    return random.choice(CHISTES)
 
 
 # ── Procesamiento de comandos ─────────────────────────────────────────────
@@ -324,7 +356,7 @@ def procesar_comando(comando):
         return {"respuesta": "Abriendo el bloc de notas", "continuar": True, "accion": "abrir_notas"}
 
     if "chiste" in comando:
-        return {"respuesta": random.choice(CHISTES), "continuar": True, "accion": "chiste"}
+        return {"respuesta": generar_chiste_llm(), "continuar": True, "accion": "chiste"}
 
     if "ayuda" in comando or "qué puedes" in comando or "comandos" in comando:
         return {"respuesta": "Puedo decirte la hora, la fecha, el clima, buscar en Google, "
