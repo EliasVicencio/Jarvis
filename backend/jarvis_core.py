@@ -474,10 +474,26 @@ def contexto_memoria_para_prompt(limite=25):
     return "Datos que ya sabes sobre Elías (úsalos si son relevantes para responder):\n" + "\n".join(lineas)
 
 
+_FRASES_META_MEMORIA = (
+    "qué sabes de mí", "que sabes de mi", "qué sabes sobre mí", "que sabes sobre mi",
+    "recuerdas algo de mí", "recuerdas algo de mi", "qué recuerdas de mí", "que recuerdas de mi",
+    "qué tienes guardado", "que tienes guardado", "borra tu memoria", "olvida lo que sabes",
+)
+
+
 def extraer_memoria_llm(mensaje_usuario):
-    """Le pregunta a Groq si el mensaje trae un dato personal digno de recordar a largo plazo."""
+    """Le pregunta a Groq si el mensaje trae un dato personal NUEVO y concreto, digno de recordar."""
     if not GROQ_API_KEY_MEM:
         return None
+
+    texto_lower = mensaje_usuario.strip().lower()
+    # No extraer nada de preguntas que son sobre la memoria misma (evita ruido/basura)
+    if any(frase in texto_lower for frase in _FRASES_META_MEMORIA):
+        return None
+    # Mensajes muy cortos casi nunca traen un dato nuevo digno de guardar
+    if len(mensaje_usuario.strip()) < 8:
+        return None
+
     try:
         resp = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
@@ -486,18 +502,25 @@ def extraer_memoria_llm(mensaje_usuario):
                 "model": "llama-3.1-8b-instant",
                 "messages": [
                     {"role": "system", "content": (
-                        "Analiza el mensaje del usuario y decide si contiene un dato personal "
-                        "digno de recordar a largo plazo (nombre, preferencia, lugar donde vive o "
-                        "trabaja, proyecto, gusto, relación, dato de contexto útil). "
+                        "Tu única tarea es decidir si el mensaje del usuario contiene un HECHO "
+                        "PERSONAL CONCRETO y NUEVO, digno de recordar a largo plazo: su nombre, una "
+                        "preferencia real (gusto, comida, música), dónde vive o trabaja, un proyecto "
+                        "en el que trabaja, una relación (familiar, mascota), o un dato de contexto "
+                        "claramente útil.\n"
+                        "NO extraigas nada de: saludos, preguntas casuales, preguntas sobre el clima "
+                        "o la hora, preguntas dirigidas a ti mismo (JARVIS), charla genérica sin "
+                        "información nueva, ni de mensajes ambiguos donde no haya un hecho explícito.\n"
+                        "Ante cualquier duda, responde NADA — es preferible no guardar algo a guardar "
+                        "basura o inventar contenido que el usuario no dijo explícitamente.\n"
                         "Si NO hay nada digno de recordar, responde exactamente: NADA\n"
                         "Si SÍ hay algo, responde SOLO con un JSON válido de una línea, sin texto "
                         "adicional ni markdown, con esta forma exacta: "
-                        '{"categoria":"TAREA|LUGAR|ARCHIVO|CONTEXTO|CLIMA|OTRO","texto":"resumen breve en tercera persona","relacion":null}'
+                        '{"categoria":"TAREA|LUGAR|ARCHIVO|CONTEXTO|CLIMA|OTRO","texto":"resumen breve, literal y verificable en tercera persona","relacion":null}'
                     )},
                     {"role": "user", "content": mensaje_usuario}
                 ],
                 "max_tokens": 150,
-                "temperature": 0.2
+                "temperature": 0.1
             },
             timeout=15
         )
@@ -510,102 +533,14 @@ def extraer_memoria_llm(mensaje_usuario):
         if contenido.lower().startswith("json"):
             contenido = contenido[4:].strip()
         dato = json.loads(contenido)
+        if not dato.get("texto"):
+            return None
         if dato.get("categoria") not in ("TAREA", "LUGAR", "ARCHIVO", "CONTEXTO", "CLIMA", "OTRO"):
             dato["categoria"] = "OTRO"
         return dato
     except Exception as e:
         print(f"⚠ Error extrayendo memoria: {e}")
         return None
-
-def obtener_memoria():
-    if os.path.exists(MEMORIA_PATH):
-        try:
-            with open(MEMORIA_PATH, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return []
-    return []
-
-
-def agregar_memoria(categoria, texto, relacion=None):
-    memorias = obtener_memoria()
-    texto_norm = (texto or "").strip().lower()
-    if not texto_norm:
-        return memorias
-    if any(m.get("texto", "").strip().lower() == texto_norm for m in memorias):
-        return memorias  # ya existe, evitar duplicados
-    memorias.append({
-        "categoria": categoria or "OTRO",
-        "texto": texto.strip(),
-        "relacion": relacion,
-        "fecha": datetime.datetime.now().isoformat(),
-    })
-    with open(MEMORIA_PATH, "w", encoding="utf-8") as f:
-        json.dump(memorias, f, ensure_ascii=False, indent=2)
-    return memorias
-
-
-def eliminar_memoria(indice):
-    memorias = obtener_memoria()
-    if 0 <= indice < len(memorias):
-        memorias.pop(indice)
-        with open(MEMORIA_PATH, "w", encoding="utf-8") as f:
-            json.dump(memorias, f, ensure_ascii=False, indent=2)
-    return memorias
-
-
-def contexto_memoria_para_prompt(limite=25):
-    """Arma un resumen de la memoria guardada para inyectarlo en el system prompt de Groq."""
-    memorias = obtener_memoria()[-limite:]
-    if not memorias:
-        return ""
-    lineas = [f"- {m['texto']}" for m in memorias]
-    return "Datos que ya sabes sobre Elías (úsalos si son relevantes para responder):\n" + "\n".join(lineas)
-
-
-def extraer_memoria_llm(mensaje_usuario):
-    """Le pregunta a Groq si el mensaje trae un dato personal digno de recordar a largo plazo."""
-    if not GROQ_API_KEY_MEM:
-        return None
-    try:
-        resp = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
-            json={
-                "model": "llama-3.1-8b-instant",
-                "messages": [
-                    {"role": "system", "content": (
-                        "Analiza el mensaje del usuario y decide si contiene un dato personal "
-                        "digno de recordar a largo plazo (nombre, preferencia, lugar donde vive o "
-                        "trabaja, proyecto, gusto, relación, dato de contexto útil). "
-                        "Si NO hay nada digno de recordar, responde exactamente: NADA\n"
-                        "Si SÍ hay algo, responde SOLO con un JSON válido de una línea, sin texto "
-                        "adicional ni markdown, con esta forma exacta: "
-                        '{"categoria":"TAREA|LUGAR|ARCHIVO|CONTEXTO|CLIMA|OTRO","texto":"resumen breve en tercera persona","relacion":null}'
-                    )},
-                    {"role": "user", "content": mensaje_usuario}
-                ],
-                "max_tokens": 150,
-                "temperature": 0.2
-            },
-            timeout=15
-        )
-        if not resp.ok:
-            return None
-        contenido = resp.json()["choices"][0]["message"]["content"].strip()
-        if contenido.upper().startswith("NADA"):
-            return None
-        contenido = contenido.strip("`").strip()
-        if contenido.lower().startswith("json"):
-            contenido = contenido[4:].strip()
-        dato = json.loads(contenido)
-        if dato.get("categoria") not in ("TAREA", "LUGAR", "ARCHIVO", "CONTEXTO", "CLIMA", "OTRO"):
-            dato["categoria"] = "OTRO"
-        return dato
-    except Exception as e:
-        print(f"⚠ Error extrayendo memoria: {e}")
-        return None
-
 
 def agregar_recordatorio(texto):
     texto = texto.strip()

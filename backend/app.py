@@ -15,13 +15,12 @@ import imaplib, email as emaillib
 from email.header import decode_header
 from datetime import datetime
 from flask_cors import CORS
-
+from dotenv import load_dotenv
+load_dotenv()
 import jarvis_core
 import requests
 import subprocess
 from pydub import AudioSegment
-from dotenv import load_dotenv
-load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
