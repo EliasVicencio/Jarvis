@@ -9,7 +9,7 @@ import json as _json
 import sys
 import base64
 import tempfile
-
+import re
 from flask import Flask, request, jsonify
 import imaplib, email as emaillib
 from email.header import decode_header
@@ -735,6 +735,33 @@ def api_youtube_videos():
     except Exception as e:
         logger.error(f"Error obteniendo videos YouTube RSS: {e}")
         return jsonify({"error": str(e), "videos": []})
+
+@app.route("/api/youtube-buscar-canal")
+def api_youtube_buscar_canal():
+    """Resuelve el nombre de cualquier canal de YouTube a su ID real, sin API key."""
+    query = request.args.get("q", "").strip()
+    if not query:
+        return jsonify({"error": "Falta q", "channel_id": None, "nombre": None})
+    try:
+        url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}&sp=EgIQAg%3D%3D"  # sp filtra solo canales
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        })
+        with urllib.request.urlopen(req, timeout=8) as r:
+            html = r.read().decode("utf-8", errors="ignore")
+
+        m = re.search(r'"channelId":"(UC[\w-]{22})"', html)
+        if not m:
+            return jsonify({"error": "Canal no encontrado", "channel_id": None, "nombre": None})
+        channel_id = m.group(1)
+
+        nombre_m = re.search(r'"title":\{"simpleText":"([^"]+)"\},"descriptionSnippet"', html)
+        nombre = nombre_m.group(1) if nombre_m else query
+
+        return jsonify({"channel_id": channel_id, "nombre": nombre})
+    except Exception as e:
+        logger.error(f"Error buscando canal: {e}")
+        return jsonify({"error": str(e), "channel_id": None, "nombre": None})
 
 @app.route("/api/deploy", methods=["POST"])
 def api_deploy():

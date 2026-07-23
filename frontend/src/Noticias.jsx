@@ -7,17 +7,17 @@ const API = "/api";
 const CANALES = [
   // Noticias generales
   { id: "UCupvZG-5ko_eiXAupbDfxWw", nombre: "CNN",           tag: "NEWS",  alias: ["cnn","canal de cnn"] },
-  { id: "UC16niRr50-MSBwiO3He_3-Q", nombre: "BBC News",      tag: "NEWS",  alias: ["bbc","bbc news"] },
+  { id: "UC16niRr50-MSBwiO3YDb3RA", nombre: "BBC News",      tag: "NEWS",  alias: ["bbc","bbc news"] },
   { id: "UCknLrEdhRCp1aegoMqRaCZg", nombre: "DW News",       tag: "NEWS",  alias: ["dw","dw news","deutsche welle"] },
   { id: "UCF9IOB2TExg3QIBupFtBDxg", nombre: "Al Jazeera",    tag: "NEWS",  alias: ["al jazeera","aljazeera"] },
-  { id: "UCHqGgKiTorByDs9fqoiYefA", nombre: "France 24",     tag: "NEWS",  alias: ["france 24","france24"] },
+  { id: "UCQfwfsi5VrQ8yKZ-UWmAEFg", nombre: "France 24",     tag: "NEWS",  alias: ["france 24","france24"] },
   { id: "UCeY0bbntWzzVIaj2z3QigXg", nombre: "NBC News",      tag: "NEWS",  alias: ["nbc","nbc news"] },
   // Tech / IA
   { id: "UCsBjURrPoezykLs9EqgamOA", nombre: "Fireship",      tag: "DEV",   alias: ["fireship"] },
-  { id: "UCWX3yGbODI3HMKollQ1YBKQ", nombre: "AI Explained",  tag: "IA",    alias: ["ai explained","inteligencia artificial"] },
-  { id: "UCnUYZLuoy1rq1aVMwx4aTzw", nombre: "Google DeepMind",tag:"IA",   alias: ["deepmind","google deepmind"] },
-  { id: "UC0RhatS1pyxInC00YKjjBqQ", nombre: "MKBHD",         tag: "TECH",  alias: ["mkbhd","marques"] },
-  { id: "UCXv0mDud2ACKmy8ViR9Kp_Q", nombre: "NetworkChuck",  tag: "SEC",   alias: ["networkchuck","network chuck"] },
+  { id: "UCNJ1Ymd5yFuUPtn21xtRbbw", nombre: "AI Explained",  tag: "IA",    alias: ["ai explained","inteligencia artificial"] },
+  { id: "UCP7jMXSY2xbc3KCAE0MHQ-A", nombre: "Google DeepMind",tag:"IA",   alias: ["deepmind","google deepmind"] },
+  { id: "UCBJycsmduvYEL83R_U4JriQ", nombre: "MKBHD",         tag: "TECH",  alias: ["mkbhd","marques"] },
+  { id: "UC9x0AN7BWHpCDHSm9NiJFJQ", nombre: "NetworkChuck",  tag: "SEC",   alias: ["networkchuck","network chuck"] },
   { id: "UCVls1GmFKf6WlTraIb_IaJg", nombre: "Linus Tech",    tag: "TECH",  alias: ["linus","linus tech tips"] },
 ];
 
@@ -204,8 +204,9 @@ export default function Noticias({ onVolver, canalInicial = null }) {
   const [categoria,  setCategoria]  = useState("tecnologia");
   const [error,      setError]      = useState(null);
   const [apiKey,     setApiKey]     = useState(null);
+  const [canalDinamico, setCanalDinamico] = useState(null);
 
-  const canalActual = CANALES[canalIdx];
+  const canalActual = canalDinamico || CANALES[canalIdx];
   const video       = videos[videoIdx];
 
   // Cargar API key del backend al iniciar
@@ -216,19 +217,32 @@ export default function Noticias({ onVolver, canalInicial = null }) {
       .catch(() => {});
   }, []);
 
-  // Cambiar canal por prop (desde comando de voz)
+ // Cambiar canal por prop (desde comando de voz) — busca en la lista fija, si no está, lo resuelve en YouTube
   useEffect(() => {
     if (!canalInicial) return;
     const q = canalInicial.toLowerCase();
     const idx = CANALES.findIndex(c => c.alias.some(a => q.includes(a)) || q.includes(c.nombre.toLowerCase()));
-    if (idx !== -1) setCanalIdx(idx);
+    if (idx !== -1) {
+      setCanalDinamico(null);
+      setCanalIdx(idx);
+      return;
+    }
+    // No está en la lista fija: buscarlo dinámicamente en YouTube
+    fetch(`${API}/youtube-buscar-canal?q=${encodeURIComponent(canalInicial)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.channel_id) {
+          setCanalDinamico({ id: d.channel_id, nombre: d.nombre, tag: "YT", alias: [] });
+        }
+      })
+      .catch(() => {});
   }, [canalInicial]);
 
-  // Cargar videos del canal — español primero, inglés con subtítulos como fallback
-  const cargarVideos = useCallback(async (idx) => {
+ // Cargar videos del canal actual (fijo o dinámico)
+  const cargarVideos = useCallback(async (canal) => {
+    if (!canal) return;
     setCargando(true);
     try {
-      const canal = CANALES[idx];
       const r = await fetch(`${API}/youtube-videos?channel_id=${canal.id}`);
       const data = await r.json();
       const videosFinales = (data.videos || []).map(v => ({
@@ -237,7 +251,6 @@ export default function Noticias({ onVolver, canalInicial = null }) {
         canal:    v.canal,
         tag:      canal.tag,
         lang:     "es",
-        canalIdx: idx,
       }));
       if (videosFinales.length) {
         setVideos(videosFinales);
@@ -248,8 +261,7 @@ export default function Noticias({ onVolver, canalInicial = null }) {
     } catch { setVideos(VIDEOS_FALLBACK); }
     setCargando(false);
   }, []);
-
-  useEffect(() => { cargarVideos(canalIdx); }, [canalIdx, cargarVideos]);
+  useEffect(() => { cargarVideos(canalActual); }, [canalActual, cargarVideos]);
 
   // Cargar noticias
   const cargarNoticias = useCallback(async (cat) => {
@@ -276,19 +288,6 @@ export default function Noticias({ onVolver, canalInicial = null }) {
         <div className="si-brand">
           <span className="si-brand-tag">STARK INTEL</span>
           <span className="si-brand-name">SALA DE CONTROL</span>
-        </div>
-
-        {/* Selector de canales */}
-        <div className="si-canales">
-          {CANALES.map((c, i) => (
-            <button key={c.id}
-              className={`si-canal-btn ${canalIdx===i?"si-canal-active":""}`}
-              style={canalIdx===i?{borderColor:TAG_COLORS[c.tag],color:TAG_COLORS[c.tag]}:{}}
-              onClick={() => setCanalIdx(i)}>
-              <span className="si-canal-tag" style={{background:`${TAG_COLORS[c.tag]}22`,color:TAG_COLORS[c.tag]}}>{c.tag}</span>
-              {c.nombre}
-            </button>
-          ))}
         </div>
 
         <div className="si-live"><div className="si-live-dot"/>EN VIVO</div>
@@ -327,20 +326,7 @@ export default function Noticias({ onVolver, canalInicial = null }) {
                 />
               )}
             </div>
-
-            {/* Playlist horizontal */}
-            <div className="si-playlist">
-              {videos.map((v,i) => (
-                <button key={v.id}
-                  className={`si-thumb ${videoIdx===i?"si-thumb-on":""}`}
-                  onClick={() => setVideoIdx(i)}>
-                  <img src={`https://img.youtube.com/vi/${v.id}/mqdefault.jpg`} alt="" className="si-thumb-img"/>
-                  <span className="si-vtag" style={{fontSize:6,margin:"2px 3px 0",background:`${TAG_COLORS[v.tag]||"#2DD4E8"}22`,color:TAG_COLORS[v.tag]||"#2DD4E8"}}>{v.tag}</span>
-                  <span className="si-thumb-title">{trunc(v.titulo,28)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+	  </div>
 
           {/* Noticias */}
           <div className="si-panel si-news-panel">
