@@ -699,6 +699,41 @@ import shutil
 
 FRONTEND_DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend", "dist")
 
+@app.route("/api/youtube-videos")
+def api_youtube_videos():
+    """Obtiene los últimos videos de un canal via el RSS público de YouTube (sin API key)."""
+    channel_id = request.args.get("channel_id", "")
+    if not channel_id:
+        return jsonify({"error": "Falta channel_id", "videos": []})
+    try:
+        import xml.etree.ElementTree as ET
+        url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            xml_data = r.read()
+
+        ns = {
+            "atom": "http://www.w3.org/2005/Atom",
+            "yt": "http://www.youtube.com/xml/schemas/2015",
+        }
+        root = ET.fromstring(xml_data)
+        videos = []
+        for entry in root.findall("atom:entry", ns):
+            video_id = entry.find("yt:videoId", ns)
+            title    = entry.find("atom:title", ns)
+            published = entry.find("atom:published", ns)
+            author   = entry.find("atom:author/atom:name", ns)
+            videos.append({
+                "id":     video_id.text if video_id is not None else "",
+                "titulo": title.text if title is not None else "",
+                "canal":  author.text if author is not None else "",
+                "fecha":  published.text if published is not None else "",
+            })
+        return jsonify({"videos": videos[:8]})
+    except Exception as e:
+        logger.error(f"Error obteniendo videos YouTube RSS: {e}")
+        return jsonify({"error": str(e), "videos": []})
+
 @app.route("/api/deploy", methods=["POST"])
 def api_deploy():
     """Acepta un ZIP del frontend build y lo extrae en dist/."""
