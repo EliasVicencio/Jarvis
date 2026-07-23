@@ -489,7 +489,9 @@ def api_noticias():
             f"&pageSize=12"
             f"&apiKey={api_key}"
         )
-        req = urllib.request.Request(url, headers={"User-Agent": "Jarvis/1.0"})
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        })
         with urllib.request.urlopen(req, timeout=8) as resp:
             data = _json.loads(resp.read())
 
