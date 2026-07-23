@@ -226,42 +226,19 @@ export default function Noticias({ onVolver, canalInicial = null }) {
 
   // Cargar videos del canal — español primero, inglés con subtítulos como fallback
   const cargarVideos = useCallback(async (idx) => {
-    if (!apiKey) { setVideos(VIDEOS_FALLBACK); return; }
     setCargando(true);
     try {
       const canal = CANALES[idx];
-      const base  = `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&channelId=${canal.id}&part=snippet&order=date&type=video`;
-
-      // 1. Buscar videos en español
-      const respEs = await fetch(`${base}&maxResults=8&relevanceLanguage=es`);
-      const dataEs = await respEs.json();
-      const videosEs = (dataEs.items || []).map(v => ({
-        id:       v.id.videoId,
-        titulo:   v.snippet.title,
-        canal:    v.snippet.channelTitle,
+      const r = await fetch(`${API}/youtube-videos?channel_id=${canal.id}`);
+      const data = await r.json();
+      const videosFinales = (data.videos || []).map(v => ({
+        id:       v.id,
+        titulo:   v.titulo,
+        canal:    v.canal,
         tag:      canal.tag,
         lang:     "es",
         canalIdx: idx,
       }));
-
-      // 2. Si hay menos de 4 en español, completar con inglés
-      let videosFinales = videosEs;
-      if (videosEs.length < 4) {
-        const respEn = await fetch(`${base}&maxResults=${8 - videosEs.length}&relevanceLanguage=en`);
-        const dataEn = await respEn.json();
-        const videosEn = (dataEn.items || [])
-          .filter(v => !videosEs.find(e => e.id === v.id.videoId))
-          .map(v => ({
-            id:       v.id.videoId,
-            titulo:   v.snippet.title,
-            canal:    v.snippet.channelTitle,
-            tag:      canal.tag,
-            lang:     "en",
-            canalIdx: idx,
-          }));
-        videosFinales = [...videosEs, ...videosEn];
-      }
-
       if (videosFinales.length) {
         setVideos(videosFinales);
         setVideoIdx(0);
@@ -270,7 +247,7 @@ export default function Noticias({ onVolver, canalInicial = null }) {
       }
     } catch { setVideos(VIDEOS_FALLBACK); }
     setCargando(false);
-  }, [apiKey]);
+  }, []);
 
   useEffect(() => { cargarVideos(canalIdx); }, [canalIdx, cargarVideos]);
 
