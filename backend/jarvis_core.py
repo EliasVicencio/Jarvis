@@ -20,6 +20,8 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 RECORDATORIOS_PATH = os.path.join(os.path.dirname(__file__), "recordatorios.txt")
+MEMORIA_PATH = os.path.join(os.path.dirname(__file__), "memoria_semantica.json")
+GROQ_API_KEY_MEM = os.getenv("GROQ_API_KEY", "")
 VOZ = "es-MX-JorgeNeural"
 
 # Reconocedor de voz (reutilizable)
@@ -425,6 +427,184 @@ def obtener_recordatorios():
         with open(RECORDATORIOS_PATH, "r", encoding="utf-8") as f:
             return [l.strip() for l in f if l.strip()]
     return []
+
+def obtener_memoria():
+    if os.path.exists(MEMORIA_PATH):
+        try:
+            with open(MEMORIA_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+
+def agregar_memoria(categoria, texto, relacion=None):
+    memorias = obtener_memoria()
+    texto_norm = (texto or "").strip().lower()
+    if not texto_norm:
+        return memorias
+    if any(m.get("texto", "").strip().lower() == texto_norm for m in memorias):
+        return memorias  # ya existe, evitar duplicados
+    memorias.append({
+        "categoria": categoria or "OTRO",
+        "texto": texto.strip(),
+        "relacion": relacion,
+        "fecha": datetime.datetime.now().isoformat(),
+    })
+    with open(MEMORIA_PATH, "w", encoding="utf-8") as f:
+        json.dump(memorias, f, ensure_ascii=False, indent=2)
+    return memorias
+
+
+def eliminar_memoria(indice):
+    memorias = obtener_memoria()
+    if 0 <= indice < len(memorias):
+        memorias.pop(indice)
+        with open(MEMORIA_PATH, "w", encoding="utf-8") as f:
+            json.dump(memorias, f, ensure_ascii=False, indent=2)
+    return memorias
+
+
+def contexto_memoria_para_prompt(limite=25):
+    """Arma un resumen de la memoria guardada para inyectarlo en el system prompt de Groq."""
+    memorias = obtener_memoria()[-limite:]
+    if not memorias:
+        return ""
+    lineas = [f"- {m['texto']}" for m in memorias]
+    return "Datos que ya sabes sobre Elías (úsalos si son relevantes para responder):\n" + "\n".join(lineas)
+
+
+def extraer_memoria_llm(mensaje_usuario):
+    """Le pregunta a Groq si el mensaje trae un dato personal digno de recordar a largo plazo."""
+    if not GROQ_API_KEY_MEM:
+        return None
+    try:
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [
+                    {"role": "system", "content": (
+                        "Analiza el mensaje del usuario y decide si contiene un dato personal "
+                        "digno de recordar a largo plazo (nombre, preferencia, lugar donde vive o "
+                        "trabaja, proyecto, gusto, relación, dato de contexto útil). "
+                        "Si NO hay nada digno de recordar, responde exactamente: NADA\n"
+                        "Si SÍ hay algo, responde SOLO con un JSON válido de una línea, sin texto "
+                        "adicional ni markdown, con esta forma exacta: "
+                        '{"categoria":"TAREA|LUGAR|ARCHIVO|CONTEXTO|CLIMA|OTRO","texto":"resumen breve en tercera persona","relacion":null}'
+                    )},
+                    {"role": "user", "content": mensaje_usuario}
+                ],
+                "max_tokens": 150,
+                "temperature": 0.2
+            },
+            timeout=15
+        )
+        if not resp.ok:
+            return None
+        contenido = resp.json()["choices"][0]["message"]["content"].strip()
+        if contenido.upper().startswith("NADA"):
+            return None
+        contenido = contenido.strip("`").strip()
+        if contenido.lower().startswith("json"):
+            contenido = contenido[4:].strip()
+        dato = json.loads(contenido)
+        if dato.get("categoria") not in ("TAREA", "LUGAR", "ARCHIVO", "CONTEXTO", "CLIMA", "OTRO"):
+            dato["categoria"] = "OTRO"
+        return dato
+    except Exception as e:
+        print(f"⚠ Error extrayendo memoria: {e}")
+        return None
+
+def obtener_memoria():
+    if os.path.exists(MEMORIA_PATH):
+        try:
+            with open(MEMORIA_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+
+def agregar_memoria(categoria, texto, relacion=None):
+    memorias = obtener_memoria()
+    texto_norm = (texto or "").strip().lower()
+    if not texto_norm:
+        return memorias
+    if any(m.get("texto", "").strip().lower() == texto_norm for m in memorias):
+        return memorias  # ya existe, evitar duplicados
+    memorias.append({
+        "categoria": categoria or "OTRO",
+        "texto": texto.strip(),
+        "relacion": relacion,
+        "fecha": datetime.datetime.now().isoformat(),
+    })
+    with open(MEMORIA_PATH, "w", encoding="utf-8") as f:
+        json.dump(memorias, f, ensure_ascii=False, indent=2)
+    return memorias
+
+
+def eliminar_memoria(indice):
+    memorias = obtener_memoria()
+    if 0 <= indice < len(memorias):
+        memorias.pop(indice)
+        with open(MEMORIA_PATH, "w", encoding="utf-8") as f:
+            json.dump(memorias, f, ensure_ascii=False, indent=2)
+    return memorias
+
+
+def contexto_memoria_para_prompt(limite=25):
+    """Arma un resumen de la memoria guardada para inyectarlo en el system prompt de Groq."""
+    memorias = obtener_memoria()[-limite:]
+    if not memorias:
+        return ""
+    lineas = [f"- {m['texto']}" for m in memorias]
+    return "Datos que ya sabes sobre Elías (úsalos si son relevantes para responder):\n" + "\n".join(lineas)
+
+
+def extraer_memoria_llm(mensaje_usuario):
+    """Le pregunta a Groq si el mensaje trae un dato personal digno de recordar a largo plazo."""
+    if not GROQ_API_KEY_MEM:
+        return None
+    try:
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [
+                    {"role": "system", "content": (
+                        "Analiza el mensaje del usuario y decide si contiene un dato personal "
+                        "digno de recordar a largo plazo (nombre, preferencia, lugar donde vive o "
+                        "trabaja, proyecto, gusto, relación, dato de contexto útil). "
+                        "Si NO hay nada digno de recordar, responde exactamente: NADA\n"
+                        "Si SÍ hay algo, responde SOLO con un JSON válido de una línea, sin texto "
+                        "adicional ni markdown, con esta forma exacta: "
+                        '{"categoria":"TAREA|LUGAR|ARCHIVO|CONTEXTO|CLIMA|OTRO","texto":"resumen breve en tercera persona","relacion":null}'
+                    )},
+                    {"role": "user", "content": mensaje_usuario}
+                ],
+                "max_tokens": 150,
+                "temperature": 0.2
+            },
+            timeout=15
+        )
+        if not resp.ok:
+            return None
+        contenido = resp.json()["choices"][0]["message"]["content"].strip()
+        if contenido.upper().startswith("NADA"):
+            return None
+        contenido = contenido.strip("`").strip()
+        if contenido.lower().startswith("json"):
+            contenido = contenido[4:].strip()
+        dato = json.loads(contenido)
+        if dato.get("categoria") not in ("TAREA", "LUGAR", "ARCHIVO", "CONTEXTO", "CLIMA", "OTRO"):
+            dato["categoria"] = "OTRO"
+        return dato
+    except Exception as e:
+        print(f"⚠ Error extrayendo memoria: {e}")
+        return None
 
 
 def agregar_recordatorio(texto):

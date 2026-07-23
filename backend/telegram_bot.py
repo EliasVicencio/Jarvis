@@ -1,5 +1,5 @@
 """Telegram bot process - runs independently, communicates via shared logic."""
-import sys, os, logging, asyncio
+import sys, os, logging, asyncio, threading
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -15,24 +15,26 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 def _llm_preguntar(pregunta):
     import requests
     try:
+        contexto_mem = jarvis_core.contexto_memoria_para_prompt()
+        system_prompt = (
+            "Eres JARVIS, el asistente de inteligencia artificial personal de Elías. "
+            "Respondes en español de Chile, con un tono cercano, ingenioso y un poco "
+            "sarcástico, similar al JARVIS de Iron Man: leal, eficiente, y con un humor "
+            "seco ocasional. Nunca digas que eres un modelo de lenguaje de Meta, Llama, "
+            "ni menciones tecnicismos sobre tu funcionamiento interno — actúa siempre "
+            "como JARVIS. Sé conciso: respuestas de máximo 2-3 frases salvo que te pidan "
+            "explícitamente más detalle."
+        )
+        if contexto_mem:
+            system_prompt += "\n\n" + contexto_mem
+
         resp = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
             json={
                 "model": "llama-3.1-8b-instant",
                 "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "Eres JARVIS, el asistente de inteligencia artificial personal de Elías. "
-                            "Respondes en español de Chile, con un tono cercano, ingenioso y un poco "
-                            "sarcástico, similar al JARVIS de Iron Man: leal, eficiente, y con un humor "
-                            "seco ocasional. Nunca digas que eres un modelo de lenguaje de Meta, Llama, "
-                            "ni menciones tecnicismos sobre tu funcionamiento interno — actúa siempre "
-                            "como JARVIS. Sé conciso: respuestas de máximo 2-3 frases salvo que te pidan "
-                            "explícitamente más detalle."
-                        )
-                    },
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": pregunta}
                 ],
                 "max_tokens": 1024,
@@ -40,6 +42,13 @@ def _llm_preguntar(pregunta):
             },
             timeout=30
         )
+
+        def _extraer_en_fondo():
+            dato = jarvis_core.extraer_memoria_llm(pregunta)
+            if dato:
+                jarvis_core.agregar_memoria(dato.get("categoria", "OTRO"), dato.get("texto", ""), dato.get("relacion"))
+        threading.Thread(target=_extraer_en_fondo, daemon=True).start()
+
         if resp.ok:
             return resp.json()["choices"][0]["message"]["content"]
     except Exception as e:
