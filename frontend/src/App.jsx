@@ -265,9 +265,13 @@ export default function App() {
       .then(data => {
         setBackendOk(true);
         setWakeActivo(data.wake_activo || false);
+        if (data.saludo) {
+          setTarjetas([{ pregunta: "Bienvenida", respuesta: data.saludo }]);
+          hablarBrowser(data.saludo);
+        }
       })
       .catch(() => setBackendOk(false));
-  }, []);
+  }, [hablarBrowser]);
 
   // ── OpenClaw status ────────────────────────────────────────────────────
   useEffect(() => {

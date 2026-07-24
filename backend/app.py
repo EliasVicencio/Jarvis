@@ -429,11 +429,49 @@ def api_recordatorios_eliminar(indice):
     recs = jarvis_core.eliminar_recordatorio(indice)
     return jsonify({"recordatorios": recs})
 
+def _contar_correos_no_leidos():
+    user = os.environ.get("EMAIL_USER", "")
+    pwd  = os.environ.get("EMAIL_PASS", "")
+    if not user or not pwd:
+        return None
+    try:
+        M = imaplib.IMAP4_SSL("imap.gmail.com")
+        M.login(user, pwd)
+        M.select("INBOX")
+        _, data = M.search(None, "UNSEEN")
+        M.logout()
+        return len(data[0].split()) if data and data[0] else 0
+    except Exception as e:
+        logger.error(f"Error contando correos no leidos: {e}")
+        return None
+
+
 @app.route("/api/saludo")
 def api_saludo():
+    hora = datetime.now().hour
+    if hora < 12:
+        saludo_base = "Buenos días"
+    elif hora < 19:
+        saludo_base = "Buenas tardes"
+    else:
+        saludo_base = "Buenas noches"
+
+    recordatorios = jarvis_core.obtener_recordatorios()
+    no_leidos = _contar_correos_no_leidos()
+
+    partes = [f"{saludo_base}, Elías."]
+    if recordatorios:
+        n = len(recordatorios)
+        partes.append(f"Tienes {n} recordatorio{'s' if n != 1 else ''} pendiente{'s' if n != 1 else ''}.")
+    if no_leidos:
+        partes.append(f"Tienes {no_leidos} correo{'s' if no_leidos != 1 else ''} sin leer.")
+    if not recordatorios and not no_leidos:
+        partes.append("Todo al día. ¿En qué te ayudo?")
+
     return jsonify({
-        "saludo": "Hola, soy Jarvis. ¿En qué te ayudo?",
-        "recordatorios": jarvis_core.obtener_recordatorios(),
+        "saludo": " ".join(partes),
+        "recordatorios": recordatorios,
+        "correos_no_leidos": no_leidos,
         "wake_activo": _wake_activo,
     })
 
