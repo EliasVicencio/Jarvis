@@ -11,6 +11,7 @@ logger = logging.getLogger("telegram_bot")
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+CHAT_ID_AUTORIZADO = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 def _llm_preguntar(pregunta):
     import requests
@@ -61,6 +62,10 @@ async def main():
 
     async def handler(update: Update, _context):
         if not update.message or not update.message.text:
+            return
+        chat_id = str(update.message.chat_id)
+        if CHAT_ID_AUTORIZADO and chat_id != CHAT_ID_AUTORIZADO:
+            logger.warning(f"Mensaje ignorado de chat_id no autorizado: {chat_id}")
             return
         texto = update.message.text.strip()
         user = update.message.from_user
