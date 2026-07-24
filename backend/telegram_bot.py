@@ -75,7 +75,9 @@ async def main():
             groq_resp = _llm_preguntar(texto)
             if groq_resp:
                 resultado = {"respuesta": groq_resp, "accion": "groq"}
-        await update.message.reply_text(resultado.get("respuesta", "No entendí."))
+        respuesta_texto = resultado.get("respuesta", "No entendí.")
+        jarvis_core.agregar_historial(texto, respuesta_texto, resultado.get("accion"), fuente="telegram")
+        await update.message.reply_text(respuesta_texto)
 
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handler))

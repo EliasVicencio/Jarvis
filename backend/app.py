@@ -167,8 +167,8 @@ def api_comando():
         resultado["audio_base64"] = _generar_audio_base64(respuesta_texto)
         _reenviar_a_telegram(comando, respuesta_texto)
 
+    jarvis_core.agregar_historial(comando, respuesta_texto, resultado.get("accion"), fuente="texto")
     return jsonify(resultado)
-
 
 @app.route("/api/voice-comando", methods=["POST"])
 def api_voice_comando():
@@ -223,6 +223,7 @@ def api_voice_comando():
         resultado["audio_base64"] = _generar_audio_base64(respuesta_texto)
         _reenviar_a_telegram(texto, respuesta_texto, prefijo="🎙️ Tú (voz web)")
 
+        jarvis_core.agregar_historial(texto, respuesta_texto, resultado.get("accion"), fuente="voz")
         return jsonify(resultado)
 
     finally:
@@ -328,10 +329,9 @@ def api_subtitulos():
         logger.error(f"Error subtítulos: {e}")
         return jsonify({"error": str(e), "subtitulos": []})
 
-
 @app.route("/api/historial")
 def api_historial():
-    return jsonify({"historial": _historial})
+    return jsonify({"historial": jarvis_core.obtener_historial()})
 
 @app.route("/api/memoria")
 def api_memoria():
@@ -594,11 +594,6 @@ def api_enviar_email():
 
 # ── Groq / LLM Integration ─────────────────────────────────────────────────
 
-OPENCLAW_CMD = os.path.join(os.environ.get("APPDATA", ""), "npm", "openclaw.cmd")
-
-if not os.path.exists(OPENCLAW_CMD):
-    OPENCLAW_CMD = "openclaw"
-
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 def _llm_preguntar(pregunta: str) -> str:
     try:
@@ -647,71 +642,6 @@ def _llm_preguntar(pregunta: str) -> str:
     except Exception as e:
         logger.error(f"Error en LLM: {e}")
         return ""
-
-@app.route("/api/openclaw/preguntar", methods=["POST"])
-def api_openclaw_preguntar():
-    data = request.get_json(force=True, silent=True) or {}
-
-    pregunta = data.get("pregunta", "")
-
-    if not pregunta:
-        return jsonify({"error": "Falta pregunta"}), 400
-
-    # Primero intentar procesador local (hora, fecha, clima, abrir apps, etc.)
-    local = jarvis_core.procesar_comando(pregunta)
-    if local.get("accion") != "desconocido":
-        return jsonify({"respuesta": local.get("respuesta", ""), "ok": True, "accion": local.get("accion"), "dato": local.get("dato")})
-
-    # Fallback a Groq
-    respuesta = _llm_preguntar(pregunta)
-
-    if not respuesta:
-        return jsonify({"respuesta": "No pude contactar a Groq", "ok": False})
-
-    return jsonify({"respuesta": respuesta, "ok": True})
-
-
-@app.route("/api/openclaw/estado")
-def api_openclaw_estado():
-    try:
-        result = subprocess.run([OPENCLAW_CMD, "--version"], capture_output=True, text=True, timeout=10)
-        disponible = result.returncode == 0
-        return jsonify({"disponible": disponible, "version": result.stdout.strip() if disponible else None})
-    except FileNotFoundError:
-        return jsonify({"disponible": False, "version": None})
-    except Exception as e:
-        return jsonify({"disponible": False, "version": None, "error": str(e)})
-
-
-# ── WhatsApp Send ─────────────────────────────────────────────────────────
-
-@app.route("/api/whatsapp/enviar", methods=["POST"])
-def api_whatsapp_enviar():
-    """Envía un mensaje por WhatsApp a través de OpenClaw."""
-    data = request.get_json(force=True) or {}
-    numero = data.get("numero", "")
-    mensaje = data.get("mensaje", "")
-
-    if not numero or not mensaje:
-        return jsonify({"error": "Faltan campos: numero, mensaje"}), 400
-
-    try:
-        result = subprocess.run(
-            [OPENCLAW_CMD, "message", "send",
-             "--channel", "whatsapp",
-             "--target", numero,
-             "--message", mensaje],
-            capture_output=True, text=True, timeout=30
-        )
-        if result.returncode == 0:
-            logger.info(f"WhatsApp enviado a {numero}")
-            return jsonify({"ok": True, "mensaje": f"Mensaje enviado a {numero}"})
-        else:
-            logger.error(f"Error WhatsApp: {result.stderr}")
-            return jsonify({"error": result.stderr.strip() or "Error enviando mensaje"}), 500
-    except Exception as e:
-        logger.error(f"Error WhatsApp: {e}")
-        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/proyectos-estado")
 def api_proyectos_estado():

@@ -20,6 +20,8 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 RECORDATORIOS_PATH = os.path.join(os.path.dirname(__file__), "recordatorios.txt")
+HISTORIAL_PATH = os.path.join(os.path.dirname(__file__), "historial.json")
+HISTORIAL_MAX = 100
 MEMORIA_PATH = os.path.join(os.path.dirname(__file__), "memoria_semantica.json")
 GROQ_API_KEY_MEM = os.getenv("GROQ_API_KEY", "")
 VOZ = "es-MX-JorgeNeural"
@@ -591,3 +593,27 @@ def eliminar_recordatorio(indice):
             for r in recs:
                 f.write(r + "\n")
     return recs
+
+def obtener_historial():
+    if os.path.exists(HISTORIAL_PATH):
+        try:
+            with open(HISTORIAL_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+
+def agregar_historial(comando, respuesta, accion=None, fuente=None):
+    historial = obtener_historial()
+    historial.append({
+        "comando": comando,
+        "respuesta": (respuesta or "")[:300],
+        "accion": accion,
+        "fuente": fuente,
+        "fecha": datetime.datetime.now().isoformat(),
+    })
+    historial = historial[-HISTORIAL_MAX:]
+    with open(HISTORIAL_PATH, "w", encoding="utf-8") as f:
+        json.dump(historial, f, ensure_ascii=False, indent=2)
+    return historial

@@ -41,8 +41,6 @@ export default function App() {
   const [wakeFlash,   setWakeFlash]   = useState(null);
   const [busquedaMapa,    setBusquedaMapa]    = useState(null);
   const [canalNoticias,   setCanalNoticias]   = useState(null);
-  const [openclawStatus,  setOpenclawStatus]  = useState("ok");
-  const [usarOpenclaw,    setUsarOpenclaw]    = useState(true);
   const [tarjetas, setTarjetas] = useState([]);
 
   const estadoRef   = useRef("inactivo");
@@ -74,31 +72,6 @@ export default function App() {
     setEstado("procesando");
     estadoRef.current = "procesando";
     setTarjetas([]);
-
-    // Si OpenClaw está activo, preguntarle primero para comandos no triviales
-    if (usarOpenclaw && openclawStatus && texto.length > 10) {
-      try {
-        const ocResp = await fetch(`${API}/openclaw/preguntar`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pregunta: texto, hablar: false }),
-        });
-        const ocData = await ocResp.json();
-        if (ocData.ok) {
-          setEstado("inactivo");
-          estadoRef.current = "inactivo";
-          setTarjetas([{ pregunta: texto, respuesta: ocData.respuesta || "" }]);
-          if (ocData.respuesta) hablarBrowser(ocData.respuesta);
-          if (ocData.accion === "abrir_noticias" || ocData.accion === "stark_intel") setVista("noticias");
-          if (ocData.accion === "abrir_mapa") setVista("mapa");
-          if (ocData.accion === "abrir_youtube") window.open("https://youtube.com");
-          if (ocData.accion === "abrir_spotify") window.open("https://open.spotify.com");
-          if (ocData.accion === "buscar" && ocData.dato) window.open("https://google.com/search?q=" + encodeURIComponent(ocData.dato));
-          if (ocData.accion === "abrir_navegador") window.open("https://google.com");
-          return;
-        }
-      } catch {}
-    }
 
     try {
       const resp = await fetch(`${API}/comando`, {
@@ -273,20 +246,6 @@ export default function App() {
       .catch(() => setBackendOk(false));
   }, [hablarBrowser]);
 
-  // ── OpenClaw status ────────────────────────────────────────────────────
-  useEffect(() => {
-    const check = async () => {
-      try {
-        const resp = await fetch(`${API}/openclaw/estado`);
-        const data = await resp.json();
-        setOpenclawStatus(data.disponible ? data.version : null);
-      } catch { setOpenclawStatus(null); }
-    };
-    check();
-    const id = setInterval(check, 15000);
-    return () => clearInterval(id);
-  }, []);
-
   // ── Polling wake word ──────────────────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -364,10 +323,6 @@ export default function App() {
           <div className="status-pill" data-ok={wakeActivo}>
             <span className="status-dot" />
             {wakeActivo ? "Wake word activo" : "Wake word inactivo"}
-          </div>
-          <div className="status-pill" data-ok={!!openclawStatus}>
-            <span className="status-dot" />
-            {openclawStatus ? `OC ${openclawStatus}` : "OC offline"}
           </div>
         </div>
 
