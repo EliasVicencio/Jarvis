@@ -336,9 +336,9 @@ function ContenidoTab() {
 
       <div className="mc-grid-contenido" style={{flex:1,minHeight:0,padding:0}}>
         {/* Kanban */}
-        <div className="mc-panel">
+        <div className="mc-panel" style={{height:"100%",minHeight:0}}>
           <div className="mc-ph">⬡ PROYECTOS<div style={{display:"flex",gap:6,alignItems:"center"}}><span className="mc-badge-small">{cardsFiltradas.filter(c=>c.col!=="COMPLETADO").length} activos</span><div className="mc-pd"/></div></div>
-          <div className="mc-kanban">
+          <div className="mc-kanban" style={{height:"100%"}}>
             {COLS.map(col => {
               const color = COL_COLORS[col];
               const colCards = cardsFiltradas.filter(c=>c.col===col);
