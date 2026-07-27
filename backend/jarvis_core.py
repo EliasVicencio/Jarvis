@@ -20,6 +20,8 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 RECORDATORIOS_PATH = os.path.join(os.path.dirname(__file__), "recordatorios.txt")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "")
 HISTORIAL_PATH = os.path.join(os.path.dirname(__file__), "historial.json")
 HISTORIAL_MAX = 100
 MEMORIA_PATH = os.path.join(os.path.dirname(__file__), "memoria_semantica.json")
@@ -160,12 +162,37 @@ def transcribir_archivo(path_wav):
 
 # ── Generar audio sin reproducirlo localmente ─────────────────────────────
 def generar_audio_mp3(texto, output_path=None):
-    """Genera un mp3 con Edge TTS y devuelve la ruta del archivo (no lo reproduce)."""
+    """Genera un mp3 con ElevenLabs. Si falla o se acaba la cuota, usa edge-tts como respaldo."""
     if output_path is None:
         output_path = os.path.join(
             tempfile.gettempdir(), f"jarvis_tts_{os.getpid()}_{int(time.time() * 1000)}.mp3"
         )
 
+    if ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID:
+        try:
+            resp = requests.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
+                headers={
+                    "xi-api-key": ELEVENLABS_API_KEY,
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "text": texto,
+                    "model_id": "eleven_multilingual_v2",
+                    "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}
+                },
+                timeout=20
+            )
+            if resp.ok and resp.headers.get("content-type","").startswith("audio"):
+                with open(output_path, "wb") as f:
+                    f.write(resp.content)
+                return output_path
+            else:
+                print(f"⚠ ElevenLabs error: {resp.status_code} {resp.text[:200]}")
+        except Exception as e:
+            print(f"⚠ Error con ElevenLabs, usando edge-tts de respaldo: {e}")
+
+    # Respaldo si ElevenLabs falla, no hay key, o se acabó la cuota mensual
     async def _generar():
         comunicar = edge_tts.Communicate(texto, VOZ)
         await comunicar.save(output_path)
