@@ -97,16 +97,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   background: rgba(45,212,232,0.06); color: var(--cyan);
   transition: all 0.2s; white-space: nowrap;
 }
-.nav-btn {
-  background: rgba(45,212,232,0.08);
-  border: 1px solid rgba(45,212,232,0.25);
-  color: var(--cyan);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  padding: 10px 20px;
-}
-
 .nav-btn:hover { background: rgba(45,212,232,0.14); border-color: var(--border-hi); }
 
 .topbar-nav-center {
