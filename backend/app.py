@@ -459,16 +459,18 @@ def api_saludo():
     recordatorios = jarvis_core.obtener_recordatorios()
     no_leidos = _contar_correos_no_leidos()
 
-    partes = [f"{saludo_base}, Elías."]
+    extras = []
     if recordatorios:
         n = len(recordatorios)
-        partes.append(f"Tienes {n} recordatorio{'s' if n != 1 else ''} pendiente{'s' if n != 1 else ''}.")
+        extras.append("tienes un recordatorio pendiente" if n == 1 else f"tienes {n} recordatorios pendientes")
     if no_leidos:
-        partes.append(f"Tienes {no_leidos} correo{'s' if no_leidos != 1 else ''} sin leer.")
-    if not recordatorios and not no_leidos:
-        partes.append("Todo al día. ¿En qué te ayudo?")
+        extras.append("un correo sin leer" if no_leidos == 1 else f"{no_leidos} correos sin leer")
 
-    saludo_texto = " ".join(partes)
+    if extras:
+        saludo_texto = f"{saludo_base}, Elías, " + " y ".join(extras) + ". ¿En qué puedo ayudarte?"
+    else:
+        saludo_texto = f"{saludo_base}, Elías, todo al día. ¿En qué puedo ayudarte?"
+
     return jsonify({
         "saludo": saludo_texto,
         "audio_base64": _generar_audio_base64(saludo_texto),
