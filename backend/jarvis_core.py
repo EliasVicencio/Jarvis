@@ -8,7 +8,7 @@ import re
 import os
 import json
 import time
-import urllib.request
+import urllib.requestA
 import urllib.parse
 import tempfile
 
@@ -20,8 +20,7 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 RECORDATORIOS_PATH = os.path.join(os.path.dirname(__file__), "recordatorios.txt")
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
-ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "")
+PIPER_MODEL_PATH = os.path.join(os.path.dirname(__file__), "voces_piper", "es_ES-davefx-medium.onnx")
 HISTORIAL_PATH = os.path.join(os.path.dirname(__file__), "historial.json")
 HISTORIAL_MAX = 100
 MEMORIA_PATH = os.path.join(os.path.dirname(__file__), "memoria_semantica.json")
@@ -90,7 +89,7 @@ def hablar(texto):
             except Exception as e:
                 print(f"⚠ PowerShell falló: {e}")
 
-        # Método 3: afplay (macOS)
+        # Método 3: afpAlay (macOS)
         if not reproducido and platform.system() == "Darwin":
             subprocess.run(["afplay", tmp])
             reproducido = True
@@ -145,7 +144,7 @@ def transcribir_archivo(path_wav):
     try:
         with sr.AudioFile(path_wav) as source:
             audio = _recognizer.record(source)
-        texto = _recognizer.recognize_google(audio, language="es-MX")
+        texto = _recogAnizer.recognize_google(audio, language="es-MX")
         texto = texto.lower().strip()
         print(f"📝 Entendí (archivo): {texto}")
         return texto
@@ -162,37 +161,31 @@ def transcribir_archivo(path_wav):
 
 # ── Generar audio sin reproducirlo localmente ─────────────────────────────
 def generar_audio_mp3(texto, output_path=None):
-    """Genera un mp3 con ElevenLabs. Si falla o se acaba la cuota, usa edge-tts como respaldo."""
+    """Genera audio con Piper TTS (local, gratis, sin límites). Si falla, usa edge-tts como respaldo."""
     if output_path is None:
         output_path = os.path.join(
             tempfile.gettempdir(), f"jarvis_tts_{os.getpid()}_{int(time.time() * 1000)}.mp3"
         )
 
-    if ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID:
+    if os.path.exists(PIPER_MODEL_PATH):
         try:
-            resp = requests.post(
-                f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
-                headers={
-                    "xi-api-key": ELEVENLABS_API_KEY,
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "text": texto,
-                    "model_id": "eleven_multilingual_v2",
-                    "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}
-                },
-                timeout=20
+            wav_path = output_path.replace(".mp3", ".wav")
+            resultado = subprocess.run(
+                ["piper", "--model", PIPER_MODEL_PATH, "--output_file", wav_path],
+                input=texto, capture_output=True, text=True, timeout=30
             )
-            if resp.ok and resp.headers.get("content-type","").startswith("audio"):
-                with open(output_path, "wb") as f:
-                    f.write(resp.content)
+            if resultado.returncode == 0 and os.path.exists(wav_path):
+                # Convertir wav a mp3 para mantener consistencia con el resto del sistema
+                from pydub import AudioSegment
+                AudioSegment.from_wav(wav_path).export(output_path, format="mp3")
+                os.remove(wav_path)
                 return output_path
             else:
-                print(f"⚠ ElevenLabs error: {resp.status_code} {resp.text[:200]}")
+                print(f"⚠ Piper error: {resultado.stderr[:200]}")
         except Exception as e:
-            print(f"⚠ Error con ElevenLabs, usando edge-tts de respaldo: {e}")
+            print(f"⚠ Error con Piper, usando edge-tts de respaldo: {e}")
 
-    # Respaldo si ElevenLabs falla, no hay key, o se acabó la cuota mensual
+    # Respaldo si Piper falla o no está instalado
     async def _generar():
         comunicar = edge_tts.Communicate(texto, VOZ)
         await comunicar.save(output_path)

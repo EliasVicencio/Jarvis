@@ -17,4 +17,4 @@ flask-cors>=4.0.0
 python-dotenv>=1.0.0
 
 # OpenClaw integration
-requests>=2.31.0
+requests>=2.31.0piper-tts
