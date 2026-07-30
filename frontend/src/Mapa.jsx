@@ -3,6 +3,7 @@ import "./Mapa.css";
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 const OSRM      = "https://router.project-osrm.org/route/v1/driving";
+const MAPBOX_TOKEN = "pk.eyJ1IjoiZWxpYXN2aWNlbmNpbyIsImEiOiJjbXM2cWtsaG4wYWxqMnhwenFvaHV4emY3In0.2lKF_fqI-LulLtJZTyPP0Q";
 const COLORES   = ["#2DD4E8","#4ADE80","#F2A93B","#F87171","#A78BFA"];
 
 export default function Mapa({ onVolver, busquedaInicial = null }) {
@@ -342,7 +343,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
         center: [lat, lon], zoom: 16,
         zoomControl: false, attributionControl: false,
       });
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}{r}?access_token=${MAPBOX_TOKEN}`, {
         maxZoom: 19, subdomains: "abcd",
       }).addTo(map);
 
@@ -426,16 +427,15 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
     setBuscando(true); setError(null); setResultados([]);
     try {
       const r = await fetch(
-        `${NOMINATIM}/search?q=${encodeURIComponent(termino)}&format=json&limit=5&addressdetails=1`,
-        { headers: { "Accept-Language": "es" } }
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(termino)}.json?access_token=${MAPBOX_TOKEN}&limit=5&language=es`
       );
       const data = await r.json();
-      if (!data.length) { setError("Sin resultados."); setBuscando(false); return; }
-      const res = data.map((r, i) => ({
-        nombre: r.display_name.split(",")[0],
-        dir:    r.display_name,
-        lat:    parseFloat(r.lat),
-        lon:    parseFloat(r.lon),
+      if (!data.features?.length) { setError("Sin resultados."); setBuscando(false); return; }
+      const res = data.features.map((r, i) => ({
+        nombre: r.place_name.split(",")[0],
+        dir:    r.place_name,
+        lat:    r.center[1],
+        lon:    r.center[0],
         color:  COLORES[i],
       }));
       setResultados(res);
@@ -477,7 +477,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
     setRutas([]);
     const L = window.L;
     try {
-      const r = await fetch(`${OSRM}/${miPos.lon},${miPos.lat};${dest.lon},${dest.lat}?alternatives=true&overview=full&geometries=geojson`);
+      const r = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${miPos.lon},${miPos.lat};${dest.lon},${dest.lat}?alternatives=true&overview=full&geometries=geojson&access_token=${MAPBOX_TOKEN}`);
       const data = await r.json();
       if (!data.routes?.length) { setError("Sin ruta."); return; }
 
