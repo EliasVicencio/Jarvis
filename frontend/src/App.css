@@ -111,6 +111,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .nav-btn:hover { background: rgba(45,212,232,0.14); border-color: var(--border-hi); }
 
+.topbar-nav-center {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex: 1;
+}
 .status-pills { display: flex; gap: 8px; margin-left: auto; }
 .status-pill {
   display: flex; align-items: center; gap: 6px;

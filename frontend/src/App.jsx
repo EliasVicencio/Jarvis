@@ -318,6 +318,18 @@ export default function App() {
           </div>
         </div>
 
+        <div className="topbar-nav-center">
+          <button className="nav-btn" onClick={() => setVista("noticias")}>
+            ◈ Stark Intel
+          </button>
+          <button className="nav-btn" onClick={() => setVista("mapa")}>
+            ◎ Stark Maps
+          </button>
+          <button className="nav-btn" onClick={() => setVista("mission")}>
+            ▸ Mission Control
+          </button>
+        </div>
+
         <div className="status-pills">
           <div
             className="status-pill"
@@ -339,19 +351,6 @@ export default function App() {
       <main className="main-body">
 
         <div className="scroll-area" ref={scrollRef}>
-          {/* Navegación principal */}
-          <div className="nav-row">
-            <button className="nav-btn" onClick={() => setVista("noticias")}>
-              ◈ Stark Intel
-            </button>
-            <button className="nav-btn" onClick={() => setVista("mapa")}>
-              ◎ Stark Maps
-            </button>
-            <button className="nav-btn" onClick={() => setVista("mission")}>
-              ▸ Mission Control
-            </button>
-          </div>
-
           {/* Chips arriba */}
           <div className="chips-row">
             {chipsAMostrar.map(c => (
