@@ -468,8 +468,10 @@ def api_saludo():
     if not recordatorios and not no_leidos:
         partes.append("Todo al día. ¿En qué te ayudo?")
 
+    saludo_texto = " ".join(partes)
     return jsonify({
-        "saludo": " ".join(partes),
+        "saludo": saludo_texto,
+        "audio_base64": _generar_audio_base64(saludo_texto),
         "recordatorios": recordatorios,
         "correos_no_leidos": no_leidos,
         "wake_activo": _wake_activo,

@@ -245,7 +245,12 @@ export default function App() {
         setWakeActivo(data.wake_activo || false);
         if (data.saludo) {
           setTarjetas([{ pregunta: "Bienvenida", respuesta: data.saludo }]);
-          hablarBrowser(data.saludo);
+          if (data.audio_base64) {
+            const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
+            audio.play().catch(() => hablarBrowser(data.saludo));
+          } else {
+            hablarBrowser(data.saludo);
+          }
         }
       })
       .catch(() => setBackendOk(false));
