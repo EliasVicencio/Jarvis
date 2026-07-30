@@ -2,28 +2,28 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import "./Mapa.css";
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
-const OSRM      = "https://router.project-osrm.org/route/v1/driving";
+const OSRM = "https://router.project-osrm.org/route/v1/driving";
 const MAPBOX_TOKEN = "pk.eyJ1IjoiZWxpYXN2aWNlbmNpbyIsImEiOiJjbXM2cWtsaG4wYWxqMnhwenFvaHV4emY3In0.2lKF_fqI-LulLtJZTyPP0Q";
-const COLORES   = ["#2DD4E8","#4ADE80","#F2A93B","#F87171","#A78BFA"];
+const COLORES = ["#2DD4E8", "#4ADE80", "#F2A93B", "#F87171", "#A78BFA"];
 
 export default function Mapa({ onVolver, busquedaInicial = null }) {
-  const globeRef    = useRef(null);
-  const leafletRef  = useRef(null);
-  const mapRef      = useRef(null);
-  const miUbicRef   = useRef(null);
-  const rutasRef    = useRef([]);
-  const marcRef     = useRef([]);
-  const globeInst   = useRef(null);
+  const globeRef = useRef(null);
+  const leafletRef = useRef(null);
+  const mapRef = useRef(null);
+  const miUbicRef = useRef(null);
+  const rutasRef = useRef([]);
+  const marcRef = useRef([]);
+  const globeInst = useRef(null);
 
-  const [modo,       setModo]       = useState("globo"); // "globo" | "calles"
-  const [query,      setQuery]      = useState("");
-  const [buscando,   setBuscando]   = useState(false);
-  const [error,      setError]      = useState(null);
+  const [modo, setModo] = useState("globo"); // "globo" | "calles"
+  const [query, setQuery] = useState("");
+  const [buscando, setBuscando] = useState(false);
+  const [error, setError] = useState(null);
   const [resultados, setResultados] = useState([]);
-  const [rutas,      setRutas]      = useState([]);
-  const [guardados,  setGuardados]  = useState([]);
-  const [miPos,      setMiPos]      = useState(null);
-  const [cargando,   setCargando]   = useState(true);
+  const [rutas, setRutas] = useState([]);
+  const [guardados, setGuardados] = useState([]);
+  const [miPos, setMiPos] = useState(null);
+  const [cargando, setCargando] = useState(true);
   const [destActual, setDestActual] = useState(null);
   const busquedaEjecutadaRef = useRef(false);
 
@@ -50,7 +50,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
       .pointColor(p => p.color || "#2DD4E8")
       .pointAltitude(0.02)
       .pointRadius(p => p.r || 0.5)
-      .pointLabel(p => `<div style="background:rgba(6,11,18,0.92);border:1px solid ${p.color||"#2DD4E8"};border-radius:3px;padding:4px 10px;font-family:JetBrains Mono,monospace;font-size:10px;color:${p.color||"#2DD4E8"}">${p.label}</div>`)
+      .pointLabel(p => `<div style="background:rgba(6,11,18,0.92);border:1px solid ${p.color || "#2DD4E8"};border-radius:3px;padding:4px 10px;font-family:JetBrains Mono,monospace;font-size:10px;color:${p.color || "#2DD4E8"}">${p.label}</div>`)
       .arcsData([])
       .arcColor(a => [a.color, a.color])
       .arcAltitude(0.2)
@@ -95,14 +95,16 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
           .map(c => ({
             lat: c.lat,
             lng: c.lon,
-            nombre: c.capital ? `★ ${c.nombre.toUpperCase()}` : c.nombre.toUpperCase(),
+            nombre: c.nombre.toUpperCase(),
             poblacion: c.poblacion,
+            capital: c.capital,
           }));
         globe.labelsData(top)
           .labelSize(d => Math.min(0.9, 0.28 + Math.log10(d.poblacion) * 0.09))
-          .labelDotRadius(d => Math.min(0.45, 0.15 + Math.log10(d.poblacion) * 0.04));
+          .labelDotRadius(d => Math.min(0.45, 0.15 + Math.log10(d.poblacion) * 0.04))
+          .labelColor(d => d.capital ? "#F2A93B" : "#ffffff");
       })
-      .catch(() => {});
+      .catch(() => { });
 
     obtenerUbicacion(globe);
   };
@@ -125,7 +127,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
           globe.pointsData([{ lat, lng: lon, color: "#4ADE80", label: "📍 MI POSICIÓN", r: 0.5 }]);
         });
       if (globeInst.current) globeInst.current.controls().autoRotate = false;
-    }, () => {});
+    }, () => { });
   };
 
   // ── Cargar Leaflet para vista de calles ───────────────────────────────
@@ -169,7 +171,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
     s.onload = cargar;
     document.head.appendChild(s);
     const l = document.createElement("link");
-    l.rel  = "stylesheet";
+    l.rel = "stylesheet";
     l.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
     document.head.appendChild(l);
   }, []);
@@ -179,7 +181,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
     if (miPos) {
       const iconMi = L.divIcon({
         html: `<div class="sm-mi-wrap"><div class="sm-mi-ring"></div><div class="sm-mi-dot"></div></div>`,
-        className: "", iconSize: [20,20], iconAnchor: [10,10],
+        className: "", iconSize: [20, 20], iconAnchor: [10, 10],
       });
       const m = L.marker([miPos.lat, miPos.lon], { icon: iconMi }).addTo(map);
       miUbicRef.current = m;
@@ -188,8 +190,8 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
     // Marcadores de resultados
     marcadores.forEach((r, i) => {
       const icon = L.divIcon({
-        html: `<div class="sm-marker"><div class="sm-marker-num" style="background:${r.color};color:#060B12">${i+1}</div><div class="sm-marker-label">${r.nombre.slice(0,20)}</div></div>`,
-        className: "", iconSize: [20,20], iconAnchor: [10,30],
+        html: `<div class="sm-marker"><div class="sm-marker-num" style="background:${r.color};color:#060B12">${i + 1}</div><div class="sm-marker-label">${r.nombre.slice(0, 20)}</div></div>`,
+        className: "", iconSize: [20, 20], iconAnchor: [10, 30],
       });
       const m = L.marker([r.lat, r.lon], { icon }).addTo(map);
       marcRef.current.push(m);
@@ -237,14 +239,14 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
       if (!data.features?.length) { setError("Sin resultados."); setBuscando(false); return; }
       const res = data.features.map((r, i) => ({
         nombre: r.place_name.split(",")[0],
-        dir:    r.place_name,
-        lat:    r.center[1],
-        lon:    r.center[0],
-        color:  COLORES[i],
+        dir: r.place_name,
+        lat: r.center[1],
+        lon: r.center[0],
+        color: COLORES[i],
       }));
       setResultados(res);
       const miPunto = miPos ? [{ lat: miPos.lat, lng: miPos.lon, color: "#4ADE80", label: "📍 Mi posición", size: 0.5 }] : [];
-      const puntos = res.map((r, i) => ({ lat: r.lat, lng: r.lon, color: r.color, label: `${i+1}. ${r.nombre}`, dest: r }));
+      const puntos = res.map((r, i) => ({ lat: r.lat, lng: r.lon, color: r.color, label: `${i + 1}. ${r.nombre}`, dest: r }));
       if (globeInst.current) {
         globeInst.current.pointsData([...miPunto, ...puntos]);
         globeInst.current.pointOfView({ lat: res[0].lat, lng: res[0].lon, altitude: 2.0 }, 1500);
@@ -286,37 +288,37 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
       if (!data.routes?.length) { setError("Sin ruta."); return; }
 
       const nuevas = data.routes.map((rt, i) => ({
-        idx: i, km: (rt.distance/1000).toFixed(1),
-        min: Math.round(rt.duration/60), color: COLORES[i], activa: i===0,
+        idx: i, km: (rt.distance / 1000).toFixed(1),
+        min: Math.round(rt.duration / 60), color: COLORES[i], activa: i === 0,
       }));
       setRutas(nuevas);
 
       data.routes.forEach((rt, i) => {
         const linea = L.geoJSON(rt.geometry, {
-          style: { color: COLORES[i], weight: i===0?5:2.5, opacity: i===0?0.9:0.5, dashArray: i===0?null:"8 5" }
+          style: { color: COLORES[i], weight: i === 0 ? 5 : 2.5, opacity: i === 0 ? 0.9 : 0.5, dashArray: i === 0 ? null : "8 5" }
         }).addTo(leafletRef.current);
         rutasRef.current.push(linea);
       });
-      leafletRef.current.fitBounds(rutasRef.current[0].getBounds(), { padding:[40,40] });
+      leafletRef.current.fitBounds(rutasRef.current[0].getBounds(), { padding: [40, 40] });
     } catch { setError("Error calculando ruta."); }
   }, [miPos]);
 
   const seleccionarRuta = (idx) => {
     rutasRef.current.forEach((l, i) => l.setStyle({
-      weight: i===idx?5:2.5, opacity: i===idx?0.9:0.4,
-      dashArray: i===idx?null:"8 5",
+      weight: i === idx ? 5 : 2.5, opacity: i === idx ? 0.9 : 0.4,
+      dashArray: i === idx ? null : "8 5",
     }));
-    setRutas(prev => prev.map(r => ({ ...r, activa: r.idx===idx })));
+    setRutas(prev => prev.map(r => ({ ...r, activa: r.idx === idx })));
   };
 
-  const guardar = (r) => setGuardados(prev => prev.find(g => g.lat===r.lat) ? prev : [...prev, r]);
+  const guardar = (r) => setGuardados(prev => prev.find(g => g.lat === r.lat) ? prev : [...prev, r]);
   const handleKey = (e) => { if (e.key === "Enter") buscar(); };
 
   return (
     <div className="sm-shell">
-      <div className="sm-gbg"/>
-      <div className="sm-cn sm-tl"/><div className="sm-cn sm-tr"/>
-      <div className="sm-cn sm-bl"/><div className="sm-cn sm-br"/>
+      <div className="sm-gbg" />
+      <div className="sm-cn sm-tl" /><div className="sm-cn sm-tr" />
+      <div className="sm-cn sm-bl" /><div className="sm-cn sm-br" />
 
       <header className="sm-hdr">
         <button className="sm-back" onClick={onVolver}>← VOLVER</button>
@@ -325,17 +327,17 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
           <span className="sm-bname">{modo === "globo" ? "GLOBO INTERACTIVO 3D" : "VISTA DE CALLES"}</span>
         </div>
         {miPos && <span className="sm-coords">{miPos.lat.toFixed(4)}° · {miPos.lon.toFixed(4)}°</span>}
-        <div className="sm-live"><div className="sm-ld"/>GPS ACTIVO</div>
+        <div className="sm-live"><div className="sm-ld" />GPS ACTIVO</div>
       </header>
 
       <div className="sm-body">
         {/* Panel flotante sobre el globo */}
         <div className="sm-float-panel">
           <div className="sm-panel">
-            <div className="sm-ph">◎ BÚSQUEDA <div className="sm-pd"/></div>
+            <div className="sm-ph">◎ BÚSQUEDA <div className="sm-pd" /></div>
             <div className="sm-search-box">
               <input className="sm-search-input" placeholder="Buscar lugar…"
-                value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKey}/>
+                value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKey} />
               <button className="sm-search-btn" onClick={buscar} disabled={buscando || cargando}>
                 {buscando ? "…" : "▶"}
               </button>
@@ -365,10 +367,10 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
                 </div>
                 {resultados.map((r, i) => (
                   <div key={i} className="sm-res-row">
-                    <div className="sm-res-num" style={{background:r.color,color:"#060B12"}}>{i+1}</div>
-                    <div className="sm-res-body" onClick={() => verCalles(r)} style={{cursor:"pointer"}}>
+                    <div className="sm-res-num" style={{ background: r.color, color: "#060B12" }}>{i + 1}</div>
+                    <div className="sm-res-body" onClick={() => verCalles(r)} style={{ cursor: "pointer" }}>
                       <div className="sm-res-nombre">{r.nombre}</div>
-                      <div className="sm-res-dir">{r.dir.slice(0,40)}…</div>
+                      <div className="sm-res-dir">{r.dir.slice(0, 40)}…</div>
                     </div>
                     <div className="sm-res-btns">
                       <button className="sm-rbtn-mini sm-rbtn-map" onClick={() => verCalles(r)}>🗺</button>
@@ -385,14 +387,14 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
 
           {rutas.length > 0 && (
             <div className="sm-panel">
-              <div className="sm-ph">◈ RUTAS ({rutas.length}) <div className="sm-pd"/></div>
+              <div className="sm-ph">◈ RUTAS ({rutas.length}) <div className="sm-pd" /></div>
               {rutas.map(r => (
-                <div key={r.idx} className={`sm-ruta-row ${r.activa?"sm-ruta-activa":""}`} onClick={() => seleccionarRuta(r.idx)}>
-                  <div className="sm-ruta-color" style={{background:r.color}}/>
+                <div key={r.idx} className={`sm-ruta-row ${r.activa ? "sm-ruta-activa" : ""}`} onClick={() => seleccionarRuta(r.idx)}>
+                  <div className="sm-ruta-color" style={{ background: r.color }} />
                   <div className="sm-ruta-body">
-                    <span className="sm-ruta-label">RUTA {r.idx+1}{r.activa?" · ACTIVA":""}</span>
+                    <span className="sm-ruta-label">RUTA {r.idx + 1}{r.activa ? " · ACTIVA" : ""}</span>
                     <span className="sm-ruta-vals">
-                      <span style={{color:r.color}}>{r.km} km</span>
+                      <span style={{ color: r.color }}>{r.km} km</span>
                       <span className="sm-ruta-sep">·</span>
                       <span>{r.min} min</span>
                     </span>
@@ -405,11 +407,11 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
 
           {guardados.length > 0 && (
             <div className="sm-panel sm-panel-flex">
-              <div className="sm-ph">⬡ GUARDADOS ({guardados.length}) <div className="sm-pd"/></div>
+              <div className="sm-ph">⬡ GUARDADOS ({guardados.length}) <div className="sm-pd" /></div>
               <div className="sm-mlist">
                 {guardados.map((g, i) => (
                   <div key={i} className="sm-mrow" onClick={() => { verCalles(g); calcularRuta(g); }}>
-                    <div className="sm-micon" style={{background:`${g.color}22`,color:g.color,border:`1px solid ${g.color}55`}}>◈</div>
+                    <div className="sm-micon" style={{ background: `${g.color}22`, color: g.color, border: `1px solid ${g.color}55` }}>◈</div>
                     <div className="sm-mbody">
                       <div className="sm-mname">{g.nombre}</div>
                       <div className="sm-maddr">{g.lat.toFixed(4)}° · {g.lon.toFixed(4)}°</div>
@@ -420,8 +422,8 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
             </div>
           )}
 
-          <div className="sm-panel" style={{flexShrink:0}}>
-            <div className="sm-ph">▸ CONTROLES <div className="sm-pd"/></div>
+          <div className="sm-panel" style={{ flexShrink: 0 }}>
+            <div className="sm-ph">▸ CONTROLES <div className="sm-pd" /></div>
             <div className="sm-hint-list">
               {modo === "globo" ? <>
                 <div className="sm-hint">🌍 Arrastra para rotar el globo</div>
@@ -443,11 +445,11 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
           <div className={`sm-globe-wrap ${modo === "calles" ? "sm-view-mini" : "sm-view-full"}`}>
             {cargando && (
               <div className="sm-loading">
-                <div className="sm-spin"/>
+                <div className="sm-spin" />
                 <span>Cargando globo 3D…</span>
               </div>
             )}
-            <div ref={globeRef} className="sm-globe"/>
+            <div ref={globeRef} className="sm-globe" />
             <div className="sm-hud-tl">
             </div>
             {modo === "calles" && (
@@ -458,10 +460,10 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
           {/* Vista de calles */}
           {modo === "calles" && (
             <div className="sm-street-wrap">
-              <div ref={mapRef} className="sm-map"/>
+              <div ref={mapRef} className="sm-map" />
               <div className="sm-hud-tl">
                 <div className="sm-hbadge sm-hbadge-cyan">VISTA CALLES</div>
-                {destActual && <div className="sm-hbadge">{destActual.nombre.slice(0,20)}</div>}
+                {destActual && <div className="sm-hbadge">{destActual.nombre.slice(0, 20)}</div>}
                 {rutas.length > 0 && <div className="sm-hbadge sm-hbadge-amber">{rutas.length} RUTAS</div>}
               </div>
               <div className="sm-zoom-ctrl">
