@@ -83,13 +83,32 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .brand-name { font-weight: 700; letter-spacing: 0.12em; font-size: 15px; }
 .brand-sub  { font-family: var(--mono); font-size: 10px; color: var(--dim); }
 
+.nav-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
 .nav-btn {
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
   padding: 6px 14px; border-radius: 8px; cursor: pointer;
   border: 1px solid rgba(45,212,232,0.25);
   background: rgba(45,212,232,0.06); color: var(--cyan);
   transition: all 0.2s; white-space: nowrap;
+  font-size: 13px;
+  padding: 10px 20px;
 }
+.nav-btn {
+  background: rgba(45,212,232,0.08);
+  border: 1px solid rgba(45,212,232,0.25);
+  color: var(--cyan);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 10px 20px;
+}
+
 .nav-btn:hover { background: rgba(45,212,232,0.14); border-color: var(--border-hi); }
 
 .status-pills { display: flex; gap: 8px; margin-left: auto; }

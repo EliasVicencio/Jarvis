@@ -314,19 +314,9 @@ export default function App() {
           <div className="brand-mark">J</div>
           <div>
             <div className="brand-name">JARVIS</div>
-            <div className="brand-sub">asistente personal · Jorge Neural</div>
+            <div className="brand-sub">asistente personal</div>
           </div>
         </div>
-
-        <button className="nav-btn" onClick={() => setVista("noticias")}>
-          ◈ Stark Intel
-        </button>
-        <button className="nav-btn" onClick={() => setVista("mapa")}>
-          ◎ Stark Maps
-        </button>
-        <button className="nav-btn" onClick={() => setVista("mission")}>
-          ▸ Mission Control
-        </button>
 
         <div className="status-pills">
           <div
@@ -349,6 +339,19 @@ export default function App() {
       <main className="main-body">
 
         <div className="scroll-area" ref={scrollRef}>
+          {/* Navegación principal */}
+          <div className="nav-row">
+            <button className="nav-btn" onClick={() => setVista("noticias")}>
+              ◈ Stark Intel
+            </button>
+            <button className="nav-btn" onClick={() => setVista("mapa")}>
+              ◎ Stark Maps
+            </button>
+            <button className="nav-btn" onClick={() => setVista("mission")}>
+              ▸ Mission Control
+            </button>
+          </div>
+
           {/* Chips arriba */}
           <div className="chips-row">
             {chipsAMostrar.map(c => (
