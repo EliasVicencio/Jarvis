@@ -1,0 +1,23 @@
+[
+  {
+    "comando": "que sabes de mi",
+    "respuesta": "Sé que eres Elías, un estudiante empeñado de Analista Programador en DuocUC, en tu último año de carrera. También sé que prefieres programar de noche, cuando la ciudad está tranquila y puedes concentrarte en tus proyectos. ¿Qué necesitas saber hoy, chico?",
+    "accion": "groq",
+    "fuente": "texto",
+    "fecha": "2026-07-24T00:02:54.021139"
+  },
+  {
+    "comando": "abre mapa",
+    "respuesta": "Abriendo Stark Maps",
+    "accion": "abrir_mapa",
+    "fuente": "voz",
+    "fecha": "2026-07-27T00:52:27.331972"
+  },
+  {
+    "comando": "hola",
+    "respuesta": "Buenos días, Elías. ¿En qué puedo ayudarte hoy?",
+    "accion": "groq",
+    "fuente": "texto",
+    "fecha": "2026-07-29T22:32:56.117773"
+  }
+]

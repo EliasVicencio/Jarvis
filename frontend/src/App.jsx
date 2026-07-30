@@ -84,7 +84,12 @@ export default function App() {
       estadoRef.current = "hablando";
       if (data.respuesta) {
         setTarjetas([{ pregunta: texto, respuesta: data.respuesta }]);
-        hablarBrowser(data.respuesta);
+        if (data.audio_base64) {
+          const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
+          audio.play().catch(() => hablarBrowser(data.respuesta));
+        } else {
+          hablarBrowser(data.respuesta);
+        }
       }
       if (data.accion && data.accion.startsWith("cambiar_canal:")) {
         const canal = data.accion.replace("cambiar_canal:", "");

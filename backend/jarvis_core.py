@@ -8,7 +8,7 @@ import re
 import os
 import json
 import time
-import urllib.requestA
+import urllib.request
 import urllib.parse
 import tempfile
 
@@ -171,7 +171,7 @@ def generar_audio_mp3(texto, output_path=None):
         try:
             wav_path = output_path.replace(".mp3", ".wav")
             resultado = subprocess.run(
-                ["piper", "--model", PIPER_MODEL_PATH, "--output_file", wav_path],
+                ["/home/ubuntu/Jarvis/venv/bin/piper", "--model", PIPER_MODEL_PATH, "--output_file", wav_path],
                 input=texto, capture_output=True, text=True, timeout=30
             )
             if resultado.returncode == 0 and os.path.exists(wav_path):
