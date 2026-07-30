@@ -157,6 +157,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   color: #E8F6FA;
 }
 .chip-icon { color: var(--cyan); font-size: 12px; }
+.chip-toggle {
+  color: var(--cyan);
+  border-color: rgba(45,212,232,0.35);
+  background: rgba(45,212,232,0.06);
+}
 
 /* ── Anillo central ─────────────────────────────────────── */
 .core-wrap {

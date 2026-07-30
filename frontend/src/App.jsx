@@ -40,6 +40,9 @@ export default function App() {
   const [wakeActivo,  setWakeActivo]  = useState(false);
   const [wakeFlash,   setWakeFlash]   = useState(null);
   const [busquedaMapa,    setBusquedaMapa]    = useState(null);
+  const [mostrarMasChips, setMostrarMasChips] = useState(false);
+  const CHIPS_FAVORITOS = ["qué hora es", "clima en Santiago", "stark intel", "mis recordatorios", "qué puedes hacer"];
+  const chipsAMostrar = mostrarMasChips ? COMANDOS : COMANDOS.filter(c => CHIPS_FAVORITOS.includes(c.texto));
   const [canalNoticias,   setCanalNoticias]   = useState(null);
   const [tarjetas, setTarjetas] = useState([]);
 
@@ -326,13 +329,13 @@ export default function App() {
         </button>
 
         <div className="status-pills">
-          <div className="status-pill" data-ok={backendOk}>
+          <div
+            className="status-pill"
+            data-ok={backendOk === true && wakeActivo}
+            title={`${backendOk === null ? "Conectando…" : backendOk ? "Backend activo" : "Backend offline"} · ${wakeActivo ? "Wake word activo" : "Wake word inactivo"}`}
+          >
             <span className="status-dot" />
-            {backendOk === null ? "Conectando…" : backendOk ? "Backend activo" : "Backend offline"}
-          </div>
-          <div className="status-pill" data-ok={wakeActivo}>
-            <span className="status-dot" />
-            {wakeActivo ? "Wake word activo" : "Wake word inactivo"}
+            {backendOk === null ? "Conectando…" : backendOk ? "Sistema OK" : "Sistema offline"}
           </div>
         </div>
 
@@ -348,7 +351,7 @@ export default function App() {
         <div className="scroll-area" ref={scrollRef}>
           {/* Chips arriba */}
           <div className="chips-row">
-            {COMANDOS.map(c => (
+            {chipsAMostrar.map(c => (
               <button
                 key={c.texto}
                 className="chip"
@@ -359,6 +362,12 @@ export default function App() {
                 {c.texto}
               </button>
             ))}
+            <button
+              className="chip chip-toggle"
+              onClick={() => setMostrarMasChips(v => !v)}
+            >
+              {mostrarMasChips ? "− menos comandos" : "⋯ más comandos"}
+            </button>
           </div>
 
           {/* Anillo central */}

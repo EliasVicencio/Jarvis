@@ -350,7 +350,7 @@ def api_emails():
     if not user or not pwd:
         return jsonify({"error": "Credenciales no configuradas", "emails": []})
     try:
-        M = imaplib.IMAP4_SSL("imap.gmail.com")
+        M = imaplib.IMAP4_SSL("imap.gmail.com", timeout=4)
         M.login(user, pwd)
         M.select("INBOX")
         _, ids = M.search(None, "ALL")
