@@ -335,11 +335,12 @@ def reporte_estado_sistema():
 
         estado_general = "todo dentro de parámetros normales" if cpu < 80 and mem.percent < 85 else "hay carga elevada en el sistema"
 
-     	return (
+        return (
             f"CPU al {cpu:.0f} por ciento, memoria al {mem.percent:.0f} por ciento, "
             f"disco al {disco.percent:.0f} por ciento. Activo hace {tiempo_txt}. "
             f"{estado_general.capitalize()}, señor."
         )
+
     except Exception as e:
         return f"No pude generar el reporte de estado: {e}"
 
