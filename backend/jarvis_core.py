@@ -1,5 +1,6 @@
 import asyncio
 import psutil
+from piper import PiperVoice
 import datetime
 import webbrowser
 import subprocess
@@ -22,6 +23,19 @@ TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 RECORDATORIOS_PATH = os.path.join(os.path.dirname(__file__), "recordatorios.txt")
 PIPER_MODEL_PATH = os.path.join(os.path.dirname(__file__), "voces_piper", "es_ES-davefx-medium.onnx")
+_piper_voice_cache = None
+
+def _cargar_piper():
+    """Carga el modelo de Piper una sola vez y lo mantiene en memoria."""
+    global _piper_voice_cache
+    if _piper_voice_cache is None and os.path.exists(PIPER_MODEL_PATH):
+        try:
+            _piper_voice_cache = PiperVoice.load(PIPER_MODEL_PATH)
+            print("✅ Modelo de Piper cargado en memoria")
+        except Exception as e:
+            print(f"⚠ Error cargando modelo Piper: {e}")
+    return _piper_voice_cache
+
 HISTORIAL_PATH = os.path.join(os.path.dirname(__file__), "historial.json")
 HISTORIAL_MAX = 100
 MEMORIA_PATH = os.path.join(os.path.dirname(__file__), "memoria_semantica.json")
@@ -32,7 +46,6 @@ VOZ = "es-MX-JorgeNeural"
 _recognizer = sr.Recognizer()
 _recognizer.pause_threshold = 1.0   # espera 1s de silencio antes de cortar
 _recognizer.energy_threshold = 300  # sensibilidad al ruido
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 # ── Síntesis de voz ───────────────────────────────────────────────────────
@@ -113,7 +126,6 @@ def hablar(texto):
                 pass
     return texto
 
-
 # ── Reconocimiento de voz ─────────────────────────────────────────────────
 def reconocer_voz():
     """Escucha el micrófono y devuelve el texto reconocido via Google STT."""
@@ -138,7 +150,6 @@ def reconocer_voz():
         print(f"❌ Error: {e}")
     return ""
 
-
 # ── Transcripción desde archivo (audio subido por el navegador) ──────────
 def transcribir_archivo(path_wav):
     """Transcribe un .wav ya convertido (16-bit PCM) usando Google STT."""
@@ -159,32 +170,28 @@ def transcribir_archivo(path_wav):
         print(f"❌ Error transcribiendo archivo: {e}")
         return ""
 
-
 # ── Generar audio sin reproducirlo localmente ─────────────────────────────
 def generar_audio_mp3(texto, output_path=None):
-    """Genera audio con Piper TTS (local, gratis, sin límites). Si falla, usa edge-tts como respaldo."""
+    """Genera audio con Piper (modelo cargado en memoria). Si falla, usa edge-tts como respaldo."""
     if output_path is None:
         output_path = os.path.join(
             tempfile.gettempdir(), f"jarvis_tts_{os.getpid()}_{int(time.time() * 1000)}.mp3"
         )
 
-    if os.path.exists(PIPER_MODEL_PATH):
+    voice = _cargar_piper()
+    if voice is not None:
         try:
+            import wave
             wav_path = output_path.replace(".mp3", ".wav")
-            resultado = subprocess.run(
-                ["/home/ubuntu/Jarvis/venv/bin/piper", "--model", PIPER_MODEL_PATH, "--output_file", wav_path],
-                input=texto, capture_output=True, text=True, timeout=30
-            )
-            if resultado.returncode == 0 and os.path.exists(wav_path):
-                # Convertir wav a mp3 para mantener consistencia con el resto del sistema
-                from pydub import AudioSegment
-                AudioSegment.from_wav(wav_path).export(output_path, format="mp3")
-                os.remove(wav_path)
-                return output_path
-            else:
-                print(f"⚠ Piper error: {resultado.stderr[:200]}")
+            with wave.open(wav_path, "wb") as wav_file:
+                voice.synthesize_wav(texto, wav_file)
+
+            from pydub import AudioSegment
+            AudioSegment.from_wav(wav_path).export(output_path, format="mp3")
+            os.remove(wav_path)
+            return output_path
         except Exception as e:
-            print(f"⚠ Error con Piper, usando edge-tts de respaldo: {e}")
+            print(f"⚠ Error con Piper (API), usando edge-tts de respaldo: {e}")
 
     # Respaldo si Piper falla o no está instalado
     async def _generar():
@@ -196,7 +203,6 @@ def generar_audio_mp3(texto, output_path=None):
         pool.submit(asyncio.run, _generar()).result()
 
     return output_path
-
 
 # ── Envío de notas de voz / mensajes a Telegram ───────────────────────────
 def enviar_texto_telegram(texto, chat_id=None):
