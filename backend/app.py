@@ -114,19 +114,24 @@ def _generar_audio_base64(texto):
         logger.error(f"Error generando audio: {e}")
         return None
 
-
-def _reenviar_a_telegram(texto_usuario, respuesta_texto, prefijo="⌨️ Tú (texto)"):
-    """Reenvía un comando y su respuesta como nota de voz al chat de Telegram."""
-    try:
-        jarvis_core.enviar_texto_telegram(f"{prefijo}: {texto_usuario}")
-        mp3_path = jarvis_core.generar_audio_mp3(respuesta_texto)
-        ogg_path = mp3_path.replace(".mp3", ".ogg")
-        AudioSegment.from_file(mp3_path).export(ogg_path, format="ogg", codec="libopus")
-        jarvis_core.enviar_voz_telegram(ogg_path, caption=respuesta_texto[:200])
-        os.remove(mp3_path)
-    except Exception as e:
-        logger.error(f"Error reenviando a Telegram: {e}")
-
+def _reenviar_a_telegram_async(texto_usuario, respuesta_texto, audio_b64, prefijo="⌨️ Tú (texto)"):
+    """Reenvía a Telegram en un hilo aparte, reutilizando el audio ya generado (sin duplicar trabajo de Piper)."""
+    def _hacer():
+        try:
+            jarvis_core.enviar_texto_telegram(f"{prefijo}: {texto_usuario}")
+            if not audio_b64:
+                return
+            mp3_path = os.path.join(tempfile.gettempdir(), f"jarvis_tg_{int(time.time()*1000)}.mp3")
+            with open(mp3_path, "wb") as f:
+                f.write(base64.b64decode(audio_b64))
+            ogg_path = mp3_path.replace(".mp3", ".ogg")
+            AudioSegment.from_file(mp3_path).export(ogg_path, format="ogg", codec="libopus")
+            jarvis_core.enviar_voz_telegram(ogg_path, caption=respuesta_texto[:200])
+            os.remove(mp3_path)
+            os.remove(ogg_path)
+        except Exception as e:
+            logger.error(f"Error reenviando a Telegram: {e}")
+    threading.Thread(target=_hacer, daemon=True).start()
 
 @app.route("/api/comando", methods=["POST"])
 def api_comando():
@@ -165,7 +170,7 @@ def api_comando():
     respuesta_texto = resultado.get("respuesta", "")
     if respuesta_texto:
         resultado["audio_base64"] = _generar_audio_base64(respuesta_texto)
-        _reenviar_a_telegram(comando, respuesta_texto)
+        _reenviar_a_telegram_async(comando, respuesta_texto, resultado["audio_base64"])
 
     jarvis_core.agregar_historial(comando, respuesta_texto, resultado.get("accion"), fuente="texto")
     return jsonify(resultado)
@@ -221,7 +226,7 @@ def api_voice_comando():
         resultado["ok"] = True
         resultado["texto_usuario"] = texto
         resultado["audio_base64"] = _generar_audio_base64(respuesta_texto)
-        _reenviar_a_telegram(texto, respuesta_texto, prefijo="🎙️ Tú (voz web)")
+        _reenviar_a_telegram_async(texto, respuesta_texto, resultado["audio_base64"], prefijo="🎙️ Tú (voz web)")
 
         jarvis_core.agregar_historial(texto, respuesta_texto, resultado.get("accion"), fuente="voz")
         return jsonify(resultado)

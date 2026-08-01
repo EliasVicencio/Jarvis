@@ -1,18 +1,17 @@
 # JARVIS — Asistente Personal de Escritorio
 
-Asistente personal tipo Iron Man construido con Tauri + React + Flask.
-Desplegado en **Oracle Cloud** — https://129.80.59.180:8080
+Asistente personal tipo Iron Man construido con React + Flask.
+Desplegado en **Oracle Cloud** — https://jarvis-elias-viewdns.net
 
 ---
 
 ## Stack
 
-- **Desktop:** Tauri (Rust)
 - **Frontend:** React 18 + Vite
 - **Backend:** Flask (Python) — Oracle Cloud Always Free
-- **Voz:** Edge TTS (es-MX-JorgeNeural) + Google STT
+- **Voz:** Piper (es_dave_fx) + Google STT
 - **IA local:** Ollama — llama3
-- **Mapas:** Globe.gl + Leaflet.js
+- **Mapas:** Globe.gl + Mapbox
 - **APIs:** YouTube Data v3, NewsAPI, CoinGecko, Google Calendar, Gmail IMAP
 
 ---
