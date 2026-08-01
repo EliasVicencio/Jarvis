@@ -643,6 +643,10 @@ function RecordatoriosTab() {
   const [nuevo, setNuevo] = useState("");
   const [cargando, setCargando] = useState(true);
 
+  const [notas, setNotas] = useState([]);
+  const [nuevaNota, setNuevaNota] = useState("");
+  const [cargandoNotas, setCargandoNotas] = useState(true);
+
   const cargar = useCallback(async () => {
     try {
       const r = await fetch(`${API}/recordatorios`);
@@ -652,7 +656,16 @@ function RecordatoriosTab() {
     setCargando(false);
   }, []);
 
-  useEffect(() => { cargar(); }, [cargar]);
+  const cargarNotas = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/notas-rapidas`);
+      const d = await r.json();
+      setNotas(d.notas || []);
+    } catch {}
+    setCargandoNotas(false);
+  }, []);
+
+  useEffect(() => { cargar(); cargarNotas(); }, [cargar, cargarNotas]);
 
   const agregar = async () => {
     if (!nuevo.trim()) return;
@@ -676,8 +689,32 @@ function RecordatoriosTab() {
     } catch {}
   };
 
+  const agregarNota = async () => {
+    if (!nuevaNota.trim()) return;
+    try {
+      const r = await fetch(`${API}/notas-rapidas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texto: nuevaNota }),
+      });
+      const d = await r.json();
+      setNotas(d.notas || []);
+      setNuevaNota("");
+    } catch {}
+  };
+
+  const eliminarNota = async (idx) => {
+    try {
+      const r = await fetch(`${API}/notas-rapidas/${idx}`, { method: "DELETE" });
+      const d = await r.json();
+      setNotas(d.notas || []);
+    } catch {}
+  };
+
   return (
-    <div style={{ padding: 10, height: "100%", display: "flex", flexDirection: "column" }}>
+    <div style={{ padding: 10, height: "100%", display: "flex", gap: 10, minHeight: 0 }}>
+
+      {/* Recordatorios */}
       <div className="mc-panel" style={{ flex: 1, minHeight: 0 }}>
         <div className="mc-ph">▸ RECORDATORIOS <div className="mc-pd" /></div>
 
@@ -714,6 +751,48 @@ function RecordatoriosTab() {
           ))}
         </div>
       </div>
+
+      {/* Notas rápidas */}
+      <div className="mc-panel" style={{ flex: 1, minHeight: 0 }}>
+        <div className="mc-ph">✎ NOTAS RÁPIDAS <div className="mc-pd" /></div>
+
+        <div style={{ display: "flex", gap: 8, padding: 10 }}>
+          <input
+            className="mc-input"
+            placeholder="Escribe una nota…"
+            value={nuevaNota}
+            onChange={e => setNuevaNota(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && agregarNota()}
+          />
+          <button className="mc-btn-save" onClick={agregarNota}>+ AGREGAR</button>
+        </div>
+
+        <div className="mc-scroll" style={{ flex: 1 }}>
+          {cargandoNotas ? (
+            <div className="mc-loading"><div className="mc-spin" /></div>
+          ) : notas.length === 0 ? (
+            <div className="mc-empty">No tienes notas guardadas</div>
+          ) : notas.slice().reverse().map((n, i) => {
+            const idxReal = notas.length - 1 - i;
+            return (
+              <div key={idxReal} className="mc-mod-row">
+                <div className="mc-mdot mc-cyan" />
+                <div className="mc-mod-body">
+                  <div className="mc-mod-name">{n.texto}</div>
+                </div>
+                <button
+                  className="mc-btn-cancel"
+                  style={{ flexShrink: 0 }}
+                  onClick={() => eliminarNota(idxReal)}
+                >
+                  ✕
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
     </div>
   );
 }
