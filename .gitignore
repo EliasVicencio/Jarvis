@@ -7,6 +7,7 @@ __pycache__/
 venv/
 backend/venv/
 backend/recordatorios.txt
+backend/historial.json
 
 # Rust / Tauri build
 src-tauri/target/
@@ -15,12 +16,11 @@ src-tauri/target/
 frontend/node_modules/
 frontend/dist/
 
-# OpenClaw workspace (skills, memories)
-.openclaw/workspace/
+# OpenClaw (ya no se usa, pero puede quedar config local)
+.openclaw/
 
 # OS
 .DS_Store
 Thumbs.db
 backend/memoria_semantica.json
-backend/voces_piper/
 backend/voces_piper/

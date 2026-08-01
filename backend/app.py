@@ -26,7 +26,23 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["https://jarvis-elias.viewdns.net"])
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB máximo por petición
+
+from collections import defaultdict
+
+_rate_limit_tracker = defaultdict(list)
+RATE_LIMIT_MAX = 15
+RATE_LIMIT_WINDOW = 60  # segundos
+
+def _rate_limited(ip):
+    ahora = time.time()
+    intentos = _rate_limit_tracker[ip]
+    intentos[:] = [t for t in intentos if ahora - t < RATE_LIMIT_WINDOW]
+    if len(intentos) >= RATE_LIMIT_MAX:
+        return True
+    intentos.append(ahora)
+    return False
 
 _wake_queue    = queue.Queue()
 _accion_queue  = queue.Queue()   # acciones para el frontend (abrir_noticias, etc.)
@@ -136,11 +152,16 @@ def _reenviar_a_telegram_async(texto_usuario, respuesta_texto, audio_b64, prefij
 @app.route("/api/comando", methods=["POST"])
 def api_comando():
     global _jarvis_pausado
+    ip = request.headers.get("X-Real-IP", request.remote_addr)
+    if _rate_limited(ip):
+        return jsonify({"error": "Demasiadas solicitudes, espera un momento"}), 429
     data    = request.get_json(force=True) or {}
     comando = data.get("comando", "")
     hablar  = data.get("hablar", True)
     if not comando:
         return jsonify({"error": "Falta comando"}), 400
+    if len(comando) > 500:
+        return jsonify({"error": "Comando demasiado largo"}), 400
 
     resultado = jarvis_core.procesar_comando(comando)
 
@@ -183,6 +204,9 @@ def api_voice_comando():
     en base64 para reproducirlo también en la web.
     """
     global _jarvis_pausado
+    ip = request.headers.get("X-Real-IP", request.remote_addr)
+    if _rate_limited(ip):
+        return jsonify({"ok": False, "error": "Demasiadas solicitudes, espera un momento"}), 429
 
     if "audio" not in request.files:
         return jsonify({"ok": False, "error": "Falta el archivo de audio"}), 400
@@ -440,7 +464,7 @@ def _contar_correos_no_leidos():
     if not user or not pwd:
         return None
     try:
-        M = imaplib.IMAP4_SSL("imap.gmail.com")
+        M = imaplib.IMAP4_SSL("imap.gmail.com", timeout=4)
         M.login(user, pwd)
         M.select("INBOX")
         _, data = M.search(None, "UNSEEN")
@@ -598,7 +622,7 @@ def api_enviar_email():
         return jsonify({"ok": True, "mensaje": f"Email enviado a {para}"})
     except Exception as e:
         logger.error(f"Error enviando email: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "No se pudo procesar la solicitud"}), 500
 
 
 # ── Groq / LLM Integration ─────────────────────────────────────────────────
@@ -739,27 +763,6 @@ def api_youtube_buscar_canal():
     except Exception as e:
         logger.error(f"Error buscando canal: {e}")
         return jsonify({"error": str(e), "channel_id": None, "nombre": None})
-
-@app.route("/api/deploy", methods=["POST"])
-def api_deploy():
-    """Acepta un ZIP del frontend build y lo extrae en dist/."""
-    if "file" not in request.files:
-        return jsonify({"error": "No se recibió archivo"}), 400
-    file = request.files["file"]
-    if file.filename == "" or not file.filename.endswith(".zip"):
-        return jsonify({"error": "Debe ser un archivo .zip"}), 400
-    try:
-        z = zipfile.ZipFile(io.BytesIO(file.read()))
-        if os.path.exists(FRONTEND_DIST):
-            shutil.rmtree(FRONTEND_DIST)
-        os.makedirs(FRONTEND_DIST, exist_ok=True)
-        z.extractall(FRONTEND_DIST)
-        logger.info(f"Frontend desplegado: {len(z.namelist())} archivos extraídos")
-        return jsonify({"ok": True, "archivos": len(z.namelist())})
-    except Exception as e:
-        logger.error(f"Error en deploy: {e}")
-        return jsonify({"error": str(e)}), 500
-
 
 # ── Telegram Bot (proceso separado) ─────────────────────────────────────────
 

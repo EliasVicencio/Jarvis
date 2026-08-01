@@ -38,6 +38,7 @@ def _cargar_piper():
 
 HISTORIAL_PATH = os.path.join(os.path.dirname(__file__), "historial.json")
 HISTORIAL_MAX = 100
+MEMORIA_MAX = 300
 MEMORIA_PATH = os.path.join(os.path.dirname(__file__), "memoria_semantica.json")
 GROQ_API_KEY_MEM = os.getenv("GROQ_API_KEY", "")
 VOZ = "es-MX-JorgeNeural"
@@ -544,6 +545,7 @@ def agregar_memoria(categoria, texto, relacion=None):
         "relacion": relacion,
         "fecha": datetime.datetime.now().isoformat(),
     })
+    memorias = memorias[-MEMORIA_MAX:]
     with open(MEMORIA_PATH, "w", encoding="utf-8") as f:
         json.dump(memorias, f, ensure_ascii=False, indent=2)
     return memorias
