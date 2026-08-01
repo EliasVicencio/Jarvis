@@ -797,6 +797,86 @@ function RecordatoriosTab() {
   );
 }
 
+function RedTab() {
+  const NODOS = [
+    { nombre: "Groq LLM",       x: 170, y: 110, color: "#A78BFA", labelY: 140 },
+    { nombre: "Piper TTS",      x: 520, y: 90,  color: "#2DD4E8", labelY: 72  },
+    { nombre: "Google STT",     x: 610, y: 210, color: "#2DD4E8", labelY: 196 },
+    { nombre: "Telegram",       x: 140, y: 300, color: "#4ADE80", labelY: 332 },
+    { nombre: "Gmail",          x: 240, y: 440, color: "#4ADE80", labelY: 472 },
+    { nombre: "NewsAPI",        x: 460, y: 440, color: "#F2A93B", labelY: 472 },
+    { nombre: "YouTube",        x: 590, y: 380, color: "#F2A93B", labelY: 412 },
+    { nombre: "Mapbox",         x: 90,  y: 180, color: "#F2A93B", labelY: 166 },
+    { nombre: "GitHub Actions", x: 380, y: 60,  color: "#F87171", labelY: 42  },
+    { nombre: "Oracle VM",      x: 80,  y: 420, color: "#F87171", labelY: 452 },
+  ];
+  const CX = 350, CY = 260;
+  const duraciones = [2.6, 3.1, 2.3, 2.9, 2.5, 3.4, 2.7, 3.0, 2.4, 3.2];
+
+  return (
+    <div style={{ padding: 10, height: "100%", overflow: "auto" }}>
+      <div className="mc-panel" style={{ padding: 16 }}>
+        <div className="mc-ph">
+          ◉ RED NEURONAL · CEREBRO DE JARVIS
+          <div className="mc-pd" />
+        </div>
+
+        <svg width="100%" viewBox="0 0 700 520" style={{ display: "block", marginTop: 10 }}>
+          <defs>
+            <radialGradient id="starglow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#fff" stopOpacity="0.9" />
+              <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+
+          {/* estrellas de fondo */}
+          {[[50,60],[120,30],[650,80],[600,450],[30,400],[680,300],[200,480],[450,20]].map(([x,y],i) => (
+            <circle key={i} cx={x} cy={y} r={0.8} fill="#fff" opacity={0.4} />
+          ))}
+
+          {/* lineas de conexion */}
+          {NODOS.map((n, i) => (
+            <line key={i} x1={CX} y1={CY} x2={n.x} y2={n.y} stroke="#2DD4E8" strokeWidth={0.6} opacity={0.35} />
+          ))}
+
+          {/* pulsos animados */}
+          {NODOS.map((n, i) => (
+            <circle key={i} r={2.5} fill="#2DD4E8">
+              <animateMotion dur={`${duraciones[i]}s`} repeatCount="indefinite" path={`M${CX},${CY} L${n.x},${n.y}`} />
+            </circle>
+          ))}
+
+          {/* nodos de servicios */}
+          {NODOS.map((n, i) => (
+            <g key={i}>
+              <circle cx={n.x} cy={n.y} r={26} fill="url(#starglow)" opacity={0.15} />
+              <circle cx={n.x} cy={n.y} r={5} fill="#0A121C" stroke={n.color} strokeWidth={1.3} />
+              <text x={n.x} y={n.labelY} fill="#DCEFF5" fontSize={11} fontFamily="monospace" textAnchor="middle">
+                {n.nombre}
+              </text>
+            </g>
+          ))}
+
+          {/* nucleo central: JARVIS */}
+          <circle cx={CX} cy={CY} r={42} fill="url(#starglow)" opacity={0.3} />
+          <circle cx={CX} cy={CY} r={24} fill="#0A121C" stroke="#2DD4E8" strokeWidth={1.8} />
+          <text x={CX} y={CY + 6} fill="#2DD4E8" fontSize={15} fontWeight="bold" fontFamily="monospace" textAnchor="middle">
+            J
+          </text>
+        </svg>
+
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", marginTop: 14, fontSize: 10, color: "rgba(220,239,245,0.5)" }}>
+          <span><span style={{ color: "#A78BFA" }}>●</span> Inteligencia</span>
+          <span><span style={{ color: "#2DD4E8" }}>●</span> Voz</span>
+          <span><span style={{ color: "#4ADE80" }}>●</span> Comunicación</span>
+          <span><span style={{ color: "#F2A93B" }}>●</span> Datos externos</span>
+          <span><span style={{ color: "#F87171" }}>●</span> Infraestructura</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
 export default function MissionControl({ onVolver }) {
   const [tab, setTab] = useState("sistema");
@@ -826,6 +906,7 @@ export default function MissionControl({ onVolver }) {
             {id:"contenido", icon:"⬡", label:"CONTENIDO"},
             {id:"bandeja",   icon:"◈", label:"BANDEJA"},
             {id:"recordatorios", icon:"✎", label:"RECORDATORIOS"},
+            {id:"red", icon:"◉", label:"RED"},
           ].map(t => (
             <button key={t.id}
               className={`mc-tab ${tab===t.id?"mc-tab-on":""}`}
@@ -842,10 +923,11 @@ export default function MissionControl({ onVolver }) {
       </header>
 
       <div className="mc-body">
-        {tab === "sistema"   && <SistemaTab />}
+        {tab === "sistema" && <SistemaTab />}
         {tab === "contenido" && <ContenidoTab />}
-        {tab === "bandeja"   && <BandejaTab />}
+        {tab === "bandeja" && <BandejaTab />}
         {tab === "recordatorios" && <RecordatoriosTab />}
+        {tab === "red" && <RedTab />}
       </div>
     </div>
   );
