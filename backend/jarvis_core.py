@@ -1,4 +1,5 @@
 import asyncio
+import psutil
 import datetime
 import webbrowser
 import subprocess
@@ -314,6 +315,35 @@ def generar_chiste_llm():
             print(f"⚠ Error generando chiste con Groq: {e}")
     return random.choice(CHISTES)
 
+def reporte_estado_sistema():
+    """Genera un reporte hablado del estado de la VM, estilo JARVIS."""
+    try:
+        cpu = psutil.cpu_percent(interval=0.5)
+        mem = psutil.virtual_memory()
+        disco = psutil.disk_usage("/")
+        swap = psutil.swap_memory()
+
+        uptime_seg = time.time() - psutil.boot_time()
+        horas = int(uptime_seg // 3600)
+        dias = horas // 24
+        horas_restantes = horas % 24
+
+        if dias > 0:
+            tiempo_txt = f"{dias} día{'s' if dias != 1 else ''} y {horas_restantes} hora{'s' if horas_restantes != 1 else ''}"
+        else:
+            tiempo_txt = f"{horas_restantes} hora{'s' if horas_restantes != 1 else ''}"
+
+        estado_general = "todo dentro de parámetros normales" if cpu < 80 and mem.percent < 85 else "hay carga elevada en el sistema"
+
+        return (
+            f"Reporte de estado, señor. CPU al {cpu:.0f} por ciento. "
+            f"Memoria al {mem.percent:.0f} por ciento, con {mem.available // (1024*1024)} megabytes disponibles. "
+            f"Disco al {disco.percent:.0f} por ciento de uso. "
+            f"Tiempo activo: {tiempo_txt}. "
+            f"{estado_general.capitalize()}."
+        )
+    except Exception as e:
+        return f"No pude generar el reporte de estado: {e}"
 
 # ── Procesamiento de comandos ─────────────────────────────────────────────
 def procesar_comando(comando):
@@ -379,6 +409,10 @@ def procesar_comando(comando):
 
     if "chiste" in comando:
         return {"respuesta": generar_chiste_llm(), "continuar": True, "accion": "chiste"}
+
+    if "reporte de estado" in comando or "estado del sistema" in comando or "cómo está el sistema" in comando or "diagnostico" in comando:
+        r = reporte_estado_sistema()
+        return {"respuesta": r, "continuar": True, "accion": "reporte_estado"}
 
     if "ayuda" in comando or "qué puedes" in comando or "comandos" in comando:
         return {"respuesta": "Puedo decirte la hora, la fecha, el clima, buscar en Google, "

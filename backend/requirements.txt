@@ -18,3 +18,4 @@ python-dotenv>=1.0.0
 
 # OpenClaw integration
 requests>=2.31.0piper-tts
+psutil
