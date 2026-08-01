@@ -814,14 +814,14 @@ function RedTab() {
   const duraciones = [2.6, 3.1, 2.3, 2.9, 2.5, 3.4, 2.7, 3.0, 2.4, 3.2];
 
   return (
-    <div style={{ padding: 10, height: "100%", overflow: "auto" }}>
-      <div className="mc-panel" style={{ padding: 16 }}>
+    <div style={{ padding: 10, height: "100%", minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <div className="mc-panel" style={{ padding: 16, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div className="mc-ph">
           ◉ RED NEURONAL · CEREBRO DE JARVIS
           <div className="mc-pd" />
         </div>
 
-        <svg width="100%" viewBox="0 0 700 520" style={{ display: "block", marginTop: 10 }}>
+        <svg viewBox="0 0 700 520" style={{ display: "block", marginTop: 10, width: "100%", flex: 1, minHeight: 0 }}>
           <defs>
             <radialGradient id="starglow" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="#fff" stopOpacity="0.9" />
