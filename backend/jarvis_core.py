@@ -39,6 +39,68 @@ def _cargar_piper():
 HISTORIAL_PATH = os.path.join(os.path.dirname(__file__), "historial.json")
 HISTORIAL_MAX = 100
 MEMORIA_MAX = 300
+
+NOTAS_PATH = os.path.join(os.path.dirname(__file__), "notas_rapidas.json")
+
+def obtener_notas():
+    if os.path.exists(NOTAS_PATH):
+        try:
+            with open(NOTAS_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def agregar_nota(texto):
+    notas = obtener_notas()
+    notas.append({"texto": texto.strip(), "fecha": datetime.datetime.now().isoformat()})
+    notas = notas[-200:]
+    with open(NOTAS_PATH, "w", encoding="utf-8") as f:
+        json.dump(notas, f, ensure_ascii=False, indent=2)
+    return notas
+
+def eliminar_nota(indice):
+    notas = obtener_notas()
+    if 0 <= indice < len(notas):
+        notas.pop(indice)
+        with open(NOTAS_PATH, "w", encoding="utf-8") as f:
+            json.dump(notas, f, ensure_ascii=False, indent=2)
+    return notas
+
+
+def resumen_del_dia():
+    """Resumen hablado de la actividad de hoy, usando el historial y las notas."""
+    hoy = datetime.datetime.now().date().isoformat()
+    comandos_hoy = [h for h in obtener_historial() if h.get("fecha", "").startswith(hoy)]
+    notas_hoy = [n for n in obtener_notas() if n.get("fecha", "").startswith(hoy)]
+
+    n_comandos = len(comandos_hoy)
+    if n_comandos == 0:
+        return "Todavía no hemos interactuado hoy, señor."
+
+    vez_txt = "vez" if n_comandos == 1 else "veces"
+    partes = [f"Hoy me usaste {n_comandos} {vez_txt}."]
+
+    if notas_hoy:
+        n = len(notas_hoy)
+        partes.append(f"Agregaste {n} nota{'s' if n != 1 else ''} rápida{'s' if n != 1 else ''}.")
+
+    partes.append("Buen trabajo hoy.")
+    return " ".join(partes)
+
+MODO_SEGURO_PATH = os.path.join(os.path.dirname(__file__), "modo_seguro.flag")
+
+def esta_en_modo_seguro():
+    return os.path.exists(MODO_SEGURO_PATH)
+
+def activar_modo_seguro(motivo=""):
+    with open(MODO_SEGURO_PATH, "w", encoding="utf-8") as f:
+        f.write(motivo)
+
+def desactivar_modo_seguro():
+    if os.path.exists(MODO_SEGURO_PATH):
+        os.remove(MODO_SEGURO_PATH)
+
 MEMORIA_PATH = os.path.join(os.path.dirname(__file__), "memoria_semantica.json")
 GROQ_API_KEY_MEM = os.getenv("GROQ_API_KEY", "")
 VOZ = "es-MX-JorgeNeural"
@@ -415,6 +477,27 @@ def procesar_comando(comando):
 
     if "chiste" in comando:
         return {"respuesta": generar_chiste_llm(), "continuar": True, "accion": "chiste"}
+
+    if comando.startswith("anota esto") or comando.startswith("anota:") or comando.startswith("toma nota"):
+        for disparador in ["anota esto:", "anota esto", "toma nota:", "toma nota", "anota:"]:
+            if comando.startswith(disparador):
+                texto_nota = comando[len(disparador):].strip(" :")
+                break
+        else:
+            texto_nota = ""
+        if texto_nota:
+            agregar_nota(texto_nota)
+            return {"respuesta": f"Anotado: {texto_nota}", "continuar": True, "accion": "nota_agregada"}
+        return {"respuesta": "¿Qué quieres que anote?", "continuar": True, "accion": "nota_vacia"}
+
+    if "modo trabajo" in comando:
+        recordatorios = obtener_recordatorios()
+        n = len(recordatorios)
+        extra = f" Tienes {n} recordatorio{'s' if n != 1 else ''} pendiente{'s' if n != 1 else ''}." if n else ""
+        return {"respuesta": f"Modo trabajo activado.{extra} Concentrémonos.", "continuar": True, "accion": "modo_trabajo"}
+
+    if "resume mi día" in comando or "resumen del día" in comando or "cómo estuvo mi día" in comando:
+        return {"respuesta": resumen_del_dia(), "continuar": True, "accion": "resumen_dia"}
 
     if "reporte de estado" in comando or "estado del sistema" in comando or "cómo está el sistema" in comando or "diagnostico" in comando:
         r = reporte_estado_sistema()

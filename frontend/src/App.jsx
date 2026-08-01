@@ -105,6 +105,10 @@ export default function App() {
         setCanalNoticias(data.dato);
         setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       }
+      if (data.accion === "modo_trabajo") {
+        setEstado("hablando"); estadoRef.current = "hablando";
+        setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      }
       if (data.accion === "abrir_noticias") {
         setEstado("hablando"); estadoRef.current = "hablando";
         setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);

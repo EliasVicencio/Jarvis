@@ -8,9 +8,8 @@ venv/
 backend/venv/
 backend/recordatorios.txt
 backend/historial.json
-
-# Rust / Tauri build
-src-tauri/target/
+backend/modo_seguro.flag
+backend/notas_rapidas.json
 
 # Node
 frontend/node_modules/

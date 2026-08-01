@@ -70,6 +70,12 @@ async def main():
         texto = update.message.text.strip()
         user = update.message.from_user
         logger.info(f"Telegram [{user.first_name}]: {texto}")
+
+        if "desactiva" in texto.lower() and "modo seguro" in texto.lower():
+            jarvis_core.desactivar_modo_seguro()
+            await update.message.reply_text("Modo seguro desactivado. Todo vuelve a la normalidad, Elías.")
+            return
+
         resultado = jarvis_core.procesar_comando(texto)
         if resultado.get("accion") == "desconocido":
             groq_resp = _llm_preguntar(texto)

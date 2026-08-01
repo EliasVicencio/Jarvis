@@ -35,11 +35,31 @@ _rate_limit_tracker = defaultdict(list)
 RATE_LIMIT_MAX = 15
 RATE_LIMIT_WINDOW = 60  # segundos
 
+_anomalia_tracker = defaultdict(list)
+UMBRAL_ANOMALIA = 3       # veces que debe gatillar el limite
+VENTANA_ANOMALIA = 300    # en 5 minutos
+
+def _registrar_anomalia(ip):
+    ahora = time.time()
+    intentos = _anomalia_tracker[ip]
+    intentos[:] = [t for t in intentos if ahora - t < VENTANA_ANOMALIA]
+    intentos.append(ahora)
+    if len(intentos) >= UMBRAL_ANOMALIA and not jarvis_core.esta_en_modo_seguro():
+        jarvis_core.activar_modo_seguro(f"Actividad sospechosa desde {ip}")
+        logger.warning(f"⚠ MODO SEGURO ACTIVADO — anomalia desde {ip}")
+        jarvis_core.enviar_texto_telegram(
+            f"⚠️ Alerta, Elías. Detecté actividad sospechosa (varias ráfagas de peticiones "
+            f"seguidas desde una misma dirección). Activé el modo seguro por mi cuenta — "
+            f"los comandos por la web quedan bloqueados. Escríbeme aquí 'desactiva modo seguro' "
+            f"cuando confirmes que todo está bien."
+        )
+
 def _rate_limited(ip):
     ahora = time.time()
     intentos = _rate_limit_tracker[ip]
     intentos[:] = [t for t in intentos if ahora - t < RATE_LIMIT_WINDOW]
     if len(intentos) >= RATE_LIMIT_MAX:
+        _registrar_anomalia(ip)
         return True
     intentos.append(ahora)
     return False
@@ -52,7 +72,6 @@ _ultimo_wake   = 0
 _jarvis_pausado = False
 WAKE_COOLDOWN  = 4.0
 
-
 def _on_wake(fuente: str):
     global _ultimo_wake
     ahora = time.time()
@@ -62,7 +81,6 @@ def _on_wake(fuente: str):
     _ultimo_wake = ahora
     logger.info(f"Wake activada: {fuente}")
     _wake_queue.put(fuente)
-
 
 def iniciar_wake_detector():
     global _wake_detector, _wake_activo
@@ -76,7 +94,6 @@ def iniciar_wake_detector():
         logger.info("Wake word detector activo (Azure Speech loop)")
     except Exception as e:
         logger.error(f"No se pudo iniciar el wake detector: {e}")
-
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
 
@@ -93,7 +110,6 @@ def api_wake_poll():
         return jsonify({"activado": True, "fuente": fuente})
     except queue.Empty:
         return jsonify({"activado": False, "fuente": None})
-
 
 @app.route("/api/escuchar", methods=["POST"])
 def api_escuchar():
@@ -116,7 +132,6 @@ def api_escuchar():
         return jsonify({"texto": "", "ok": False, "mensaje": "Wake word ignorada como comando"})
 
     return jsonify({"texto": texto, "ok": True})
-
 
 def _generar_audio_base64(texto):
     """Genera el mp3 de una respuesta y lo devuelve en base64 para el navegador."""
@@ -153,6 +168,8 @@ def _reenviar_a_telegram_async(texto_usuario, respuesta_texto, audio_b64, prefij
 def api_comando():
     global _jarvis_pausado
     ip = request.headers.get("X-Real-IP", request.remote_addr)
+    if jarvis_core.esta_en_modo_seguro():
+        return jsonify({"error": "Modo seguro activo"}), 503
     if _rate_limited(ip):
         return jsonify({"error": "Demasiadas solicitudes, espera un momento"}), 429
     data    = request.get_json(force=True) or {}
@@ -205,6 +222,8 @@ def api_voice_comando():
     """
     global _jarvis_pausado
     ip = request.headers.get("X-Real-IP", request.remote_addr)
+    if jarvis_core.esta_en_modo_seguro():
+        return jsonify({"ok": False, "error": "Modo seguro activo"}), 503
     if _rate_limited(ip):
         return jsonify({"ok": False, "error": "Demasiadas solicitudes, espera un momento"}), 429
 
@@ -262,7 +281,6 @@ def api_voice_comando():
                     os.remove(p)
             except Exception:
                 pass
-
 
 @app.route("/api/subtitulos")
 def api_subtitulos():
@@ -418,12 +436,10 @@ def api_emails():
         logger.error(f"Error IMAP: {e}")
         return jsonify({"error": str(e), "emails": []})
 
-
 @app.route("/api/youtube-key", methods=["GET"])
 def api_youtube_key():
     key = os.environ.get("YOUTUBE_API_KEY", "")
     return jsonify({"key": key})
-
 
 @app.route("/api/hablar", methods=["POST"])
 def api_hablar():
@@ -444,7 +460,6 @@ def api_hablar():
 def api_recordatorios():
     return jsonify({"recordatorios": jarvis_core.obtener_recordatorios()})
 
-
 @app.route("/api/recordatorios", methods=["POST"])
 def api_recordatorios_agregar():
     data = request.get_json(force=True) or {}
@@ -452,11 +467,19 @@ def api_recordatorios_agregar():
     recs = jarvis_core.agregar_recordatorio(texto)
     return jsonify({"recordatorios": recs})
 
-
 @app.route("/api/recordatorios/<int:indice>", methods=["DELETE"])
 def api_recordatorios_eliminar(indice):
     recs = jarvis_core.eliminar_recordatorio(indice)
     return jsonify({"recordatorios": recs})
+
+@app.route("/api/notas-rapidas")
+def api_notas_rapidas():
+    return jsonify({"notas": jarvis_core.obtener_notas()})
+
+@app.route("/api/notas-rapidas/<int:indice>", methods=["DELETE"])
+def api_notas_rapidas_eliminar(indice):
+    notas = jarvis_core.eliminar_nota(indice)
+    return jsonify({"notas": notas})
 
 def _contar_correos_no_leidos():
     user = os.environ.get("EMAIL_USER", "")
