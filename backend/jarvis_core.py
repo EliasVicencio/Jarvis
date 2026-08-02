@@ -55,7 +55,6 @@ def _obtener_servicio_calendar():
             f.write(creds.to_json())
     return build('calendar', 'v3', credentials=creds)
 
-
 def resumen_agenda_hoy():
     """Genera un resumen hablado de los eventos de hoy en Google Calendar."""
     try:
@@ -92,7 +91,7 @@ def resumen_agenda_hoy():
         print(f"⚠ Error obteniendo eventos del calendario: {e}")
         return "No pude acceder a tu calendario en este momento, señor."
     
-HISTORIAL_MAX = 100
+HISTORIAL_MAX = 15
 MEMORIA_MAX = 300
 
 NOTAS_PATH = os.path.join(os.path.dirname(__file__), "notas_rapidas.json")
@@ -121,7 +120,6 @@ def eliminar_nota(indice):
         with open(NOTAS_PATH, "w", encoding="utf-8") as f:
             json.dump(notas, f, ensure_ascii=False, indent=2)
     return notas
-
 
 def resumen_del_dia():
     """Resumen hablado de la actividad de hoy, usando el historial y las notas."""
@@ -336,7 +334,6 @@ def enviar_texto_telegram(texto, chat_id=None):
         print(f"⚠ Error enviando texto a Telegram: {e}")
         return False
 
-
 def enviar_voz_telegram(path_ogg, chat_id=None, caption=None):
     """Envía una nota de voz (.ogg/opus) al chat de Telegram configurado."""
     chat_id = chat_id or TELEGRAM_CHAT_ID
@@ -355,7 +352,6 @@ def enviar_voz_telegram(path_ogg, chat_id=None, caption=None):
     except Exception as e:
         print(f"⚠ Error enviando voz a Telegram: {e}")
         return False
-
 
 # ── Utilidades ────────────────────────────────────────────────────────────
 def _clima(ciudad="Santiago"):
@@ -381,7 +377,6 @@ def _clima(ciudad="Santiago"):
     except Exception:
         return None
 
-
 CHISTES = [
     "¿Por qué los programadores prefieren el frío? Porque odian los bugs.",
     "Mi código no tiene errores, solo características inesperadas.",
@@ -389,7 +384,6 @@ CHISTES = [
     "¿Por qué la computadora fue al médico? Porque tenía un virus.",
     "¿Cómo se llama el campeón de buceo japonés? Mitsubishi.",
 ]  # Respaldo, solo se usa si Groq no está disponible
-
 
 def generar_chiste_llm():
     """Genera un chiste corto y original con Groq. Si falla, usa la lista local como respaldo."""
@@ -454,7 +448,6 @@ def reporte_estado_sistema():
 # ── Procesamiento de comandos ─────────────────────────────────────────────
 def procesar_comando(comando):
     comando = comando.lower().strip().rstrip(".,;:!?¿¡")
-
 
     if "hora" in comando:
         r = f"Son las {datetime.datetime.now().strftime('%I:%M %p')}"
@@ -644,7 +637,6 @@ def procesar_comando(comando):
     return {"respuesta": "No sé cómo hacer eso todavía. Estoy aprendiendo.",
             "continuar": True, "accion": "desconocido"}
 
-
 def obtener_recordatorios():
     if os.path.exists(RECORDATORIOS_PATH):
         with open(RECORDATORIOS_PATH, "r", encoding="utf-8") as f:
@@ -659,7 +651,6 @@ def obtener_memoria():
         except Exception:
             return []
     return []
-
 
 def agregar_memoria(categoria, texto, relacion=None):
     memorias = obtener_memoria()
@@ -679,7 +670,6 @@ def agregar_memoria(categoria, texto, relacion=None):
         json.dump(memorias, f, ensure_ascii=False, indent=2)
     return memorias
 
-
 def eliminar_memoria(indice):
     memorias = obtener_memoria()
     if 0 <= indice < len(memorias):
@@ -687,7 +677,6 @@ def eliminar_memoria(indice):
         with open(MEMORIA_PATH, "w", encoding="utf-8") as f:
             json.dump(memorias, f, ensure_ascii=False, indent=2)
     return memorias
-
 
 def contexto_memoria_para_prompt(limite=25):
     """Arma un resumen de la memoria guardada para inyectarlo en el system prompt de Groq."""
@@ -697,13 +686,11 @@ def contexto_memoria_para_prompt(limite=25):
     lineas = [f"- {m['texto']}" for m in memorias]
     return "Datos que ya sabes sobre Elías (úsalos si son relevantes para responder):\n" + "\n".join(lineas)
 
-
 _FRASES_META_MEMORIA = (
     "qué sabes de mí", "que sabes de mi", "qué sabes sobre mí", "que sabes sobre mi",
     "recuerdas algo de mí", "recuerdas algo de mi", "qué recuerdas de mí", "que recuerdas de mi",
     "qué tienes guardado", "que tienes guardado", "borra tu memoria", "olvida lo que sabes",
 )
-
 
 def extraer_memoria_llm(mensaje_usuario):
     """Le pregunta a Groq si el mensaje trae un dato personal NUEVO y concreto, digno de recordar."""
@@ -774,7 +761,6 @@ def agregar_recordatorio(texto):
         f.write(texto + "\n")
     return obtener_recordatorios()
 
-
 def eliminar_recordatorio(indice):
     recs = obtener_recordatorios()
     if 0 <= indice < len(recs):
@@ -792,7 +778,6 @@ def obtener_historial():
         except Exception:
             return []
     return []
-
 
 def agregar_historial(comando, respuesta, accion=None, fuente=None):
     historial = obtener_historial()

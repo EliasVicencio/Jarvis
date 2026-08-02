@@ -307,100 +307,6 @@ def api_voice_comando():
             except Exception:
                 pass
 
-@app.route("/api/subtitulos")
-def api_subtitulos():
-    """Extrae subtítulos de YouTube via yt-dlp y los traduce al español."""
-    video_id = request.args.get("id", "")
-    if not video_id:
-        return jsonify({"error": "Falta id", "subtitulos": []})
-    try:
-        import yt_dlp
-        # Idiomas a intentar: español primero, luego inglés
-        ydl_opts = {
-            "skip_download": True,
-            "writeautomaticsub": True,
-            "writesubtitles": True,
-            "subtitleslangs": ["es", "es-419", "en"],
-            "quiet": True,
-            "no_warnings": True,
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-
-        # Obtener subtítulos — preferir español
-        auto = info.get("automatic_captions", {})
-        subs = info.get("subtitles", {})
-
-        # Elegir idioma
-        lang = None
-        for l in ["es", "es-419", "en"]:
-            if l in subs and subs[l]:
-                lang = l; break
-        if not lang:
-            for l in ["es", "es-419", "en"]:
-                if l in auto and auto[l]:
-                    lang = l; break
-
-        if not lang:
-            return jsonify({"error": "Sin subtítulos disponibles", "subtitulos": []})
-
-        fuente = subs if lang in subs else auto
-        # Obtener URL del formato json3
-        entry = next((f for f in fuente[lang] if f.get("ext") == "json3"), fuente[lang][0])
-        url   = entry["url"]
-
-        import urllib.request as ur
-        import json as _json
-        req = ur.Request(url, headers={"User-Agent":"Mozilla/5.0"})
-        with ur.urlopen(req, timeout=10) as r:
-            data = _json.loads(r.read())
-
-        eventos = data.get("events", [])
-        lineas  = []
-        for e in eventos:
-            if not e.get("segs"): continue
-            texto = "".join(s.get("utf8","") for s in e["segs"]).strip()
-            if texto and texto.strip():
-                lineas.append({"t": e.get("tStartMs",0), "texto": texto})
-
-        # Traducir al español si está en inglés
-        if lang.startswith("en") and lineas:
-            try:
-                import urllib.parse
-                textos = [l["texto"] for l in lineas]
-                # Traducir en lotes de 20
-                LOTE = 20
-                traducidos = []
-                for i in range(0, len(textos), LOTE):
-                    lote = textos[i:i+LOTE]
-                    q = urllib.parse.quote(" ||| ".join(lote))
-                    url_t = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q={q}"
-                    req_t = ur.Request(url_t, headers={"User-Agent":"Mozilla/5.0"})
-                    with ur.urlopen(req_t, timeout=8) as r:
-                        d = _json.loads(r.read())
-                    traducido = "".join(s[0] for s in d[0] if s[0])
-                    partes = traducido.split(" ||| ")
-                    traducidos.extend(partes)
-                for i, l in enumerate(lineas):
-                    l["trad"] = traducidos[i].strip() if i < len(traducidos) else l["texto"]
-                    l["orig"] = l["texto"]
-                    l["lang"] = "en"
-            except Exception as ex:
-                logger.error(f"Error traduciendo: {ex}")
-                for l in lineas:
-                    l["trad"] = l["texto"]
-                    l["lang"] = "en"
-        else:
-            for l in lineas:
-                l["trad"] = l["texto"]
-                l["lang"] = lang
-
-        return jsonify({"subtitulos": lineas, "lang": lang, "total": len(lineas)})
-
-    except Exception as e:
-        logger.error(f"Error subtítulos: {e}")
-        return jsonify({"error": str(e), "subtitulos": []})
-
 @app.route("/api/historial")
 def api_historial():
     return jsonify({"historial": jarvis_core.obtener_historial()})
@@ -522,7 +428,6 @@ def _contar_correos_no_leidos():
         logger.error(f"Error contando correos no leidos: {e}")
         return None
 
-
 @app.route("/api/saludo")
 def api_saludo():
     hora = datetime.now().hour
@@ -556,7 +461,6 @@ def api_saludo():
         "wake_activo": _wake_activo,
     })
 
-
 @app.route("/api/wake-status")
 def api_wake_status():
     return jsonify({
@@ -564,11 +468,9 @@ def api_wake_status():
         "metodos": ["jarvis"] if _wake_activo else [],
     })
 
-
 @app.route("/api/estado")
 def api_estado():
     return jsonify({"pausado": _jarvis_pausado})
-
 
 @app.route("/api/accion-poll")
 def api_accion_poll():
@@ -578,7 +480,6 @@ def api_accion_poll():
         return jsonify({"accion": accion})
     except queue.Empty:
         return jsonify({"accion": None})
-
 
 # ── Noticias ───────────────────────────────────────────────────────────────
 
@@ -632,7 +533,6 @@ def api_noticias():
         logger.error(f"Error obteniendo noticias: {e}")
         return jsonify({"error": str(e), "noticias": []})
 
-
 # ── Email Send ────────────────────────────────────────────────────────────
 
 @app.route("/api/enviar-email", methods=["POST"])
@@ -671,7 +571,6 @@ def api_enviar_email():
     except Exception as e:
         logger.error(f"Error enviando email: {e}")
         return jsonify({"error": "No se pudo procesar la solicitud"}), 500
-
 
 # ── Groq / LLM Integration ─────────────────────────────────────────────────
 
@@ -723,6 +622,46 @@ def _llm_preguntar(pregunta: str) -> str:
     except Exception as e:
         logger.error(f"Error en LLM: {e}")
         return ""
+
+_github_cache = {"data": None, "timestamp": 0}
+GITHUB_REPOS = [
+    {"nombre": "Jarvis",         "repo": "EliasVicencio/Jarvis"},
+    {"nombre": "Hyperion",       "repo": "EliasVicencio/Hyperion"},
+    {"nombre": "Dani ISO27001",  "repo": "EliasVicencio19/Dani-ISO27001"},
+]
+
+@app.route("/api/github-actividad")
+def api_github_actividad():
+    ahora = time.time()
+    if _github_cache["data"] and (ahora - _github_cache["timestamp"] < 600):
+        return jsonify({"proyectos": _github_cache["data"]})
+
+    resultado = []
+    for p in GITHUB_REPOS:
+        try:
+            r = requests.get(
+                f"https://api.github.com/repos/{p['repo']}/commits",
+                params={"per_page": 1}, timeout=8,
+                headers={"Accept": "application/vnd.github+json"}
+            )
+            if r.ok and r.json():
+                commit = r.json()[0]
+                resultado.append({
+                    "nombre": p["nombre"],
+                    "ok": True,
+                    "mensaje": commit["commit"]["message"].split("\n")[0][:80],
+                    "fecha": commit["commit"]["author"]["date"],
+                    "autor": commit["commit"]["author"]["name"],
+                })
+            else:
+                resultado.append({"nombre": p["nombre"], "ok": False, "mensaje": "No disponible"})
+        except Exception as e:
+            logger.error(f"Error GitHub {p['repo']}: {e}")
+            resultado.append({"nombre": p["nombre"], "ok": False, "mensaje": "No disponible"})
+
+    _github_cache["data"] = resultado
+    _github_cache["timestamp"] = ahora
+    return jsonify({"proyectos": resultado})
 
 @app.route("/api/proyectos-estado")
 def api_proyectos_estado():

@@ -117,76 +117,47 @@ function ProyectosPanel() {
   );
 }
 
-// ── Panel de subtítulos con traducción ────────────────────────────────────
-function SubtitulosPanel({ video }) {
-  const [lineas,    setLineas]    = useState([]);
-  const [cargando,  setCargando]  = useState(false);
-  const [error,     setError]     = useState(null);
-  const [lang,      setLang]      = useState(null);
-  const scrollRef = useRef(null);
+function GithubActividadPanel() {
+  const [proyectos, setProyectos] = useState([]);
+  const [cargando, setCargando] = useState(true);
 
-  const cargar = useCallback(async (id) => {
-    if (!id) return;
-    setCargando(true); setError(null); setLineas([]); setLang(null);
-    try {
-      const r = await fetch(`${API}/subtitulos?id=${id}`);
-      const d = await r.json();
-      if (d.error) { setError(d.error); }
-      else {
-        setLineas(d.subtitulos || []);
-        setLang(d.lang);
-      }
-    } catch { setError("No se pudo conectar con el backend."); }
-    setCargando(false);
+  useEffect(() => {
+    fetch(`${API}/github-actividad`)
+      .then(r => r.json())
+      .then(d => setProyectos(d.proyectos || []))
+      .catch(() => {})
+      .finally(() => setCargando(false));
   }, []);
 
-  useEffect(() => { cargar(video?.id); }, [video?.id, cargar]);
-
-  // Auto-scroll al final
-  useEffect(() => {
-    if (scrollRef.current && lineas.length > 0) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [lineas]);
+  const tiempoDesde = (fechaISO) => {
+    const diff = (Date.now() - new Date(fechaISO).getTime()) / 1000;
+    if (diff < 3600) return `${Math.floor(diff / 60)} min`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} h`;
+    return `${Math.floor(diff / 86400)} d`;
+  };
 
   return (
     <div className="si-panel si-trad-panel">
       <div className="si-ph">
-        ◎ SUBTÍTULOS
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          {lang && <span style={{fontSize:7,color:"rgba(45,212,232,0.5)"}}>
-            {lang.startsWith("en") ? "EN→ES" : "ES"}
-          </span>}
-          {video && (
-            <button
-              style={{fontSize:7,padding:"1px 5px",background:"rgba(45,212,232,0.08)",border:"1px solid rgba(45,212,232,0.2)",borderRadius:2,color:"rgba(45,212,232,0.6)",cursor:"pointer"}}
-              onClick={() => cargar(video?.id)}>
-              ↺
-            </button>
-          )}
-          <div className="si-pd"/>
-        </div>
+        ⌥ GITHUB ACTIVIDAD
+        <div className="si-pd" />
       </div>
 
       {cargando ? (
-        <div className="si-loading">
-          <div className="si-spin"/>
-        </div>
-      ) : error ? (
-        <div className="si-trad-empty">
-          <div style={{fontSize:20,opacity:.3,marginBottom:6}}>⚠</div>
-          <div style={{fontSize:9,color:"rgba(45,212,232,0.4)",textAlign:"center",lineHeight:1.5}}>{error}</div>
-        </div>
-      ) : lineas.length === 0 ? (
-        <div className="si-trad-empty">Selecciona un video para ver los subtítulos</div>
+        <div className="si-loading"><div className="si-spin" /></div>
+      ) : proyectos.length === 0 ? (
+        <div className="si-trad-empty">Sin datos disponibles</div>
       ) : (
-        <div className="si-trad-scroll" ref={scrollRef}>
-          {lineas.map((l, i) => (
+        <div className="si-trad-scroll">
+          {proyectos.map((p, i) => (
             <div key={i} className="si-trad-linea">
-              {l.orig && l.orig !== l.trad && (
-                <div className="si-trad-orig">{l.orig}</div>
-              )}
-              <div className="si-trad-texto">{l.trad || l.texto}</div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                <span style={{ fontSize: 9, color: "rgba(45,212,232,0.7)", fontWeight: 600 }}>{p.nombre}</span>
+                {p.ok && <span style={{ fontSize: 8, color: "rgba(220,239,245,0.4)" }}>{tiempoDesde(p.fecha)}</span>}
+              </div>
+              <div className="si-trad-texto">
+                {p.ok ? p.mensaje : <span style={{ opacity: 0.4 }}>No disponible</span>}
+              </div>
             </div>
           ))}
         </div>
@@ -400,7 +371,7 @@ export default function Noticias({ onVolver, canalInicial = null }) {
             </div>
           </div>
           <ProyectosPanel />
-          <SubtitulosPanel video={video} />
+          <GithubActividadPanel />
         </div>
 
       </div>
