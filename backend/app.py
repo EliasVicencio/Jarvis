@@ -1,4 +1,5 @@
 import os
+import psutil
 import queue
 import threading
 import time
@@ -81,6 +82,30 @@ def _on_wake(fuente: str):
     _ultimo_wake = ahora
     logger.info(f"Wake activada: {fuente}")
     _wake_queue.put(fuente)
+
+def _monitor_memoria():
+    """Chequea la memoria cada 5 minutos; si se pone critica, avisa por Telegram y se reinicia solo."""
+    UMBRAL_ALERTA = 90
+    INTERVALO = 300  # 5 minutos
+    ya_alertado = False
+    while True:
+        time.sleep(INTERVALO)
+        try:
+            mem = psutil.virtual_memory()
+            if mem.percent >= UMBRAL_ALERTA:
+                if not ya_alertado:
+                    logger.warning(f"⚠ Memoria critica ({mem.percent:.0f}%), reiniciando servicio...")
+                    jarvis_core.enviar_texto_telegram(
+                        f"⚠️ Alerta, Elías. La memoria de la VM llegó a {mem.percent:.0f} por ciento. "
+                        f"Me voy a reiniciar para liberarla preventivamente. Vuelvo en unos segundos."
+                    )
+                    ya_alertado = True
+                    time.sleep(3)
+                    os._exit(1)
+            else:
+                ya_alertado = False
+        except Exception as e:
+            logger.error(f"Error monitoreando memoria: {e}")
 
 def iniciar_wake_detector():
     global _wake_detector, _wake_activo
@@ -805,6 +830,7 @@ def _arrancar_telegram_bot():
 # ── Arranque ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    threading.Thread(target=_monitor_memoria, daemon=True).start()
     _arrancar_telegram_bot()
     print("🤖 Jarvis backend corriendo en http://localhost:5000")
     app.run(debug=False, port=5000, threaded=True)
