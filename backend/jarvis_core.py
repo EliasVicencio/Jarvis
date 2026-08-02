@@ -538,7 +538,9 @@ def procesar_comando(comando):
     if "resume mi día" in comando or "resumen del día" in comando or "cómo estuvo mi día" in comando:
         return {"respuesta": resumen_del_dia(), "continuar": True, "accion": "resumen_dia"}
     
-    if "qué tengo hoy" in comando or "mi agenda" in comando or "mis eventos" in comando or "qué tengo en el calendario" in comando:
+    if ("qué tengo hoy" in comando or "que tengo hoy" in comando or "mi agenda" in comando
+            or "mis eventos" in comando or "qué tengo en el calendario" in comando
+            or "que tengo en el calendario" in comando):
         return {"respuesta": resumen_agenda_hoy(), "continuar": True, "accion": "agenda"}
 
     if "reporte de estado" in comando or "estado del sistema" in comando or "cómo está el sistema" in comando or "diagnostico" in comando:
