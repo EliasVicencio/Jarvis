@@ -805,7 +805,6 @@ def _arrancar_telegram_bot():
 # ── Arranque ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    threading.Thread(target=iniciar_wake_detector, daemon=True).start()
     _arrancar_telegram_bot()
     print("🤖 Jarvis backend corriendo en http://localhost:5000")
     app.run(debug=False, port=5000, threaded=True)

@@ -359,7 +359,7 @@ export default function App() {
           <div
             className="status-pill"
             data-ok={backendOk === true && wakeActivo}
-            title={`${backendOk === null ? "Conectando…" : backendOk ? "Backend activo" : "Backend offline"} · ${wakeActivo ? "Wake word activo" : "Wake word inactivo"}`}
+            title={`${backendOk === null ? "Conectando…" : backendOk ? "Backend activo" : "Backend offline"}`}
           >
             <span className="status-dot" />
             {backendOk === null ? "Conectando…" : backendOk ? "Sistema OK" : "Sistema offline"}
