@@ -904,7 +904,6 @@ export default function MissionControl({ onVolver }) {
           {[
             {id:"sistema",   icon:"◎", label:"SISTEMA"},
             {id:"contenido", icon:"⬡", label:"CONTENIDO"},
-            {id:"bandeja",   icon:"◈", label:"BANDEJA"},
             {id:"recordatorios", icon:"✎", label:"RECORDATORIOS"},
             {id:"red", icon:"◉", label:"RED"},
           ].map(t => (
@@ -925,7 +924,6 @@ export default function MissionControl({ onVolver }) {
       <div className="mc-body">
         {tab === "sistema" && <SistemaTab />}
         {tab === "contenido" && <ContenidoTab />}
-        {tab === "bandeja" && <BandejaTab />}
         {tab === "recordatorios" && <RecordatoriosTab />}
         {tab === "red" && <RedTab />}
       </div>

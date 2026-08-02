@@ -303,23 +303,6 @@ def enviar_voz_telegram(path_ogg, chat_id=None, caption=None):
 
 
 # ── Utilidades ────────────────────────────────────────────────────────────
-def _abrir_app(nombre):
-    sistema = platform.system()
-    try:
-        if sistema == "Windows":
-            apps = {"calculadora": "calc.exe", "bloc de notas": "notepad.exe", "notas": "notepad.exe"}
-            subprocess.Popen(apps.get(nombre, nombre))
-        elif sistema == "Darwin":
-            apps = {"calculadora": "Calculator", "bloc de notas": "TextEdit", "notas": "Notes"}
-            subprocess.Popen(["open", "-a", apps.get(nombre, nombre)])
-        else:
-            apps = {"calculadora": "gnome-calculator", "bloc de notas": "gedit", "notas": "gedit"}
-            subprocess.Popen([apps.get(nombre, nombre)])
-        return True
-    except Exception:
-        return False
-
-
 def _clima(ciudad="Santiago"):
     try:
         geo = "https://geocoding-api.open-meteo.com/v1/search?" + urllib.parse.urlencode(
@@ -468,6 +451,9 @@ def procesar_comando(comando):
 
     if "abre google" in comando or "abre navegador" in comando:
         return {"respuesta": "Abriendo el navegador", "continuar": True, "accion": "abrir_navegador"}
+    
+    if "correo" in comando or "gmail" in comando or "email" in comando or "e-mail" in comando:
+        return {"respuesta": "Abriendo tu correo", "continuar": True, "accion": "abrir_gmail"}
 
     if "calculadora" in comando:
         return {"respuesta": "Abriendo la calculadora", "continuar": True, "accion": "abrir_calculadora"}

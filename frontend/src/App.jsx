@@ -9,6 +9,24 @@ import "./MissionControl.css";
 
 const API = "/api";
 
+const URLS_EXTERNAS = {
+  abrir_navegador: "https://www.google.com",
+  abrir_youtube: "https://www.youtube.com",
+  abrir_spotify: "https://open.spotify.com",
+  abrir_calculadora: "https://www.google.com/search?q=calculadora",
+  abrir_gmail: "https://mail.google.com/mail/u/0/#inbox",
+};
+
+function abrirEnlaceExterno(accion, dato) {
+  if (accion === "buscar" && dato) {
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(dato)}`, "_blank");
+    return;
+  }
+  if (URLS_EXTERNAS[accion]) {
+    window.open(URLS_EXTERNAS[accion], "_blank");
+  }
+}
+
 const COMANDOS = [
   { texto: "qué hora es",        icono: "◷" },
   { texto: "qué fecha es",       icono: "◴" },
@@ -100,6 +118,7 @@ export default function App() {
         setCanalNoticias(canal);
         setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       }
+      abrirEnlaceExterno(data.accion, data.dato);
       if (data.accion === "cambiar_canal" && data.dato) {
         setEstado("hablando"); estadoRef.current = "hablando";
         setCanalNoticias(data.dato);
@@ -184,6 +203,8 @@ export default function App() {
       estadoRef.current = "hablando";
       setTarjetas([{ pregunta: data.texto_usuario || "", respuesta: data.respuesta || "" }]);
       if (data.respuesta) hablarBrowser(data.respuesta);
+
+      abrirEnlaceExterno(data.accion, data.dato);
 
       if (data.accion && data.accion.startsWith("cambiar_canal:")) {
         const canal = data.accion.replace("cambiar_canal:", "");
