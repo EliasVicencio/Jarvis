@@ -663,6 +663,22 @@ def api_github_actividad():
     _github_cache["timestamp"] = ahora
     return jsonify({"proyectos": resultado})
 
+@app.route("/api/sistema-mini")
+def api_sistema_mini():
+    try:
+        cpu = psutil.cpu_percent(interval=0.3)
+        mem = psutil.virtual_memory()
+        disco = psutil.disk_usage("/")
+        return jsonify({
+            "ok": True,
+            "cpu": round(cpu),
+            "memoria": round(mem.percent),
+            "disco": round(disco.percent),
+        })
+    except Exception as e:
+        logger.error(f"Error sistema-mini: {e}")
+        return jsonify({"ok": False})
+
 @app.route("/api/proyectos-estado")
 def api_proyectos_estado():
     """Verifica en vivo si Jarvis y Hyperion (frontend/backend) están respondiendo."""
