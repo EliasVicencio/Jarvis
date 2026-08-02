@@ -63,9 +63,11 @@ def resumen_agenda_hoy():
         if not service:
             return "No tengo acceso a tu calendario configurado, señor."
 
-        hoy = datetime.date.today()
-        inicio = datetime.datetime.combine(hoy, datetime.time.min).isoformat()
-        fin = datetime.datetime.combine(hoy, datetime.time.max).isoformat()
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("America/Santiago")
+        hoy = datetime.datetime.now(tz).date()
+        inicio = datetime.datetime.combine(hoy, datetime.time.min, tzinfo=tz).isoformat()
+        fin = datetime.datetime.combine(hoy, datetime.time.max, tzinfo=tz).isoformat()
 
         eventos_result = service.events().list(
             calendarId='primary', timeMin=inicio, timeMax=fin,
