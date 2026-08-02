@@ -804,6 +804,7 @@ function RedTab() {
     { nombre: "Google STT",     x: 610, y: 210, color: "#2DD4E8", labelY: 196 },
     { nombre: "Telegram",       x: 140, y: 300, color: "#4ADE80", labelY: 332 },
     { nombre: "Gmail",          x: 240, y: 440, color: "#4ADE80", labelY: 472 },
+    { nombre: "Google Calendar",x: 520, y: 300, color: "#4ADE80", labelY: 332 },
     { nombre: "NewsAPI",        x: 460, y: 440, color: "#F2A93B", labelY: 472 },
     { nombre: "YouTube",        x: 590, y: 380, color: "#F2A93B", labelY: 412 },
     { nombre: "Mapbox",         x: 90,  y: 180, color: "#F2A93B", labelY: 166 },
@@ -811,7 +812,7 @@ function RedTab() {
     { nombre: "Oracle VM",      x: 80,  y: 420, color: "#F87171", labelY: 452 },
   ];
   const CX = 350, CY = 260;
-  const duraciones = [2.6, 3.1, 2.3, 2.9, 2.5, 3.4, 2.7, 3.0, 2.4, 3.2];
+  const duraciones = [2.6, 3.1, 2.3, 2.9, 2.5, 2.8, 3.4, 2.7, 3.0, 2.4, 3.2];
 
   return (
     <div style={{ padding: 10, height: "100%", minHeight: 0, display: "flex", flexDirection: "column" }}>
