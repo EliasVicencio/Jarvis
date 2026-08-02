@@ -65,53 +65,6 @@ function CryptoPanel() {
   );
 }
 
-function SistemaMiniPanel() {
-  const [datos, setDatos] = useState(null);
-
-  useEffect(() => {
-    const cargar = () => {
-      fetch(`${API}/sistema-mini`)
-        .then(r => r.json())
-        .then(d => { if (d.ok) setDatos(d); })
-        .catch(() => {});
-    };
-    cargar();
-    const id = setInterval(cargar, 30000);
-    return () => clearInterval(id);
-  }, []);
-
-  const colorPara = (valor) => valor >= 90 ? "#F87171" : valor >= 70 ? "#F2A93B" : "#4ADE80";
-
-  const barra = (label, valor) => (
-    <div style={{ marginBottom: 8 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, marginBottom: 3 }}>
-        <span style={{ color: "rgba(220,239,245,0.6)" }}>{label}</span>
-        <span style={{ color: colorPara(valor), fontWeight: 600 }}>{valor}%</span>
-      </div>
-      <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 3, height: 4, overflow: "hidden" }}>
-        <div style={{ background: colorPara(valor), height: "100%", width: `${valor}%`, transition: "width 0.4s" }} />
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="si-panel">
-      <div className="si-ph">◆ ESTADO DEL SISTEMA <div className="si-pd" /></div>
-      <div style={{ padding: "10px 12px" }}>
-        {!datos ? (
-          <div style={{ fontSize: 9, color: "rgba(220,239,245,0.4)" }}>Cargando…</div>
-        ) : (
-          <>
-            {barra("CPU", datos.cpu)}
-            {barra("MEMORIA", datos.memoria)}
-            {barra("DISCO", datos.disco)}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function GithubPanel() {
   const [repos, setRepos] = useState([]);
   useEffect(() => {
@@ -317,7 +270,6 @@ export default function Noticias({ onVolver, canalInicial = null }) {
         <div className="si-left">
           <CryptoPanel />
           <GithubPanel />
-          <SistemaMiniPanel />
         </div>
 
         {/* Columna central */}

@@ -125,6 +125,12 @@ def iniciar_wake_detector():
 @app.route("/api/wake-poll")
 def api_wake_poll():
     global _jarvis_pausado
+    resultado = {
+        "activado": False, "fuente": None,
+        "pomodoro_terminado": False, "pomodoro_mensaje": None,
+        "logro_completado": False, "logro_mensaje": None,
+    }
+
     try:
         fuente = _wake_queue.get_nowait()
         if _jarvis_pausado:
@@ -132,9 +138,26 @@ def api_wake_poll():
             if _wake_detector:
                 _wake_detector.reanudar()
             logger.info("Jarvis reactivado por wake word")
-        return jsonify({"activado": True, "fuente": fuente})
+        resultado["activado"] = True
+        resultado["fuente"] = fuente
     except queue.Empty:
-        return jsonify({"activado": False, "fuente": None})
+        pass
+
+    try:
+        mensaje_pomo = jarvis_core._pomodoro_avisos.get_nowait()
+        resultado["pomodoro_terminado"] = True
+        resultado["pomodoro_mensaje"] = mensaje_pomo
+    except queue.Empty:
+        pass
+
+    try:
+        mensaje_logro = jarvis_core._celebracion_avisos.get_nowait()
+        resultado["logro_completado"] = True
+        resultado["logro_mensaje"] = mensaje_logro
+    except queue.Empty:
+        pass
+
+    return jsonify(resultado)
 
 @app.route("/api/escuchar", methods=["POST"])
 def api_escuchar():
@@ -663,20 +686,17 @@ def api_github_actividad():
     _github_cache["timestamp"] = ahora
     return jsonify({"proyectos": resultado})
 
-@app.route("/api/sistema-mini")
-def api_sistema_mini():
+@app.route("/api/celebrar-logro", methods=["POST"])
+def api_celebrar_logro():
+    data = request.get_json(force=True) or {}
+    titulo = data.get("titulo", "una tarea")[:100]
     try:
-        cpu = psutil.cpu_percent(interval=0.3)
-        mem = psutil.virtual_memory()
-        disco = psutil.disk_usage("/")
-        return jsonify({
-            "ok": True,
-            "cpu": round(cpu),
-            "memoria": round(mem.percent),
-            "disco": round(disco.percent),
-        })
+        mensaje = jarvis_core.generar_celebracion(titulo)
+        jarvis_core.enviar_texto_telegram(mensaje)
+        jarvis_core._celebracion_avisos.put(mensaje)
+        return jsonify({"ok": True})
     except Exception as e:
-        logger.error(f"Error sistema-mini: {e}")
+        logger.error(f"Error celebrando logro: {e}")
         return jsonify({"ok": False})
 
 @app.route("/api/proyectos-estado")

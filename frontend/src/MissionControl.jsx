@@ -217,6 +217,14 @@ function ContenidoTab() {
   };
   const saveCard = () => {
     if (!editCard.titulo.trim()) return;
+    const cardAnterior = cards.find(c => c.id === editCard.id);
+    if (editCard.col === "COMPLETADO" && (!cardAnterior || cardAnterior.col !== "COMPLETADO")) {
+      fetch(`${API}/celebrar-logro`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titulo: editCard.titulo }),
+      }).catch(() => {});
+    }
     setCards(prev => prev.find(c=>c.id===editCard.id)
       ? prev.map(c=>c.id===editCard.id?editCard:c)
       : [...prev, editCard]);
@@ -239,6 +247,14 @@ function ContenidoTab() {
 
   const onDrop = (col) => {
     if (!drag) return;
+    const cardMovida = cards.find(c => c.id === drag);
+    if (cardMovida && col === "COMPLETADO" && cardMovida.col !== "COMPLETADO") {
+      fetch(`${API}/celebrar-logro`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titulo: cardMovida.titulo }),
+      }).catch(() => {});
+    }
     setCards(prev => prev.map(c=>c.id===drag?{...c,col}:c));
     setDrag(null);
   };

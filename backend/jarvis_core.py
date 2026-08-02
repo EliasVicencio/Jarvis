@@ -7,6 +7,8 @@ import subprocess
 import platform
 import random
 import re
+import threading
+import queue
 import os
 import json
 import time
@@ -140,6 +142,39 @@ def resumen_del_dia():
 
     partes.append("Buen trabajo hoy.")
     return " ".join(partes)
+
+def generar_celebracion(titulo):
+    """Genera un mensaje corto de felicitación cuando se completa una tarea."""
+    if GROQ_API_KEY_MEM:
+        try:
+            resp = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
+                json={
+                    "model": "llama-3.1-8b-instant",
+                    "messages": [
+                        {"role": "system", "content": (
+                            "Eres JARVIS, el asistente de Elías. Él acaba de completar una tarea. "
+                            "Felicítalo con una frase corta, genuina y con personalidad (no genérica), "
+                            "estilo el JARVIS de Iron Man reconociendo el trabajo de Tony. Máximo 1-2 frases."
+                        )},
+                        {"role": "user", "content": f"Completé: {titulo}"}
+                    ],
+                    "max_tokens": 80,
+                    "temperature": 0.9
+                },
+                timeout=10
+            )
+            if resp.ok:
+                return "🎉 " + resp.json()["choices"][0]["message"]["content"]
+        except Exception as e:
+            print(f"⚠ Error generando celebracion: {e}")
+    return f"🎉 ¡Completaste \"{titulo}\"! Buen trabajo, Elías."
+
+def despedida_fin_dia():
+    """Cierre cálido del día, con resumen de lo que se hizo."""
+    resumen = resumen_del_dia()
+    return f"Buenas noches, Elías. {resumen} Que descanses."
 
 MODO_SEGURO_PATH = os.path.join(os.path.dirname(__file__), "modo_seguro.flag")
 
@@ -533,6 +568,10 @@ def procesar_comando(comando):
     if "resume mi día" in comando or "resumen del día" in comando or "cómo estuvo mi día" in comando:
         return {"respuesta": resumen_del_dia(), "continuar": True, "accion": "resumen_dia"}
     
+    if ("me voy a dormir" in comando or "me voy a acostar" in comando or "hasta mañana" in comando
+            or "nos vemos mañana" in comando or "me voy a la cama" in comando):
+        return {"respuesta": despedida_fin_dia(), "continuar": True, "accion": "despedida_dia"}
+    
     if ("qué tengo hoy" in comando or "que tengo hoy" in comando or "mi agenda" in comando
             or "mis eventos" in comando or "qué tengo en el calendario" in comando
             or "que tengo en el calendario" in comando):
@@ -634,8 +673,78 @@ def procesar_comando(comando):
     if "adiós" in comando or "adios" in comando or "apagado" in comando:
         return {"respuesta": "Hasta luego", "continuar": False, "accion": "despedida"}
 
+    if any(frase in comando for frase in FRASES_ANIMO):
+        return {"respuesta": responder_con_animo(comando), "continuar": True, "accion": "animo"}
+    
+    if "sesión de enfoque" in comando or "sesion de enfoque" in comando or "modo enfoque" in comando or "pomodoro" in comando:
+        return {"respuesta": iniciar_pomodoro(comando), "continuar": True, "accion": "pomodoro"}
+
     return {"respuesta": "No sé cómo hacer eso todavía. Estoy aprendiendo.",
             "continuar": True, "accion": "desconocido"}
+
+FRASES_ANIMO = [
+    "estoy estresado", "estoy cansado", "qué día tan largo", "que dia tan largo",
+    "estoy agotado", "un día pesado", "un dia pesado", "necesito un descanso",
+    "estoy muy cansado", "qué cansado estoy", "que cansado estoy",
+    "ha sido un día difícil", "ha sido un dia dificil", "estoy abrumado",
+    "no doy más", "no doy mas", "estoy quebrado",
+]
+
+def responder_con_animo(comando_original):
+    """Respuesta cálida y breve cuando Elías menciona cansancio o estrés casual."""
+    if not GROQ_API_KEY_MEM:
+        return "Te escucho. Tómate un respiro si lo necesitas, aquí estoy."
+    try:
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [
+                    {"role": "system", "content": (
+                        "Eres JARVIS, el asistente personal de Elías. Él acaba de mencionar que está "
+                        "cansado, estresado, o que tuvo un día difícil. Respóndele con calidez genuina, "
+                        "como lo haría un amigo cercano: valida cómo se siente en una frase, y sugiere "
+                        "algo simple y breve (un descanso corto, algo de música, estirar las piernas) "
+                        "sin sonar clínico ni dar consejos largos. Máximo 2 frases. No le digas que eres "
+                        "una IA ni menciones que 'no puedes reemplazar' nada — solo sé cálido y natural, "
+                        "como el JARVIS de Iron Man sería con Tony."
+                    )},
+                    {"role": "user", "content": comando_original}
+                ],
+                "max_tokens": 120,
+                "temperature": 0.8
+            },
+            timeout=15
+        )
+        if resp.ok:
+            return resp.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        print(f"⚠ Error en respuesta de ánimo: {e}")
+    return "Te escucho. Tómate un respiro si lo necesitas, aquí estoy."
+
+_pomodoro_estado = {"activo": False}
+_pomodoro_avisos = queue.Queue()
+_celebracion_avisos = queue.Queue()
+
+def iniciar_pomodoro(comando):
+    """Inicia una sesión de enfoque; avisa por voz en el navegador y por Telegram cuando termina."""
+    match = re.search(r'(\d+)\s*minuto', comando)
+    minutos = int(match.group(1)) if match else 25
+    minutos = max(1, min(minutos, 180))  # límite razonable: 1 a 180 minutos
+
+    _pomodoro_estado["activo"] = True
+
+    def _avisar():
+        time.sleep(minutos * 60)
+        if _pomodoro_estado["activo"]:
+            _pomodoro_estado["activo"] = False
+            mensaje = f"Se acabó tu sesión de enfoque de {minutos} minutos, Elías. Buen trabajo, tómate un respiro."
+            enviar_texto_telegram(f"⏱️ {mensaje}")
+            _pomodoro_avisos.put(mensaje)
+
+    threading.Thread(target=_avisar, daemon=True).start()
+    return f"Modo enfoque activado por {minutos} minutos. Te aviso cuando termine — concentrémonos."
 
 def obtener_recordatorios():
     if os.path.exists(RECORDATORIOS_PATH):

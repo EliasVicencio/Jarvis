@@ -297,10 +297,18 @@ export default function App() {
             setTimeout(() => escucharRef.current?.(), 400);
           }
         }
+        if (data.pomodoro_terminado && data.pomodoro_mensaje) {
+          setTarjetas([{ pregunta: "Modo enfoque", respuesta: data.pomodoro_mensaje }]);
+          hablarBrowser(data.pomodoro_mensaje);
+        }
+        if (data.logro_completado && data.logro_mensaje) {
+          setTarjetas([{ pregunta: "Tarea completada", respuesta: data.logro_mensaje }]);
+          hablarBrowser(data.logro_mensaje);
+        }
       } catch {}
     }, 500);
     return () => clearInterval(interval);
-  }, []);
+  }, [hablarBrowser]);
 
   const handleEnviar = e => {
     e.preventDefault();
