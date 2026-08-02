@@ -77,12 +77,19 @@ export default function App() {
   const refrescarRecordatorios = useCallback(() => {}, []);
 
   // ── Browser TTS ────────────────────────────────────────────────────────
+  const utterRef = useRef(null);
+
   const hablarBrowser = useCallback((texto) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(texto);
+    const textoLimpio = texto
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const utter = new SpeechSynthesisUtterance(textoLimpio);
     utter.lang = "es-MX";
     utter.rate = 1.1;
+    utterRef.current = utter; // evita que el navegador lo recolecte antes de sonar
     window.speechSynthesis.speak(utter);
   }, []);
 
