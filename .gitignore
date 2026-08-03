@@ -22,6 +22,3 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 backend/memoria_semantica.json
-backend/voces_piper/
-backend/token.json
-backend/credentials.json

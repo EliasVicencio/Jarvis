@@ -194,7 +194,7 @@ def _generar_audio_base64(texto):
         return None
 
 def _reenviar_a_telegram_async(texto_usuario, respuesta_texto, audio_b64, prefijo="⌨️ Tú (texto)"):
-    """Reenvía a Telegram en un hilo aparte, reutilizando el audio ya generado (sin duplicar trabajo de Piper)."""
+    """Reenvía a Telegram en un hilo aparte, reutilizando el audio ya generado (sin duplicar la síntesis de voz)."""
     def _hacer():
         try:
             jarvis_core.enviar_texto_telegram(f"{prefijo}: {texto_usuario}")
@@ -394,6 +394,21 @@ def api_emails():
 def api_youtube_key():
     key = os.environ.get("YOUTUBE_API_KEY", "")
     return jsonify({"key": key})
+
+@app.route("/api/hablar", methods=["POST"])
+def api_hablar():
+    data  = request.get_json(force=True) or {}
+    texto = data.get("texto", "")
+    if not texto:
+        return jsonify({"error": "Falta texto"}), 400
+    if _wake_detector:
+        _wake_detector.pausar()
+    try:
+        jarvis_core.hablar(texto)
+    finally:
+        if _wake_detector:
+            _wake_detector.reanudar()
+    return jsonify({"ok": True})
 
 @app.route("/api/recordatorios")
 def api_recordatorios():
