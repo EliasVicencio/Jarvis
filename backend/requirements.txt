@@ -1,6 +1,3 @@
-# Síntesis de voz (gratuito, sin cuenta)
-edge-tts>=6.1.0
-
 # Reconocimiento de voz via Google STT (gratuito)
 SpeechRecognition>=3.10.0
 pyaudio>=0.2.14
@@ -19,3 +16,5 @@ python-dotenv>=1.0.0
 # OpenClaw integration
 requests>=2.31.0piper-tts
 psutil
+google-auth-oauthlib
+google-api-python-client

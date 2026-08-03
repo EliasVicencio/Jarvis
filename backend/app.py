@@ -395,21 +395,6 @@ def api_youtube_key():
     key = os.environ.get("YOUTUBE_API_KEY", "")
     return jsonify({"key": key})
 
-@app.route("/api/hablar", methods=["POST"])
-def api_hablar():
-    data  = request.get_json(force=True) or {}
-    texto = data.get("texto", "")
-    if not texto:
-        return jsonify({"error": "Falta texto"}), 400
-    if _wake_detector:
-        _wake_detector.pausar()
-    try:
-        jarvis_core.hablar(texto)
-    finally:
-        if _wake_detector:
-            _wake_detector.reanudar()
-    return jsonify({"ok": True})
-
 @app.route("/api/recordatorios")
 def api_recordatorios():
     return jsonify({"recordatorios": jarvis_core.obtener_recordatorios()})

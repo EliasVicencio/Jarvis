@@ -16,7 +16,6 @@ import urllib.request
 import urllib.parse
 import tempfile
 
-import edge_tts
 import speech_recognition as sr
 import requests
 
@@ -191,7 +190,6 @@ def desactivar_modo_seguro():
 
 MEMORIA_PATH = os.path.join(os.path.dirname(__file__), "memoria_semantica.json")
 GROQ_API_KEY_MEM = os.getenv("GROQ_API_KEY", "")
-VOZ = "es-MX-JorgeNeural"
 
 # Reconocedor de voz (reutilizable)
 _recognizer = sr.Recognizer()
@@ -199,83 +197,6 @@ _recognizer.pause_threshold = 1.0   # espera 1s de silencio antes de cortar
 _recognizer.energy_threshold = 300  # sensibilidad al ruido
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
-# ── Síntesis de voz ───────────────────────────────────────────────────────
-def hablar(texto):
-    """Convierte texto a voz con Edge TTS (gratuito, sin cuenta)."""
-    print(f"🤖 Jarvis: {texto}")
-    tmp = None
-    try:
-        # Generar archivo mp3 en carpeta temporal
-        tmp = os.path.join(tempfile.gettempdir(), "jarvis_audio.mp3")
-
-        async def _generar():
-            comunicar = edge_tts.Communicate(texto, VOZ)
-            await comunicar.save(tmp)
-
-        # Usar un loop nuevo en un hilo separado para evitar conflicto con Flask
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            pool.submit(asyncio.run, _generar()).result()
-        print(f"🔊 Audio generado: {tmp} ({os.path.getsize(tmp)} bytes)")
-
-        # Intentar reproducir con diferentes métodos
-        reproducido = False
-
-        # Método 1: pygame
-        if not reproducido:
-            try:
-                import pygame
-                pygame.mixer.pre_init(44100, -16, 2, 512)
-                pygame.mixer.init()
-                pygame.mixer.music.load(tmp)
-                pygame.mixer.music.play()
-                while pygame.mixer.music.get_busy():
-                    pygame.time.Clock().tick(10)
-                pygame.mixer.quit()
-                reproducido = True
-                print("✓ Reproducido con pygame")
-            except Exception as e:
-                print(f"⚠ pygame falló: {e}")
-
-        # Método 2: PowerShell (Windows nativo, siempre funciona)
-        if not reproducido and platform.system() == "Windows":
-            try:
-                resultado = subprocess.run(
-                    ["powershell", "-c",
-                     f"Add-Type -AssemblyName presentationCore; "
-                     f"$mp = New-Object system.windows.media.mediaplayer; "
-                     f"$mp.open('{tmp}'); $mp.Play(); "
-                     f"Start-Sleep -s ([math]::ceiling($mp.NaturalDuration.TimeSpan.TotalSeconds + 1)); "
-                     f"$mp.Stop()"],
-                    capture_output=True, timeout=30
-                )
-                reproducido = True
-                print("✓ Reproducido con PowerShell")
-            except Exception as e:
-                print(f"⚠ PowerShell falló: {e}")
-
-        # Método 3: afpAlay (macOS)
-        if not reproducido and platform.system() == "Darwin":
-            subprocess.run(["afplay", tmp])
-            reproducido = True
-
-        # Método 4: mpg123 (Linux)
-        if not reproducido and platform.system() == "Linux":
-            subprocess.run(["mpg123", "-q", tmp])
-            reproducido = True
-
-        if not reproducido:
-            print("⚠ No se pudo reproducir el audio en ningún método")
-
-    except Exception as e:
-        print(f"⚠ Error en síntesis de voz: {e}")
-    finally:
-        if tmp and os.path.exists(tmp):
-            try:
-                os.unlink(tmp)
-            except Exception:
-                pass
-    return texto
 
 # ── Reconocimiento de voz ─────────────────────────────────────────────────
 def reconocer_voz():
@@ -321,39 +242,31 @@ def transcribir_archivo(path_wav):
         print(f"❌ Error transcribiendo archivo: {e}")
         return ""
 
-# ── Generar audio sin reproducirlo localmente ─────────────────────────────
 def generar_audio_mp3(texto, output_path=None):
-    """Genera audio con Piper (modelo cargado en memoria). Si falla, usa edge-tts como respaldo."""
+    """Genera audio con Piper (modelo cargado en memoria)."""
     if output_path is None:
         output_path = os.path.join(
             tempfile.gettempdir(), f"jarvis_tts_{os.getpid()}_{int(time.time() * 1000)}.mp3"
         )
 
     voice = _cargar_piper()
-    if voice is not None:
-        try:
-            import wave
-            wav_path = output_path.replace(".mp3", ".wav")
-            with wave.open(wav_path, "wb") as wav_file:
-                voice.synthesize_wav(texto, wav_file)
+    if voice is None:
+        print("⚠ Piper no está disponible, no se pudo generar audio")
+        return None
 
-            from pydub import AudioSegment
-            AudioSegment.from_wav(wav_path).export(output_path, format="mp3")
-            os.remove(wav_path)
-            return output_path
-        except Exception as e:
-            print(f"⚠ Error con Piper (API), usando edge-tts de respaldo: {e}")
+    try:
+        import wave
+        wav_path = output_path.replace(".mp3", ".wav")
+        with wave.open(wav_path, "wb") as wav_file:
+            voice.synthesize_wav(texto, wav_file)
 
-    # Respaldo si Piper falla o no está instalado
-    async def _generar():
-        comunicar = edge_tts.Communicate(texto, VOZ)
-        await comunicar.save(output_path)
-
-    import concurrent.futures
-    with concurrent.futures.ThreadPoolExecutor() as pool:
-        pool.submit(asyncio.run, _generar()).result()
-
-    return output_path
+        from pydub import AudioSegment
+        AudioSegment.from_wav(wav_path).export(output_path, format="mp3")
+        os.remove(wav_path)
+        return output_path
+    except Exception as e:
+        print(f"⚠ Error generando audio con Piper: {e}")
+        return None
 
 # ── Envío de notas de voz / mensajes a Telegram ───────────────────────────
 def enviar_texto_telegram(texto, chat_id=None):
