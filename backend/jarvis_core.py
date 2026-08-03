@@ -178,8 +178,8 @@ def desactivar_modo_seguro():
 MEMORIA_PATH = os.path.join(os.path.dirname(__file__), "memoria_semantica.json")
 GROQ_API_KEY_MEM = os.getenv("GROQ_API_KEY", "")
 VOZ = "es-MX-JorgeNeural"
-VOZ_RATE = "+10%"   # velocidad: más ágil, menos plano/robótico
-VOZ_PITCH = "+2Hz"  # tono: ligero calor, evita sonar monótono
+VOZ_RATE = "+0%"    # velocidad natural, sin acelerar (acelerar sonaba más robótico, no menos)
+VOZ_PITCH = "+0Hz"  # tono natural, sin forzar
 
 # Reconocedor de voz (reutilizable)
 _recognizer = sr.Recognizer()
