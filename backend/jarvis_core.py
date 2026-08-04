@@ -961,11 +961,15 @@ def analizar_imagen(imagen_base64, pregunta=None):
                     ],
                 }],
                 "max_tokens": 1024,
+                "reasoning_effort": "none",  # qwen3.6 es un modelo "pensante"; esto apaga el razonamiento interno
             },
             timeout=30,
         )
         resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+        texto = resp.json()["choices"][0]["message"]["content"]
+        # Respaldo por si igual llega un bloque de razonamiento sin filtrar
+        texto = re.sub(r"<think>.*?</think>", "", texto, flags=re.DOTALL).strip()
+        return texto or "No pude generar una descripción clara de la imagen."
     except Exception as e:
         print(f"⚠ Error analizando imagen con Groq Vision: {e}")
         return "No pude analizar la imagen, hubo un problema con el modelo de visión."
