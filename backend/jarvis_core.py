@@ -480,7 +480,7 @@ def procesar_comando(comando):
         c = _clima(ciudad)
         return {"respuesta": c or f"No pude obtener el clima de {ciudad}", "continuar": True, "accion": "clima"}
 
-    if "busca noticias" in comando or "noticias de hoy" in comando:
+    if any(p in comando for p in ["busca noticias", "noticias de hoy", "stark intel", "abre stark intel"]):
         return {"respuesta": "Abriendo Stark Intel", "continuar": True, "accion": "abrir_noticias"}
 
     if "busca" in comando:
@@ -563,6 +563,14 @@ def procesar_comando(comando):
             canal = comando.split(patron, 1)[1].strip()
             if canal:
                 return {"respuesta": f"Cambiando a {canal}", "continuar": True, "accion": "cambiar_canal", "dato": canal}
+
+    if any(p in comando for p in ["qué hay en mi pantalla", "que hay en mi pantalla",
+                                    "analiza mi pantalla", "analiza la pantalla",
+                                    "mira mi pantalla", "qué ves en mi pantalla"]):
+        return {"respuesta": "Dame un segundo, mirando tu pantalla...", "continuar": True, "accion": "analizar_pantalla"}
+
+    if any(p in comando for p in ["abre mission control", "abrir mission control", "mission control"]):
+        return {"respuesta": "Abriendo Mission Control", "continuar": True, "accion": "abrir_mission"}
 
     if any(p in comando for p in ["abre mapa", "abrir mapa", "stark maps", "mapa"]):
         return {"respuesta": "Abriendo Stark Maps", "continuar": True, "accion": "abrir_mapa"}
@@ -687,8 +695,67 @@ def responder_con_animo(comando_original):
     return "Te escucho. Tómate un respiro si lo necesitas, aquí estoy."
 
 _pomodoro_estado = {"activo": False}
-_pomodoro_avisos = queue.Queue()
-_celebracion_avisos = queue.Queue()
+_avisos_proactivos = queue.Queue()
+
+def anunciar_proactivo(mensaje, telegram=True):
+    """Mecanismo general para que Jarvis hable sin que se lo pidan: lo usan Pomodoro,
+    logros, y cualquier chequeo proactivo (horario, calendario, etc). Lo consume el
+    frontend vía /api/wake-poll y opcionalmente lo reenvía a Telegram."""
+    if telegram:
+        enviar_texto_telegram(f"🗣️ {mensaje}")
+    _avisos_proactivos.put(mensaje)
+
+
+_proactividad_estado = {"resumen_nocturno_hecho": None, "eventos_avisados": set()}
+
+def _chequeo_proactivo():
+    """Corre una vez, evalúa si vale la pena que Jarvis hable sin que le pregunten.
+    Se llama periódicamente desde el hilo de proactividad."""
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo("America/Santiago")
+    ahora = datetime.datetime.now(tz)
+    hoy_str = ahora.date().isoformat()
+
+    # ── Resumen nocturno (una vez al día, a partir de las 22:00) ──────────
+    if ahora.hour >= 22 and _proactividad_estado["resumen_nocturno_hecho"] != hoy_str:
+        _proactividad_estado["resumen_nocturno_hecho"] = hoy_str
+        resumen = resumen_agenda_hoy()
+        anunciar_proactivo(f"Antes de que termines el día: {resumen}")
+
+    # ── Eventos de calendario que empiezan en los próximos 15 minutos ─────
+    try:
+        service = _obtener_servicio_calendar()
+        if service:
+            en_15 = ahora + datetime.timedelta(minutes=15)
+            eventos_result = service.events().list(
+                calendarId='primary', timeMin=ahora.isoformat(), timeMax=en_15.isoformat(),
+                singleEvents=True, orderBy='startTime', timeZone='America/Santiago'
+            ).execute()
+            for ev in eventos_result.get('items', []):
+                ev_id = ev.get('id')
+                if ev_id in _proactividad_estado["eventos_avisados"]:
+                    continue
+                inicio_ev = ev['start'].get('dateTime')
+                if not inicio_ev:
+                    continue
+                titulo = ev.get('summary', 'un evento')
+                hora = inicio_ev[11:16]
+                _proactividad_estado["eventos_avisados"].add(ev_id)
+                anunciar_proactivo(f"Recordatorio: tienes \"{titulo}\" a las {hora}, en menos de 15 minutos.")
+    except Exception as e:
+        print(f"⚠ Error en chequeo proactivo de calendario: {e}")
+
+
+def iniciar_proactividad():
+    """Arranca el hilo en segundo plano que revisa cada 5 minutos si Jarvis debería hablar."""
+    def _loop():
+        while True:
+            try:
+                _chequeo_proactivo()
+            except Exception as e:
+                print(f"⚠ Error en hilo de proactividad: {e}")
+            time.sleep(300)  # cada 5 minutos
+    threading.Thread(target=_loop, daemon=True).start()
 
 def iniciar_pomodoro(comando):
     """Inicia una sesión de enfoque; avisa por voz en el navegador y por Telegram cuando termina."""
@@ -703,8 +770,7 @@ def iniciar_pomodoro(comando):
         if _pomodoro_estado["activo"]:
             _pomodoro_estado["activo"] = False
             mensaje = f"Se acabó tu sesión de enfoque de {minutos} minutos, Elías. Buen trabajo, tómate un respiro."
-            enviar_texto_telegram(f"⏱️ {mensaje}")
-            _pomodoro_avisos.put(mensaje)
+            anunciar_proactivo(mensaje)
 
     threading.Thread(target=_avisar, daemon=True).start()
     return f"Modo enfoque activado por {minutos} minutos. Te aviso cuando termine — concentrémonos."
@@ -864,3 +930,42 @@ def agregar_historial(comando, respuesta, accion=None, fuente=None):
     with open(HISTORIAL_PATH, "w", encoding="utf-8") as f:
         json.dump(historial, f, ensure_ascii=False, indent=2)
     return historial
+
+# ── Visión (análisis de imágenes) ───────────────────────────────────────────
+
+GROQ_VISION_MODEL = "qwen/qwen3.6-27b"
+
+def analizar_imagen(imagen_base64, pregunta=None):
+    """Analiza una imagen con el modelo de visión de Groq. imagen_base64 puede venir
+    con o sin el prefijo data:image/...;base64,. Se usa tanto desde la web (captura
+    de pantalla) como desde Telegram (fotos enviadas al bot)."""
+    if not GROQ_API_KEY_MEM:
+        return "No tengo configurada la clave de Groq para analizar imágenes."
+
+    if not imagen_base64.startswith("data:"):
+        imagen_base64 = f"data:image/png;base64,{imagen_base64}"
+
+    pregunta = pregunta or "Describe qué hay en esta imagen de forma clara y concisa."
+
+    try:
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
+            json={
+                "model": GROQ_VISION_MODEL,
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": pregunta},
+                        {"type": "image_url", "image_url": {"url": imagen_base64}},
+                    ],
+                }],
+                "max_tokens": 1024,
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        print(f"⚠ Error analizando imagen con Groq Vision: {e}")
+        return "No pude analizar la imagen, hubo un problema con el modelo de visión."

@@ -38,6 +38,7 @@ const COMANDOS = [
   { texto: "abre calculadora",   icono: "⬚" },
   { texto: "cuéntame un chiste", icono: "✦" },
   { texto: "mis recordatorios",  icono: "✎" },
+  { texto: "qué hay en mi pantalla", icono: "▣" },
   { texto: "qué puedes hacer",   icono: "?" },
 ];
 
@@ -74,8 +75,6 @@ export default function App() {
 
   useEffect(() => { estadoRef.current = estado; }, [estado]);
 
-  const refrescarRecordatorios = useCallback(() => {}, []);
-
   // ── Browser TTS ────────────────────────────────────────────────────────
   const utterRef = useRef(null);
 
@@ -92,6 +91,52 @@ export default function App() {
     utterRef.current = utter; // evita que el navegador lo recolecte antes de sonar
     window.speechSynthesis.speak(utter);
   }, []);
+
+  // ── Captura y análisis de pantalla ──────────────────────────────────────
+  const capturarYAnalizarPantalla = useCallback(async () => {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setTarjetas([{ pregunta: "Analizar pantalla", respuesta: "Tu navegador no soporta capturar pantalla." }]);
+      setEstado("inactivo"); estadoRef.current = "inactivo";
+      return;
+    }
+    let stream = null;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      await video.play();
+      await new Promise(r => setTimeout(r, 300)); // deja que el primer frame se estabilice
+
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext("2d").drawImage(video, 0, 0);
+      const imagenBase64 = canvas.toDataURL("image/png");
+
+      stream.getTracks().forEach(t => t.stop());
+
+      const resp = await fetch(`${API}/analizar-imagen`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imagen_base64: imagenBase64 }),
+      });
+      const data = await resp.json();
+      setEstado("hablando"); estadoRef.current = "hablando";
+      setTarjetas([{ pregunta: "❯ qué hay en mi pantalla", respuesta: data.respuesta || "No pude analizar la pantalla." }]);
+      if (data.audio_base64) {
+        const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
+        audio.play().catch(() => hablarBrowser(data.respuesta));
+      } else if (data.respuesta) {
+        hablarBrowser(data.respuesta);
+      }
+    } catch (err) {
+      console.error("Error capturando pantalla:", err);
+      setTarjetas([{ pregunta: "Analizar pantalla", respuesta: "No pude acceder a tu pantalla (¿cancelaste el permiso?)." }]);
+      if (stream) stream.getTracks().forEach(t => t.stop());
+    } finally {
+      setTimeout(() => { setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+    }
+  }, [hablarBrowser]);
 
   // ── Enviar comando ─────────────────────────────────────────────────────
   const enviarComando = useCallback(async (texto, forzar = false) => {
@@ -143,6 +188,14 @@ export default function App() {
         setEstado("hablando"); estadoRef.current = "hablando";
         setTimeout(() => { setVista("mapa"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       }
+      if (data.accion === "abrir_mission") {
+        setEstado("hablando"); estadoRef.current = "hablando";
+        setTimeout(() => { setVista("mission"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      }
+      if (data.accion === "analizar_pantalla") {
+        capturarYAnalizarPantalla();
+        return;
+      }
       setTimeout(() => {
         setEstado("inactivo");
         estadoRef.current = "inactivo";
@@ -151,7 +204,7 @@ export default function App() {
       setEstado("inactivo");
       estadoRef.current = "inactivo";
     }
-  }, []);
+  }, [capturarYAnalizarPantalla]);
 
   // ── Browser Speech Recognition (fallback a server-side si no disponible) ─
   const reconocerVozBrowser = useCallback(() => {
@@ -224,6 +277,10 @@ export default function App() {
         setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       } else if (data.accion === "abrir_mapa") {
         setTimeout(() => { setVista("mapa"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      } else if (data.accion === "abrir_mission") {
+        setTimeout(() => { setVista("mission"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      } else if (data.accion === "analizar_pantalla") {
+        setTimeout(() => capturarYAnalizarPantalla(), 600);
       } else {
         setTimeout(() => { setEstado("inactivo"); estadoRef.current = "inactivo"; }, 1000);
       }
@@ -232,9 +289,7 @@ export default function App() {
       setEstado("inactivo");
       estadoRef.current = "inactivo";
     }
-  }, [hablarBrowser]);
-
-  // ── Escuchar micrófono (grabación real en el navegador, transcripción en el servidor) ──
+  }, [hablarBrowser, capturarYAnalizarPantalla]);
   const escucharMicrofono = useCallback(async () => {
     if (estadoRef.current === "escuchando") {
       mediaRecorderRef.current?.stop();
@@ -304,13 +359,9 @@ export default function App() {
             setTimeout(() => escucharRef.current?.(), 400);
           }
         }
-        if (data.pomodoro_terminado && data.pomodoro_mensaje) {
-          setTarjetas([{ pregunta: "Modo enfoque", respuesta: data.pomodoro_mensaje }]);
-          hablarBrowser(data.pomodoro_mensaje);
-        }
-        if (data.logro_completado && data.logro_mensaje) {
-          setTarjetas([{ pregunta: "Tarea completada", respuesta: data.logro_mensaje }]);
-          hablarBrowser(data.logro_mensaje);
+        if (data.aviso_proactivo) {
+          setTarjetas([{ pregunta: "Jarvis", respuesta: data.aviso_proactivo }]);
+          hablarBrowser(data.aviso_proactivo);
         }
       } catch {}
     }, 500);
@@ -356,18 +407,6 @@ export default function App() {
             <div className="brand-name">JARVIS</div>
             <div className="brand-sub">asistente personal</div>
           </div>
-        </div>
-
-        <div className="topbar-nav-center">
-          <button className="nav-btn" onClick={() => setVista("noticias")}>
-            ◈ Stark Intel
-          </button>
-          <button className="nav-btn" onClick={() => setVista("mapa")}>
-            ◎ Stark Maps
-          </button>
-          <button className="nav-btn" onClick={() => setVista("mission")}>
-            ▸ Mission Control
-          </button>
         </div>
 
         <div className="status-pills">
