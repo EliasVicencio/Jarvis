@@ -569,6 +569,9 @@ def procesar_comando(comando):
                                     "mira mi pantalla", "qué ves en mi pantalla"]):
         return {"respuesta": "Dame un segundo, mirando tu pantalla...", "continuar": True, "accion": "analizar_pantalla"}
 
+    if any(p in comando for p in ["stark social", "abre stark social", "contenido de instagram"]):
+        return {"respuesta": "Abriendo Stark Social", "continuar": True, "accion": "abrir_stark_social"}
+
     if any(p in comando for p in ["abre mission control", "abrir mission control", "mission control"]):
         return {"respuesta": "Abriendo Mission Control", "continuar": True, "accion": "abrir_mission"}
 
@@ -934,6 +937,38 @@ def agregar_historial(comando, respuesta, accion=None, fuente=None):
 # ── Visión (análisis de imágenes) ───────────────────────────────────────────
 
 GROQ_VISION_MODEL = "qwen/qwen3.6-27b"
+
+IG_MEDIA_DIR = os.path.join(os.path.dirname(__file__), "static_ig")
+os.makedirs(IG_MEDIA_DIR, exist_ok=True)
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://jarvis-elias.viewdns.net")
+
+def guardar_imagen_publica(imagen_bytes, prefijo="post"):
+    """Guarda bytes de imagen en una carpeta servida por Flask (/api/media-ig/<nombre>)
+    y devuelve la URL pública. Instagram necesita una URL real para publicar, no
+    acepta base64 directo. La usan tanto la web como Telegram."""
+    nombre = f"{prefijo}_{int(time.time())}.jpg"
+    ruta = os.path.join(IG_MEDIA_DIR, nombre)
+    with open(ruta, "wb") as f:
+        f.write(imagen_bytes)
+    return f"{PUBLIC_BASE_URL}/api/media-ig/{nombre}"
+
+IG_PENDIENTE_PATH = os.path.join(os.path.dirname(__file__), "ig_pendiente.json")
+
+def guardar_post_pendiente(imagen_url, caption):
+    """Guarda el post de Instagram en revisión en un archivo compartido, para que
+    tanto la web como Telegram (procesos separados) vean el mismo borrador."""
+    with open(IG_PENDIENTE_PATH, "w", encoding="utf-8") as f:
+        json.dump({"imagen_url": imagen_url, "caption": caption}, f, ensure_ascii=False)
+
+def obtener_post_pendiente():
+    if os.path.exists(IG_PENDIENTE_PATH):
+        with open(IG_PENDIENTE_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+def borrar_post_pendiente():
+    if os.path.exists(IG_PENDIENTE_PATH):
+        os.remove(IG_PENDIENTE_PATH)
 
 def _limpiar_markdown(texto):
     """Quita símbolos de Markdown (headers, negritas, listas, código) que a veces

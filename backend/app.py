@@ -19,6 +19,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 load_dotenv()
 import jarvis_core
+import instagram_ai
 import requests
 import subprocess
 from pydub import AudioSegment
@@ -238,7 +239,7 @@ def api_comando():
         _accion_queue.put(f"cambiar_canal:{resultado.get('dato', '')}")
         resultado["audio_base64"] = _generar_audio_base64(resultado["respuesta"])
         return jsonify(resultado)
-    elif resultado.get("accion") in ("abrir_noticias", "abrir_mapa", "abrir_mission"):
+    elif resultado.get("accion") in ("abrir_noticias", "abrir_mapa", "abrir_mission", "abrir_stark_social"):
         _accion_queue.put(resultado["accion"])
         resultado["audio_base64"] = _generar_audio_base64(resultado["respuesta"])
         return jsonify(resultado)
@@ -712,6 +713,66 @@ def api_analizar_imagen():
     except Exception as e:
         logger.error(f"Error en analizar-imagen: {e}")
         return jsonify({"error": "No se pudo analizar la imagen"}), 500
+
+# ── Instagram: contenido asistido por IA ────────────────────────────────────
+
+def _guardar_imagen_publica(imagen_base64, prefijo="post"):
+    if imagen_base64.startswith("data:"):
+        imagen_base64 = imagen_base64.split(",", 1)[1]
+    return jarvis_core.guardar_imagen_publica(base64.b64decode(imagen_base64), prefijo)
+
+@app.route("/api/media-ig/<nombre>")
+def api_media_ig(nombre):
+    from flask import send_from_directory
+    return send_from_directory(jarvis_core.IG_MEDIA_DIR, nombre)
+
+@app.route("/api/instagram/preparar-post", methods=["POST"])
+def api_instagram_preparar_post():
+    data = request.get_json(force=True) or {}
+    imagen_base64 = data.get("imagen_base64", "")
+    indicacion = data.get("indicacion")
+    if not imagen_base64:
+        return jsonify({"error": "Falta imagen_base64"}), 400
+    try:
+        url_publica = _guardar_imagen_publica(imagen_base64)
+        draft = instagram_ai.generar_caption(imagen_base64, indicacion)
+        caption_completo = draft.get("caption", "")
+        if draft.get("hashtags"):
+            caption_completo += "\n\n" + " ".join(draft["hashtags"])
+        jarvis_core.guardar_post_pendiente(url_publica, caption_completo)
+        return jsonify({"imagen_url": url_publica, "caption": caption_completo, "error": draft.get("error")})
+    except Exception as e:
+        logger.error(f"Error preparando post de Instagram: {e}")
+        return jsonify({"error": "No se pudo preparar el post"}), 500
+
+@app.route("/api/instagram/pendiente")
+def api_instagram_pendiente():
+    return jsonify(jarvis_core.obtener_post_pendiente() or {})
+
+@app.route("/api/instagram/publicar", methods=["POST"])
+def api_instagram_publicar():
+    data = request.get_json(force=True) or {}
+    imagen_url = data.get("imagen_url", "")
+    caption = data.get("caption", "")
+    if not imagen_url or not caption:
+        return jsonify({"error": "Falta imagen_url o caption"}), 400
+    resultado = instagram_ai.publicar_post(imagen_url, caption)
+    if resultado.get("ok"):
+        jarvis_core.borrar_post_pendiente()
+    return jsonify(resultado)
+
+@app.route("/api/instagram/descartar", methods=["POST"])
+def api_instagram_descartar():
+    jarvis_core.borrar_post_pendiente()
+    return jsonify({"ok": True})
+
+@app.route("/api/instagram/posts-recientes")
+def api_instagram_posts_recientes():
+    return jsonify({"posts": instagram_ai.obtener_posts_recientes()})
+
+@app.route("/api/instagram/sugerencias")
+def api_instagram_sugerencias():
+    return jsonify({"sugerencias": instagram_ai.sugerir_ideas_contenido()})
 
 @app.route("/api/proyectos-estado")
 def api_proyectos_estado():

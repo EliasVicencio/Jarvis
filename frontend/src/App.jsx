@@ -6,6 +6,7 @@ import Mapa from "./Mapa";
 import "./Mapa.css";
 import MissionControl from "./MissionControl";
 import "./MissionControl.css";
+import StarkSocial from "./StarkSocial";
 
 const API = "/api";
 
@@ -39,6 +40,7 @@ const COMANDOS = [
   { texto: "cuéntame un chiste", icono: "✦" },
   { texto: "mis recordatorios",  icono: "✎" },
   { texto: "qué hay en mi pantalla", icono: "▣" },
+  { texto: "stark social",       icono: "◐", accion: "stark_social" },
   { texto: "qué puedes hacer",   icono: "?" },
 ];
 
@@ -192,6 +194,10 @@ export default function App() {
         setEstado("hablando"); estadoRef.current = "hablando";
         setTimeout(() => { setVista("mission"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       }
+      if (data.accion === "abrir_stark_social") {
+        setEstado("hablando"); estadoRef.current = "hablando";
+        setTimeout(() => { setVista("stark_social"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      }
       if (data.accion === "analizar_pantalla") {
         capturarYAnalizarPantalla();
         return;
@@ -279,6 +285,8 @@ export default function App() {
         setTimeout(() => { setVista("mapa"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       } else if (data.accion === "abrir_mission") {
         setTimeout(() => { setVista("mission"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      } else if (data.accion === "abrir_stark_social") {
+        setTimeout(() => { setVista("stark_social"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       } else if (data.accion === "analizar_pantalla") {
         setTimeout(() => capturarYAnalizarPantalla(), 600);
       } else {
@@ -389,6 +397,10 @@ export default function App() {
 
   if (vista === "mission") {
     return <MissionControl onVolver={() => setVista("principal")} />;
+  }
+
+  if (vista === "stark_social") {
+    return <StarkSocial onVolver={() => setVista("principal")} />;
   }
 
   return (
