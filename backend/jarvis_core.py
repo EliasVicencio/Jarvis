@@ -935,6 +935,21 @@ def agregar_historial(comando, respuesta, accion=None, fuente=None):
 
 GROQ_VISION_MODEL = "qwen/qwen3.6-27b"
 
+def _limpiar_markdown(texto):
+    """Quita símbolos de Markdown (headers, negritas, listas, código) que a veces
+    devuelven los modelos, para que el texto se lea bien hablado o en la tarjeta."""
+    texto = re.sub(r"```.*?```", "", texto, flags=re.DOTALL)   # bloques de código
+    texto = re.sub(r"^#{1,6}\s*", "", texto, flags=re.MULTILINE)  # ### Títulos
+    texto = re.sub(r"\*\*(.+?)\*\*", r"\1", texto)              # **negrita**
+    texto = re.sub(r"__(.+?)__", r"\1", texto)                  # __negrita__
+    texto = re.sub(r"(?<!\w)\*(.+?)\*(?!\w)", r"\1", texto)     # *cursiva*
+    texto = re.sub(r"^[\s]*[-*•]\s+", "", texto, flags=re.MULTILINE)  # - viñetas
+    texto = re.sub(r"^[\s]*\d+\.\s+", "", texto, flags=re.MULTILINE)  # 1. numeradas
+    texto = re.sub(r"`(.+?)`", r"\1", texto)                    # `código inline`
+    texto = re.sub(r"\n{2,}", " ", texto)                       # colapsar párrafos
+    texto = re.sub(r"\n", " ", texto)
+    return re.sub(r"\s{2,}", " ", texto).strip()
+
 def analizar_imagen(imagen_base64, pregunta=None):
     """Analiza una imagen con el modelo de visión de Groq. imagen_base64 puede venir
     con o sin el prefijo data:image/...;base64,. Se usa tanto desde la web (captura
@@ -945,7 +960,12 @@ def analizar_imagen(imagen_base64, pregunta=None):
     if not imagen_base64.startswith("data:"):
         imagen_base64 = f"data:image/png;base64,{imagen_base64}"
 
-    pregunta = pregunta or "Describe qué hay en esta imagen de forma clara y concisa."
+    pregunta = pregunta or (
+        "Describe qué hay en esta imagen de forma clara y concisa, en 2-4 frases. "
+        "Responde en prosa conversacional, como si se lo estuvieras contando a alguien en voz alta: "
+        "sin markdown, sin títulos, sin listas con viñetas ni numeradas, sin asteriscos ni símbolos "
+        "de formato — solo texto corrido en español."
+    )
 
     try:
         resp = requests.post(
@@ -969,6 +989,7 @@ def analizar_imagen(imagen_base64, pregunta=None):
         texto = resp.json()["choices"][0]["message"]["content"]
         # Respaldo por si igual llega un bloque de razonamiento sin filtrar
         texto = re.sub(r"<think>.*?</think>", "", texto, flags=re.DOTALL).strip()
+        texto = _limpiar_markdown(texto)
         return texto or "No pude generar una descripción clara de la imagen."
     except Exception as e:
         print(f"⚠ Error analizando imagen con Groq Vision: {e}")
