@@ -480,6 +480,20 @@ def procesar_comando(comando):
         c = _clima(ciudad)
         return {"respuesta": c or f"No pude obtener el clima de {ciudad}", "continuar": True, "accion": "clima"}
 
+    if any(p in comando for p in ["estado de los sistemas", "diagnóstico de sistemas", "diagnostico de sistemas",
+                                    "cómo están los sistemas", "como estan los sistemas", "diagnóstico", "diagnostico"]):
+        return {"respuesta": diagnostico_sistemas(), "continuar": True, "accion": "diagnostico"}
+
+    m = re.search(r"investiga(?:r)?(?:\s+a\s+fondo)?(?:\s+sobre)?\s+(.+)", comando)
+    if m and "investiga" in comando:
+        tema = m.group(1).strip()
+        return {"respuesta": investigar_profundo(tema), "continuar": True, "accion": "investigar"}
+
+    m = re.search(r"traduce?\s+(.+?)\s+al\s+(\w+)$", comando)
+    if m:
+        texto_a_traducir, idioma = m.group(1).strip(), m.group(2).strip()
+        return {"respuesta": traducir_texto(texto_a_traducir, idioma), "continuar": True, "accion": "traducir"}
+
     if any(p in comando for p in ["busca noticias", "noticias de hoy", "stark intel", "abre stark intel"]):
         return {"respuesta": "Abriendo Stark Intel", "continuar": True, "accion": "abrir_noticias"}
 
@@ -568,9 +582,6 @@ def procesar_comando(comando):
                                     "analiza mi pantalla", "analiza la pantalla",
                                     "mira mi pantalla", "qué ves en mi pantalla"]):
         return {"respuesta": "Dame un segundo, mirando tu pantalla...", "continuar": True, "accion": "analizar_pantalla"}
-
-    if any(p in comando for p in ["stark social", "abre stark social", "contenido de instagram"]):
-        return {"respuesta": "Abriendo Stark Social", "continuar": True, "accion": "abrir_stark_social"}
 
     if any(p in comando for p in ["abre mission control", "abrir mission control", "mission control"]):
         return {"respuesta": "Abriendo Mission Control", "continuar": True, "accion": "abrir_mission"}
@@ -938,38 +949,6 @@ def agregar_historial(comando, respuesta, accion=None, fuente=None):
 
 GROQ_VISION_MODEL = "qwen/qwen3.6-27b"
 
-IG_MEDIA_DIR = os.path.join(os.path.dirname(__file__), "static_ig")
-os.makedirs(IG_MEDIA_DIR, exist_ok=True)
-PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://jarvis-elias.viewdns.net")
-
-def guardar_imagen_publica(imagen_bytes, prefijo="post"):
-    """Guarda bytes de imagen en una carpeta servida por Flask (/api/media-ig/<nombre>)
-    y devuelve la URL pública. Instagram necesita una URL real para publicar, no
-    acepta base64 directo. La usan tanto la web como Telegram."""
-    nombre = f"{prefijo}_{int(time.time())}.jpg"
-    ruta = os.path.join(IG_MEDIA_DIR, nombre)
-    with open(ruta, "wb") as f:
-        f.write(imagen_bytes)
-    return f"{PUBLIC_BASE_URL}/api/media-ig/{nombre}"
-
-IG_PENDIENTE_PATH = os.path.join(os.path.dirname(__file__), "ig_pendiente.json")
-
-def guardar_post_pendiente(imagen_url, caption):
-    """Guarda el post de Instagram en revisión en un archivo compartido, para que
-    tanto la web como Telegram (procesos separados) vean el mismo borrador."""
-    with open(IG_PENDIENTE_PATH, "w", encoding="utf-8") as f:
-        json.dump({"imagen_url": imagen_url, "caption": caption}, f, ensure_ascii=False)
-
-def obtener_post_pendiente():
-    if os.path.exists(IG_PENDIENTE_PATH):
-        with open(IG_PENDIENTE_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return None
-
-def borrar_post_pendiente():
-    if os.path.exists(IG_PENDIENTE_PATH):
-        os.remove(IG_PENDIENTE_PATH)
-
 def _limpiar_markdown(texto):
     """Quita símbolos de Markdown (headers, negritas, listas, código) que a veces
     devuelven los modelos, para que el texto se lea bien hablado o en la tarjeta."""
@@ -1029,3 +1008,91 @@ def analizar_imagen(imagen_base64, pregunta=None):
     except Exception as e:
         print(f"⚠ Error analizando imagen con Groq Vision: {e}")
         return "No pude analizar la imagen, hubo un problema con el modelo de visión."
+
+
+# ── Diagnóstico de sistemas, investigación profunda y traducción ───────────
+
+GROQ_COMPOUND_MODEL = "groq/compound-mini"
+
+def diagnostico_sistemas():
+    """Reporte de estado del servidor, estilo 'all systems nominal' de JARVIS."""
+    try:
+        cpu = psutil.cpu_percent(interval=0.5)
+        mem = psutil.virtual_memory()
+        disco = psutil.disk_usage("/")
+
+        if cpu < 60 and mem.percent < 70 and disco.percent < 85:
+            apertura = "Todos los sistemas dentro de parámetros normales."
+        elif cpu > 85 or mem.percent > 90:
+            apertura = "Aviso: hay sistemas bajo carga considerable."
+        else:
+            apertura = "Sistemas operativos, con algunos valores a vigilar."
+
+        return (
+            f"{apertura} CPU al {cpu:.0f} por ciento, memoria al {mem.percent:.0f} por ciento "
+            f"({mem.used // (1024**2)} de {mem.total // (1024**2)} megabytes), "
+            f"disco al {disco.percent:.0f} por ciento."
+        )
+    except Exception as e:
+        print(f"⚠ Error en diagnóstico de sistemas: {e}")
+        return "No pude generar el diagnóstico de sistemas en este momento."
+
+
+def investigar_profundo(consulta):
+    """Investigación con búsqueda web real, vía el sistema Compound de Groq
+    (usa la misma GROQ_API_KEY, sin proveedores ni claves nuevas)."""
+    if not GROQ_API_KEY_MEM:
+        return "No tengo configurada la clave de Groq para investigar."
+    try:
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
+            json={
+                "model": GROQ_COMPOUND_MODEL,
+                "messages": [{
+                    "role": "user",
+                    "content": (
+                        f"Investiga sobre esto y dame un resumen claro y actualizado en español: {consulta}. "
+                        "Responde en prosa conversacional de 4-6 frases, sin markdown, como si se lo "
+                        "contaras a alguien en voz alta."
+                    ),
+                }],
+                "max_tokens": 700,
+            },
+            timeout=45,
+        )
+        resp.raise_for_status()
+        texto = resp.json()["choices"][0]["message"]["content"]
+        return _limpiar_markdown(texto)
+    except Exception as e:
+        print(f"⚠ Error en investigación profunda: {e}")
+        return "No pude completar la investigación en este momento."
+
+
+def traducir_texto(texto, idioma_destino):
+    """Traduce un texto usando Groq (modelo rápido, sin búsqueda)."""
+    if not GROQ_API_KEY_MEM:
+        return "No tengo configurada la clave de Groq para traducir."
+    try:
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [{
+                    "role": "user",
+                    "content": (
+                        f"Traduce el siguiente texto al {idioma_destino}. Responde solo con la "
+                        f"traducción, sin explicaciones ni comillas ni markdown:\n\n{texto}"
+                    ),
+                }],
+                "max_tokens": 500,
+                "temperature": 0.3,
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        print(f"⚠ Error traduciendo: {e}")
+        return "No pude traducir el texto en este momento."

@@ -22,5 +22,3 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 backend/memoria_semantica.json
-backend/static_ig/
-backend/ig_pendiente.json

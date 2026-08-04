@@ -8,14 +8,15 @@ const COLORES = ["#2DD4E8", "#4ADE80", "#F2A93B", "#F87171", "#A78BFA"];
 
 export default function Mapa({ onVolver, busquedaInicial = null }) {
   const globeRef = useRef(null);
-  const leafletRef = useRef(null);
+  const mapboxRef = useRef(null);
   const mapRef = useRef(null);
   const miUbicRef = useRef(null);
-  const rutasRef = useRef([]);
+  const rutasIdsRef = useRef([]);
   const marcRef = useRef([]);
   const globeInst = useRef(null);
 
   const [modo, setModo] = useState("globo"); // "globo" | "calles"
+  const [vista3D, setVista3D] = useState(true);
   const [query, setQuery] = useState("");
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState(null);
@@ -130,96 +131,117 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
     }, () => { });
   };
 
-  // ── Cargar Leaflet para vista de calles ───────────────────────────────
-  const cargarLeaflet = useCallback((lat, lon, marcadores = []) => {
+  // ── Cargar Mapbox GL JS para vista de calles en 3D ─────────────────────
+  const cargarMapboxGL = useCallback((lat, lon, marcadores = []) => {
     const cargar = () => {
       if (!mapRef.current) return;
-      const L = window.L;
+      const mapboxgl = window.mapboxgl;
+      mapboxgl.accessToken = MAPBOX_TOKEN;
 
-      if (leafletRef.current) {
-        leafletRef.current.setView([lat, lon], 16);
-        // Actualizar marcadores
-        marcRef.current.forEach(m => leafletRef.current.removeLayer(m));
+      if (mapboxRef.current) {
+        mapboxRef.current.flyTo({ center: [lon, lat], zoom: 16.5, essential: true });
+        marcRef.current.forEach(m => m.remove());
         marcRef.current = [];
-        agregarMarcadores(L, leafletRef.current, marcadores, lat, lon);
+        agregarMarcadores(mapboxgl, mapboxRef.current, marcadores, lat, lon);
         return;
       }
 
-      const map = L.map(mapRef.current, {
-        center: [lat, lon], zoom: 16,
-        zoomControl: false, attributionControl: false,
+      const map = new mapboxgl.Map({
+        container: mapRef.current,
+        style: "mapbox://styles/mapbox/navigation-night-v1",
+        center: [lon, lat],
+        zoom: 16.5,
+        pitch: vista3D ? 60 : 0,
+        bearing: -20,
+        antialias: true,
+        attributionControl: false,
       });
-      L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/navigation-night-v1/tiles/{z}/{x}/{y}{r}?access_token=${MAPBOX_TOKEN}`, {
-        maxZoom: 19, subdomains: "abcd",
-      }).addTo(map);
 
-      leafletRef.current = map;
-      agregarMarcadores(L, map, marcadores, lat, lon);
-      // Forzar recálculo de tamaño múltiples veces
-      setTimeout(() => map.invalidateSize(true), 100);
-      setTimeout(() => map.invalidateSize(true), 300);
-      setTimeout(() => map.invalidateSize(true), 600);
-      // Observer para cuando el contenedor cambia de tamaño
+      map.on("load", () => {
+        // Edificios en 3D (extrusión real), tono cian acorde a la estética HUD
+        const layers = map.getStyle().layers;
+        const labelLayerId = layers.find(l => l.type === "symbol" && l.layout?.["text-field"])?.id;
+        map.addLayer({
+          id: "sm-3d-buildings",
+          source: "composite",
+          "source-layer": "building",
+          filter: ["==", "extrude", "true"],
+          type: "fill-extrusion",
+          minzoom: 14,
+          paint: {
+            "fill-extrusion-color": "#0F3A45",
+            "fill-extrusion-height": ["get", "height"],
+            "fill-extrusion-base": ["get", "min_height"],
+            "fill-extrusion-opacity": 0.75,
+          },
+        }, labelLayerId);
+
+        mapboxRef.current = map;
+        agregarMarcadores(mapboxgl, map, marcadores, lat, lon);
+      });
+
+      setTimeout(() => map.resize(), 300);
       if (window.ResizeObserver && mapRef.current) {
-        new ResizeObserver(() => map.invalidateSize(true)).observe(mapRef.current);
+        new ResizeObserver(() => map.resize()).observe(mapRef.current);
       }
     };
 
-    if (window.L) { cargar(); return; }
+    if (window.mapboxgl) { cargar(); return; }
     const s = document.createElement("script");
-    s.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
+    s.src = "https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js";
     s.onload = cargar;
     document.head.appendChild(s);
     const l = document.createElement("link");
     l.rel = "stylesheet";
-    l.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
+    l.href = "https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css";
     document.head.appendChild(l);
-  }, []);
+  }, [vista3D]);
 
-  const agregarMarcadores = (L, map, marcadores, latDest, lonDest) => {
+  const alternarVista3D = () => {
+    const nuevo = !vista3D;
+    setVista3D(nuevo);
+    mapboxRef.current?.easeTo({ pitch: nuevo ? 60 : 0, duration: 800 });
+  };
+
+  const agregarMarcadores = (mapboxgl, map, marcadores, latDest, lonDest) => {
     // Mi posición
     if (miPos) {
-      const iconMi = L.divIcon({
-        html: `<div class="sm-mi-wrap"><div class="sm-mi-ring"></div><div class="sm-mi-dot"></div></div>`,
-        className: "", iconSize: [20, 20], iconAnchor: [10, 10],
-      });
-      const m = L.marker([miPos.lat, miPos.lon], { icon: iconMi }).addTo(map);
+      const el = document.createElement("div");
+      el.innerHTML = `<div class="sm-mi-wrap"><div class="sm-mi-ring"></div><div class="sm-mi-dot"></div></div>`;
+      const m = new mapboxgl.Marker({ element: el.firstElementChild }).setLngLat([miPos.lon, miPos.lat]).addTo(map);
       miUbicRef.current = m;
       marcRef.current.push(m);
     }
     // Marcadores de resultados
     marcadores.forEach((r, i) => {
-      const icon = L.divIcon({
-        html: `<div class="sm-marker"><div class="sm-marker-num" style="background:${r.color};color:#060B12">${i + 1}</div><div class="sm-marker-label">${r.nombre.slice(0, 20)}</div></div>`,
-        className: "", iconSize: [20, 20], iconAnchor: [10, 30],
-      });
-      const m = L.marker([r.lat, r.lon], { icon }).addTo(map);
+      const el = document.createElement("div");
+      el.innerHTML = `<div class="sm-marker"><div class="sm-marker-num" style="background:${r.color};color:#060B12">${i + 1}</div><div class="sm-marker-label">${r.nombre.slice(0, 20)}</div></div>`;
+      const m = new mapboxgl.Marker({ element: el.firstElementChild }).setLngLat([r.lon, r.lat]).addTo(map);
       marcRef.current.push(m);
     });
   };
 
   // ── Ver calles de un lugar ────────────────────────────────────────────
   const verCalles = useCallback((dest) => {
-    // Destruir Leaflet anterior para evitar conflictos de tamaño
-    if (leafletRef.current) {
-      leafletRef.current.remove();
-      leafletRef.current = null;
+    // Destruir mapa anterior para evitar conflictos de tamaño
+    if (mapboxRef.current) {
+      mapboxRef.current.remove();
+      mapboxRef.current = null;
       marcRef.current = [];
-      rutasRef.current = [];
+      rutasIdsRef.current = [];
     }
     setRutas([]);
     setModo("calles");
     setDestActual(dest);
-    setTimeout(() => cargarLeaflet(dest.lat, dest.lon, resultados), 150);
-  }, [resultados, cargarLeaflet]);
+    setTimeout(() => cargarMapboxGL(dest.lat, dest.lon, resultados), 150);
+  }, [resultados, cargarMapboxGL]);
 
   const volverGlobo = () => {
-    // Destruir Leaflet para que se recree limpio la próxima vez
-    if (leafletRef.current) {
-      leafletRef.current.remove();
-      leafletRef.current = null;
+    if (mapboxRef.current) {
+      mapboxRef.current.remove();
+      mapboxRef.current = null;
       marcRef.current = [];
-      rutasRef.current = [];
+      rutasIdsRef.current = [];
     }
     setModo("globo");
     setRutas([]);
@@ -273,15 +295,20 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
           if (mapRef.current) { clearInterval(esperar); r(); }
         }, 50);
       });
-      if (!leafletRef.current) await new Promise(r => setTimeout(r, 300));
+      if (!mapboxRef.current) await new Promise(r => setTimeout(r, 400));
     }
-    if (!leafletRef.current) { setError("El mapa no está listo."); return; }
-    // Asegurar que Leaflet recalcula su tamaño
-    setTimeout(() => leafletRef.current?.invalidateSize(), 100);
-    rutasRef.current.forEach(r => leafletRef.current.removeLayer(r));
-    rutasRef.current = [];
+    if (!mapboxRef.current) { setError("El mapa no está listo."); return; }
+    const map = mapboxRef.current;
+    setTimeout(() => map.resize(), 100);
+
+    // Limpiar rutas anteriores
+    rutasIdsRef.current.forEach(id => {
+      if (map.getLayer(id)) map.removeLayer(id);
+      if (map.getSource(id)) map.removeSource(id);
+    });
+    rutasIdsRef.current = [];
     setRutas([]);
-    const L = window.L;
+
     try {
       const r = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${miPos.lon},${miPos.lat};${dest.lon},${dest.lat}?alternatives=true&overview=full&geometries=geojson&access_token=${MAPBOX_TOKEN}`);
       const data = await r.json();
@@ -293,21 +320,38 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
       }));
       setRutas(nuevas);
 
+      const mapboxgl = window.mapboxgl;
+      const bounds = new mapboxgl.LngLatBounds();
+
       data.routes.forEach((rt, i) => {
-        const linea = L.geoJSON(rt.geometry, {
-          style: { color: COLORES[i], weight: i === 0 ? 5 : 2.5, opacity: i === 0 ? 0.9 : 0.5, dashArray: i === 0 ? null : "8 5" }
-        }).addTo(leafletRef.current);
-        rutasRef.current.push(linea);
+        const id = `sm-ruta-${i}`;
+        map.addSource(id, { type: "geojson", data: { type: "Feature", geometry: rt.geometry } });
+        map.addLayer({
+          id, type: "line", source: id,
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: {
+            "line-color": COLORES[i],
+            "line-width": i === 0 ? 5 : 2.5,
+            "line-opacity": i === 0 ? 0.9 : 0.4,
+            "line-dasharray": i === 0 ? [1, 0] : [2, 1.5],
+          },
+        });
+        rutasIdsRef.current.push(id);
+        rt.geometry.coordinates.forEach(c => bounds.extend(c));
       });
-      leafletRef.current.fitBounds(rutasRef.current[0].getBounds(), { padding: [40, 40] });
+
+      map.fitBounds(bounds, { padding: 60, pitch: vista3D ? 60 : 0 });
     } catch { setError("Error calculando ruta."); }
-  }, [miPos]);
+  }, [miPos, modo, vista3D]);
 
   const seleccionarRuta = (idx) => {
-    rutasRef.current.forEach((l, i) => l.setStyle({
-      weight: i === idx ? 5 : 2.5, opacity: i === idx ? 0.9 : 0.4,
-      dashArray: i === idx ? null : "8 5",
-    }));
+    const map = mapboxRef.current;
+    rutasIdsRef.current.forEach((id, i) => {
+      if (!map?.getLayer(id)) return;
+      map.setPaintProperty(id, "line-width", i === idx ? 5 : 2.5);
+      map.setPaintProperty(id, "line-opacity", i === idx ? 0.9 : 0.4);
+      map.setPaintProperty(id, "line-dasharray", i === idx ? [1, 0] : [2, 1.5]);
+    });
     setRutas(prev => prev.map(r => ({ ...r, activa: r.idx === idx })));
   };
 
@@ -354,7 +398,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
               <button className="sm-mbtn" onClick={() => {
                 if (miPos && globeInst.current) {
                   globeInst.current.pointOfView({ lat: miPos.lat, lng: miPos.lon, altitude: 1.5 }, 1200);
-                  if (modo === "calles") leafletRef.current?.setView([miPos.lat, miPos.lon], 15);
+                  if (modo === "calles") mapboxRef.current?.flyTo({ center: [miPos.lon, miPos.lat], zoom: 15 });
                 }
               }}>⌖ MI POS</button>
             </div>
@@ -467,9 +511,12 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
                 {rutas.length > 0 && <div className="sm-hbadge sm-hbadge-amber">{rutas.length} RUTAS</div>}
               </div>
               <div className="sm-zoom-ctrl">
-                <button className="sm-zbtn" onClick={() => leafletRef.current?.zoomIn()}>+</button>
-                <button className="sm-zbtn" onClick={() => leafletRef.current?.zoomOut()}>−</button>
+                <button className="sm-zbtn" onClick={() => mapboxRef.current?.zoomIn()}>+</button>
+                <button className="sm-zbtn" onClick={() => mapboxRef.current?.zoomOut()}>−</button>
               </div>
+              <button className={`sm-3d-toggle ${vista3D ? "sm-3d-on" : ""}`} onClick={alternarVista3D}>
+                {vista3D ? "◪ 3D" : "▭ 2D"}
+              </button>
             </div>
           )}
         </div>

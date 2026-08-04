@@ -6,7 +6,7 @@ import Mapa from "./Mapa";
 import "./Mapa.css";
 import MissionControl from "./MissionControl";
 import "./MissionControl.css";
-import StarkSocial from "./StarkSocial";
+import HoloCore from "./HoloCore";
 
 const API = "/api";
 
@@ -40,7 +40,7 @@ const COMANDOS = [
   { texto: "cuéntame un chiste", icono: "✦" },
   { texto: "mis recordatorios",  icono: "✎" },
   { texto: "qué hay en mi pantalla", icono: "▣" },
-  { texto: "stark social",       icono: "◐", accion: "stark_social" },
+  { texto: "estado de los sistemas", icono: "◉" },
   { texto: "qué puedes hacer",   icono: "?" },
 ];
 
@@ -158,7 +158,7 @@ export default function App() {
       setEstado("hablando");
       estadoRef.current = "hablando";
       if (data.respuesta) {
-        setTarjetas([{ pregunta: texto, respuesta: data.respuesta }]);
+        setTarjetas([{ pregunta: texto, respuesta: data.respuesta, accion: data.accion }]);
         if (data.audio_base64) {
           const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
           audio.play().catch(() => hablarBrowser(data.respuesta));
@@ -193,10 +193,6 @@ export default function App() {
       if (data.accion === "abrir_mission") {
         setEstado("hablando"); estadoRef.current = "hablando";
         setTimeout(() => { setVista("mission"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
-      }
-      if (data.accion === "abrir_stark_social") {
-        setEstado("hablando"); estadoRef.current = "hablando";
-        setTimeout(() => { setVista("stark_social"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       }
       if (data.accion === "analizar_pantalla") {
         capturarYAnalizarPantalla();
@@ -267,7 +263,7 @@ export default function App() {
 
       setEstado("hablando");
       estadoRef.current = "hablando";
-      setTarjetas([{ pregunta: data.texto_usuario || "", respuesta: data.respuesta || "" }]);
+      setTarjetas([{ pregunta: data.texto_usuario || "", respuesta: data.respuesta || "", accion: data.accion }]);
       if (data.respuesta) hablarBrowser(data.respuesta);
 
       abrirEnlaceExterno(data.accion, data.dato);
@@ -285,8 +281,6 @@ export default function App() {
         setTimeout(() => { setVista("mapa"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       } else if (data.accion === "abrir_mission") {
         setTimeout(() => { setVista("mission"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
-      } else if (data.accion === "abrir_stark_social") {
-        setTimeout(() => { setVista("stark_social"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       } else if (data.accion === "analizar_pantalla") {
         setTimeout(() => capturarYAnalizarPantalla(), 600);
       } else {
@@ -399,10 +393,6 @@ export default function App() {
     return <MissionControl onVolver={() => setVista("principal")} />;
   }
 
-  if (vista === "stark_social") {
-    return <StarkSocial onVolver={() => setVista("principal")} />;
-  }
-
   return (
     <div className="shell">
       <div className="bg-grid" />
@@ -463,21 +453,9 @@ export default function App() {
             </button>
           </div>
 
-          {/* Anillo central */}
+          {/* Núcleo holográfico central */}
           <div className="core-wrap">
-            <div
-              className={`ring estado-${estado}${wakeFlash ? " ring-wake" : ""}`}
-              onClick={escucharMicrofono}
-              role="button"
-              tabIndex={0}
-              aria-label="Activar micrófono"
-              onKeyDown={e => e.key === "Enter" && escucharMicrofono()}
-            >
-              <div className="ring-outer" />
-              <div className="ring-mid"   />
-              <div className="ring-inner" />
-              <div className="ring-core"><MicSVG /></div>
-            </div>
+            <HoloCore estado={estado} wakeFlash={wakeFlash} onClick={escucharMicrofono} />
             <p className="estado-label">{labelEstado(estado)}</p>
             <p className="hint">
               {wakeActivo ? "Di «Jarvis» para activar" : "Toca el núcleo o escribe abajo"}
@@ -486,7 +464,7 @@ export default function App() {
 
           {/* Tarjetas de respuesta */}
           {tarjetas.map((t, i) => (
-            <div key={i} className="tarjeta">
+            <div key={i} className={`tarjeta ${["diagnostico","investigar","traducir"].includes(t.accion) ? "tarjeta-holo" : ""}`}>
               <div className="tarjeta-pregunta">❯ {t.pregunta}</div>
               <div className="tarjeta-respuesta">{t.respuesta}</div>
             </div>
@@ -516,15 +494,4 @@ export default function App() {
 function labelEstado(e) {
   return { escuchando: "Escuchando…", procesando: "Procesando…", hablando: "Respondiendo…" }[e]
     ?? "Listo — di «Jarvis»";
-}
-
-function MicSVG() {
-  return (
-    <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
-      <path d="M12 14a3 3 0 003-3V6a3 3 0 10-6 0v5a3 3 0 003 3z"
-        stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M19 11a7 7 0 01-14 0M12 18v3"
-        stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
 }

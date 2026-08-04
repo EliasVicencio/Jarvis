@@ -5,7 +5,6 @@ load_dotenv()
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jarvis_core
-import instagram_ai
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("telegram_bot")
@@ -72,31 +71,8 @@ async def main():
         foto = update.message.photo[-1]  # la de mayor resolución
         archivo = await foto.get_file()
         contenido = await archivo.download_as_bytearray()
-        contenido = bytes(contenido)
-        caption_original = (update.message.caption or "").strip()
-
-        if caption_original.lower().startswith("instagram"):
-            indicacion = caption_original[len("instagram"):].strip(" :,-") or None
-            await update.message.reply_text("Dale, preparando el post...")
-            imagen_b64 = base64.b64encode(contenido).decode("utf-8")
-            url_publica = jarvis_core.guardar_imagen_publica(contenido, prefijo="ig")
-            draft = instagram_ai.generar_caption(imagen_b64, indicacion)
-            if draft.get("error"):
-                await update.message.reply_text(f"No pude preparar el post: {draft['error']}")
-                return
-            caption_completo = draft["caption"]
-            if draft.get("hashtags"):
-                caption_completo += "\n\n" + " ".join(draft["hashtags"])
-            jarvis_core.guardar_post_pendiente(url_publica, caption_completo)
-            await update.message.reply_text(
-                f"Esto es lo que se me ocurrió:\n\n{caption_completo}\n\n"
-                "Respóndeme \"publicar\" para subirlo tal cual, o mándame el texto que "
-                "quieres usar en su lugar."
-            )
-            return
-
-        imagen_b64 = base64.b64encode(contenido).decode("utf-8")
-        pregunta = caption_original or None
+        imagen_b64 = base64.b64encode(bytes(contenido)).decode("utf-8")
+        pregunta = (update.message.caption or "").strip() or None
 
         await update.message.reply_text("Dame un segundo, mirando la imagen...")
         respuesta = jarvis_core.analizar_imagen(imagen_b64, pregunta)
@@ -117,29 +93,6 @@ async def main():
         if "desactiva" in texto.lower() and "modo seguro" in texto.lower():
             jarvis_core.desactivar_modo_seguro()
             await update.message.reply_text("Modo seguro desactivado. Todo vuelve a la normalidad, Elías.")
-            return
-
-        pendiente = jarvis_core.obtener_post_pendiente()
-        if pendiente:
-            if texto.lower().strip() == "publicar":
-                await update.message.reply_text("Publicando...")
-                resultado = instagram_ai.publicar_post(pendiente["imagen_url"], pendiente["caption"])
-                jarvis_core.borrar_post_pendiente()
-                if resultado.get("ok"):
-                    await update.message.reply_text("Publicado. Ya debería verse en tu feed.")
-                else:
-                    await update.message.reply_text(f"No se pudo publicar: {resultado.get('error')}")
-                return
-            else:
-                jarvis_core.guardar_post_pendiente(pendiente["imagen_url"], texto)
-                await update.message.reply_text(
-                    "Listo, actualicé el caption. Respóndeme \"publicar\" cuando quieras subirlo así."
-                )
-                return
-
-        if "ideas para instagram" in texto.lower() or "sugerencias de instagram" in texto.lower():
-            await update.message.reply_text("Dame un segundo, revisando cómo te ha ido...")
-            await update.message.reply_text(instagram_ai.sugerir_ideas_contenido())
             return
 
         resultado = jarvis_core.procesar_comando(texto)
