@@ -227,8 +227,9 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
     setQuery(termino);
     setBuscando(true); setError(null); setResultados([]);
     try {
+      const proximidad = miPos ? `&proximity=${miPos.lon},${miPos.lat}` : "";
       const r = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(termino)}.json?access_token=${MAPBOX_TOKEN}&limit=5&language=es`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(termino)}.json?access_token=${MAPBOX_TOKEN}&limit=5&language=es${proximidad}`
       );
       const data = await r.json();
       if (!data.features?.length) { setError("Sin resultados."); setBuscando(false); return; }
@@ -246,7 +247,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
       }
     } catch { setError("Error de conexión."); }
     setBuscando(false);
-  }, []);
+  }, [miPos]);
 
   const buscar = useCallback(async () => {
     await buscarPorTermino(query);
