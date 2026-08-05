@@ -242,6 +242,20 @@ export default function Noticias({ onVolver, canalInicial = null }) {
         <div className="si-live"><div className="si-live-dot"/>EN VIVO</div>
       </header>
 
+      <div className="si-canales-bar">
+        {CANALES.map((c, i) => (
+          <button
+            key={c.id}
+            className={`si-canal-chip ${!canalDinamico && canalIdx === i ? "si-canal-on" : ""}`}
+            style={{ "--tag-color": TAG_COLORS[c.tag] }}
+            onClick={() => { setCanalDinamico(null); setCanalIdx(i); }}
+          >
+            <span className="si-canal-tag">{c.tag}</span>
+            {c.nombre}
+          </button>
+        ))}
+      </div>
+
       <StockTicker />
 
       <div className="si-body">
@@ -325,22 +339,6 @@ export default function Noticias({ onVolver, canalInicial = null }) {
               ) : (
                 analisisIA || "Sin análisis disponible todavía."
               )}
-            </div>
-          </div>
-          <div className="si-panel" style={{flexShrink:0}}>
-            <div className="si-ph">◈ CANALES <div className="si-pd"/></div>
-            <div className="si-canales-grid">
-              {CANALES.map((c, i) => (
-                <button
-                  key={c.id}
-                  className={`si-canal-chip ${!canalDinamico && canalIdx === i ? "si-canal-on" : ""}`}
-                  style={{ "--tag-color": TAG_COLORS[c.tag] }}
-                  onClick={() => { setCanalDinamico(null); setCanalIdx(i); }}
-                >
-                  <span className="si-canal-tag">{c.tag}</span>
-                  {c.nombre}
-                </button>
-              ))}
             </div>
           </div>
           <CryptoPanel />
