@@ -1,10 +1,12 @@
 :root {
   --bg:        #0A0C10;
+  --bg-rgb:    10,12,16;
   --panel:     #12151B;
   --panel2:    #161A20;
   --cyan:      #2DD4E8;
   --cyan-dim:  rgba(45,212,232,0.12);
   --violet:      #9CA3AF;
+  --violet-rgb:  148,163,184;
   --violet-dim:  rgba(148,163,184,0.10);
   --amber:     #F2A93B;
   --green:     #4ADE80;

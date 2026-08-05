@@ -287,7 +287,7 @@ def transcribir_archivo(path_wav):
     try:
         with sr.AudioFile(path_wav) as source:
             audio = _recognizer.record(source)
-        texto = _recogAnizer.recognize_google(audio, language="es-MX")
+        texto = _recognizer.recognize_google(audio, language="es-MX")
         texto = texto.lower().strip()
         print(f"📝 Entendí (archivo): {texto}")
         return texto
