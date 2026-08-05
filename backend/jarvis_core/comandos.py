@@ -163,6 +163,14 @@ def procesar_comando(comando):
     if any(p in comando for p in ["busca noticias", "noticias de hoy", "stark intel", "abre stark intel"]):
         return {"respuesta": "Abriendo Stark Intel", "continuar": True, "accion": "abrir_noticias"}
 
+    patrones_lugar = ["localiza ", "localizar ", "busca en el mapa ", "muéstrame en el mapa ",
+                       "muestrame en el mapa ", "dónde está ", "donde esta ", "ubica "]
+    for patron in patrones_lugar:
+        if patron in comando:
+            lugar = comando.split(patron, 1)[1].strip()
+            if lugar:
+                return {"respuesta": f"Localizando {lugar}", "continuar": True, "accion": "abrir_mapa", "dato": lugar}
+
     if "busca" in comando:
         m = re.search(r"busca(?:r)?\s+(.+)", comando)
         if m:
@@ -229,7 +237,7 @@ def procesar_comando(comando):
                              "abrir YouTube, Spotify, la calculadora, guardar recordatorios y contarte un chiste.",
                 "continuar": True, "accion": "ayuda"}
 
-    if any(p in comando for p in ["para", "pausa", "detente", "silencio"]):
+    if re.search(r"\b(para|pausa|detente|silencio)\b", comando):
         return {"respuesta": "Entendido, me pongo en pausa. Di Saturday cuando me necesites.",
                 "continuar": True, "accion": "pausar"}
 

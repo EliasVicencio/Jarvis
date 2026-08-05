@@ -131,6 +131,7 @@ export default function App() {
         setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       }
       if (data.accion === "abrir_mapa") {
+        if (data.dato) setBusquedaMapa(data.dato);
         setEstado("hablando"); estadoRef.current = "hablando";
         setTimeout(() => { setVista("mapa"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       }
@@ -218,6 +219,7 @@ export default function App() {
       } else if (data.accion === "abrir_noticias") {
         setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       } else if (data.accion === "abrir_mapa") {
+        if (data.dato) setBusquedaMapa(data.dato);
         setTimeout(() => { setVista("mapa"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       } else if (data.accion === "abrir_stark_ops") {
         setTimeout(() => { setVista("stark_ops"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);

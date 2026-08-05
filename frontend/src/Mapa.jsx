@@ -278,6 +278,14 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
     setBuscando(false);
   }, [miPos]);
 
+  // Ejecuta la búsqueda que vino por comando de voz/texto ("localiza X"), una sola vez,
+  // apenas el globo termina de cargar.
+  useEffect(() => {
+    if (!busquedaInicial || busquedaEjecutadaRef.current || cargando) return;
+    busquedaEjecutadaRef.current = true;
+    buscarPorTermino(busquedaInicial);
+  }, [busquedaInicial, cargando, buscarPorTermino]);
+
   const buscar = useCallback(async () => {
     await buscarPorTermino(query);
   }, [query, buscarPorTermino]);
