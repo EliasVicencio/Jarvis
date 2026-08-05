@@ -126,85 +126,6 @@ function CryptoPanel() {
   );
 }
 
-function ProyectosPanel() {
-  const [proyectos, setProyectos] = useState([]);
-
-  useEffect(() => {
-    const cargar = () => {
-      fetch(`${API}/proyectos-estado`)
-        .then(r => r.json())
-        .then(d => setProyectos(d.proyectos || []))
-        .catch(() => {});
-    };
-    cargar();
-    const id = setInterval(cargar, 60000); // revisa cada 60s
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    <div className="si-panel si-panel-flex">
-      <div className="si-ph">▸ ESTADO DE PROYECTOS <div className="si-pd"/></div>
-      {proyectos.length === 0 ? (
-        <div className="si-srow"><span className="si-sn">Verificando…</span></div>
-      ) : proyectos.map((p, i) => (
-        <div key={i} className="si-srow">
-          <div className={p.ok ? "si-sdg" : "si-sda"}/>
-          <span className="si-sn">{p.nombre}</span>
-          <span className="si-sv3">{p.ok ? "ONLINE" : "CAÍDO"}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function GithubActividadPanel() {
-  const [proyectos, setProyectos] = useState([]);
-  const [cargando, setCargando] = useState(true);
-
-  useEffect(() => {
-    fetch(`${API}/github-actividad`)
-      .then(r => r.json())
-      .then(d => setProyectos(d.proyectos || []))
-      .catch(() => {})
-      .finally(() => setCargando(false));
-  }, []);
-
-  const tiempoDesde = (fechaISO) => {
-    const diff = (Date.now() - new Date(fechaISO).getTime()) / 1000;
-    if (diff < 3600) return `${Math.floor(diff / 60)} min`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)} h`;
-    return `${Math.floor(diff / 86400)} d`;
-  };
-
-  return (
-    <div className="si-panel si-trad-panel">
-      <div className="si-ph">
-        ⌥ GITHUB ACTIVIDAD
-        <div className="si-pd" />
-      </div>
-
-      {cargando ? (
-        <div className="si-loading"><div className="si-spin" /></div>
-      ) : proyectos.length === 0 ? (
-        <div className="si-trad-empty">Sin datos disponibles</div>
-      ) : (
-        <div className="si-trad-scroll">
-          {proyectos.map((p, i) => (
-            <div key={i} className="si-trad-linea">
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                <span style={{ fontSize: 9, color: "rgba(45,212,232,0.7)", fontWeight: 600 }}>{p.nombre}</span>
-                {p.ok && <span style={{ fontSize: 8, color: "rgba(220,239,245,0.4)" }}>{tiempoDesde(p.fecha)}</span>}
-              </div>
-              <div className="si-trad-texto">
-                {p.ok ? p.mensaje : <span style={{ opacity: 0.4 }}>No disponible</span>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function Noticias({ onVolver, canalInicial = null }) {
   const [canalIdx,   setCanalIdx]   = useState(0);
@@ -422,9 +343,7 @@ export default function Noticias({ onVolver, canalInicial = null }) {
               ))}
             </div>
           </div>
-          <ProyectosPanel />
           <CryptoPanel />
-          <GithubActividadPanel />
         </div>
 
       </div>
