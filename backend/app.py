@@ -136,7 +136,7 @@ def api_wake_poll():
             _jarvis_pausado = False
             if _wake_detector:
                 _wake_detector.reanudar()
-            logger.info("Otto reactivado por wake word")
+            logger.info("Saturday reactivado por wake word")
         resultado["activado"] = True
         resultado["fuente"] = fuente
     except queue.Empty:
@@ -629,7 +629,7 @@ def _llm_preguntar(pregunta: str) -> str:
     try:
         contexto_mem = jarvis_core.contexto_memoria_para_prompt()
         system_prompt = (
-            "Eres OTTO, el asistente de inteligencia artificial personal de Elías. "
+            "Eres SATURDAY, el asistente de inteligencia artificial personal de Elías. "
             "Respondes en español de Chile. Tu personalidad es la de un mayordomo alemán "
             "de la vieja escuela: extremadamente eficiente y leal, cumples cada pedido sin "
             "falta, pero no sin antes dejar clara tu opinión al respecto — con resignación "
@@ -649,7 +649,7 @@ def _llm_preguntar(pregunta: str) -> str:
             "regatear el elogio — pero la crítica honesta viene primero que la palmadita "
             "en la espalda.\n\n"
             "Nunca digas que eres un modelo de lenguaje de Meta, Llama, ni menciones "
-            "tecnicismos sobre tu funcionamiento interno — actúa siempre como OTTO. Sé "
+            "tecnicismos sobre tu funcionamiento interno — actúa siempre como SATURDAY. Sé "
             "conciso: respuestas de máximo 2-3 frases salvo que te pidan explícitamente "
             "más detalle o estés evaluando una idea a fondo."
         )
@@ -746,7 +746,7 @@ def api_celebrar_logro():
 def api_proyectos_estado():
     """Verifica en vivo si Jarvis y Hyperion (frontend/backend) están respondiendo."""
     proyectos = [
-        {"nombre": "Otto Backend",     "url": "http://127.0.0.1:5000/api/estado"},
+        {"nombre": "Saturday Backend",     "url": "http://127.0.0.1:5000/api/estado"},
         {"nombre": "Hyperion Frontend",  "url": "https://hyperion-core.vercel.app"},
         {"nombre": "Hyperion Backend",   "url": "https://hyperion-pi-nine.vercel.app/health/deep"},
     ]
@@ -851,5 +851,5 @@ if __name__ == "__main__":
     threading.Thread(target=_monitor_memoria, daemon=True).start()
     jarvis_core.iniciar_proactividad()
     _arrancar_telegram_bot()
-    print("🤖 Otto backend corriendo en http://localhost:5000")
+    print("🤖 Saturday backend corriendo en http://localhost:5000")
     app.run(debug=False, port=5000, threaded=True)
