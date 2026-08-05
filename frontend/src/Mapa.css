@@ -133,3 +133,38 @@
 .sm-mi-ring{position:absolute;inset:0;border-radius:50%;border:2px solid #4ADE80;animation:sm-pulse 2s ease-out infinite}
 .sm-mi-dot{width:8px;height:8px;border-radius:50%;background:#4ADE80;box-shadow:0 0 6px #4ADE80;position:relative;z-index:1}
 @keyframes sm-pulse{0%{transform:scale(1);opacity:.8}100%{transform:scale(2.5);opacity:0}}
+.sm-stars {
+  position: absolute; inset: 0; z-index: 1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 33.1% 16.5%, rgba(203,213,225,0.18) 0px, rgba(203,213,225,0.18) 1.8px, transparent 1.8px),
+    radial-gradient(circle at 53.4% 37.1%, rgba(203,213,225,0.35) 0px, rgba(203,213,225,0.35) 1.1px, transparent 1.1px),
+    radial-gradient(circle at 5.6% 43.6%, rgba(203,213,225,0.19) 0px, rgba(203,213,225,0.19) 1.1px, transparent 1.1px),
+    radial-gradient(circle at 42.8% 81.4%, rgba(203,213,225,0.24) 0px, rgba(203,213,225,0.24) 1.1px, transparent 1.1px),
+    radial-gradient(circle at 62.2% 93.0%, rgba(203,213,225,0.31) 0px, rgba(203,213,225,0.31) 1.7px, transparent 1.7px),
+    radial-gradient(circle at 95.7% 6.5%, rgba(203,213,225,0.27) 0px, rgba(203,213,225,0.27) 2.0px, transparent 2.0px),
+    radial-gradient(circle at 15.8% 13.3%, rgba(203,213,225,0.48) 0px, rgba(203,213,225,0.48) 1.4px, transparent 1.4px),
+    radial-gradient(circle at 19.3% 57.8%, rgba(203,213,225,0.3) 0px, rgba(203,213,225,0.3) 1.8px, transparent 1.8px),
+    radial-gradient(circle at 54.6% 8.0%, rgba(203,213,225,0.23) 0px, rgba(203,213,225,0.23) 1.1px, transparent 1.1px),
+    radial-gradient(circle at 67.3% 43.0%, rgba(203,213,225,0.38) 0px, rgba(203,213,225,0.38) 1.4px, transparent 1.4px),
+    radial-gradient(circle at 45.5% 30.8%, rgba(203,213,225,0.43) 0px, rgba(203,213,225,0.43) 2.0px, transparent 2.0px),
+    radial-gradient(circle at 25.4% 57.1%, rgba(203,213,225,0.5) 0px, rgba(203,213,225,0.5) 1.6px, transparent 1.6px),
+    radial-gradient(circle at 72.0% 29.6%, rgba(203,213,225,0.2) 0px, rgba(203,213,225,0.2) 2.2px, transparent 2.2px),
+    radial-gradient(circle at 42.1% 74.7%, rgba(203,213,225,0.35) 0px, rgba(203,213,225,0.35) 1.2px, transparent 1.2px),
+    radial-gradient(circle at 5.8% 66.1%, rgba(203,213,225,0.38) 0px, rgba(203,213,225,0.38) 1.9px, transparent 1.9px),
+    radial-gradient(circle at 86.0% 32.1%, rgba(203,213,225,0.39) 0px, rgba(203,213,225,0.39) 1.8px, transparent 1.8px),
+    radial-gradient(circle at 57.7% 45.8%, rgba(203,213,225,0.53) 0px, rgba(203,213,225,0.53) 2.0px, transparent 2.0px),
+    radial-gradient(circle at 47.5% 65.8%, rgba(203,213,225,0.43) 0px, rgba(203,213,225,0.43) 1.1px, transparent 1.1px),
+    radial-gradient(circle at 64.1% 97.3%, rgba(203,213,225,0.26) 0px, rgba(203,213,225,0.26) 2.0px, transparent 2.0px),
+    radial-gradient(circle at 39.0% 66.2%, rgba(203,213,225,0.33) 0px, rgba(203,213,225,0.33) 1.0px, transparent 1.0px),
+    radial-gradient(circle at 18.1% 13.2%, rgba(203,213,225,0.46) 0px, rgba(203,213,225,0.46) 1.1px, transparent 1.1px),
+    radial-gradient(circle at 14.4% 25.8%, rgba(203,213,225,0.5) 0px, rgba(203,213,225,0.5) 1.5px, transparent 1.5px),
+    radial-gradient(circle at 9.7% 45.1%, rgba(203,213,225,0.5) 0px, rgba(203,213,225,0.5) 1.7px, transparent 1.7px),
+    radial-gradient(circle at 80.7% 84.9%, rgba(203,213,225,0.32) 0px, rgba(203,213,225,0.32) 1.3px, transparent 1.3px),
+    radial-gradient(circle at 36.4% 86.9%, rgba(203,213,225,0.21) 0px, rgba(203,213,225,0.21) 2.1px, transparent 2.1px),
+    radial-gradient(circle at 18.9% 24.3%, rgba(203,213,225,0.34) 0px, rgba(203,213,225,0.34) 1.3px, transparent 1.3px),
+    radial-gradient(circle at 58.6% 27.2%, rgba(203,213,225,0.32) 0px, rgba(203,213,225,0.32) 1.0px, transparent 1.0px),
+    radial-gradient(circle at 37.4% 56.4%, rgba(203,213,225,0.43) 0px, rgba(203,213,225,0.43) 2.1px, transparent 2.1px),
+    radial-gradient(circle at 51.5% 61.3%, rgba(203,213,225,0.17) 0px, rgba(203,213,225,0.17) 1.8px, transparent 1.8px),
+    radial-gradient(circle at 88.4% 76.9%, rgba(203,213,225,0.47) 0px, rgba(203,213,225,0.47) 2.0px, transparent 2.0px);
+}

@@ -37,32 +37,13 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
     return () => { if (globeInst.current) globeInst.current._destructor?.(); };
   }, []);
 
-  // ── Fondo grafito con pocas estrellas tenues (en vez de la galaxia densa por defecto) ──
-  const fondoEstrellasSuaves = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 800; canvas.height = 800;
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#0A0C10";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    for (let i = 0; i < 140; i++) {
-      const x = Math.random() * canvas.width;
-      const y = Math.random() * canvas.height;
-      const r = Math.random() * 0.8 + 0.3;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(203,213,225,${Math.random() * 0.35 + 0.08})`;
-      ctx.fill();
-    }
-    return canvas.toDataURL();
-  };
-
   const initGlobe = () => {
     if (!globeRef.current || globeInst.current) return;
     const Globe = window.Globe;
 
     const globe = Globe({ animateIn: true })(globeRef.current)
       .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-night.jpg")
-      .backgroundImageUrl(fondoEstrellasSuaves())
+      .backgroundColor("#0A0C10")
       .showAtmosphere(true)
       .atmosphereColor("#1a6aff")
       .atmosphereAltitude(0.18)
@@ -506,6 +487,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
         <div className="sm-map-container">
           {/* Globo 3D */}
           <div className={`sm-globe-wrap ${modo === "calles" ? "sm-view-mini" : "sm-view-full"}`}>
+            <div className="sm-stars" />
             {cargando && (
               <div className="sm-loading">
                 <div className="sm-spin" />
