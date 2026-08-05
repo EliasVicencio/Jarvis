@@ -154,4 +154,11 @@
 .si-trad-mval{font-size:12px;font-weight:700;color:#9CA3AF}
 .si-trad-mlbl{font-size:7px;letter-spacing:0.08em;color:rgba(148,163,184,0.4)}
 .si-trad-tags{display:flex;flex-wrap:wrap;gap:4px}
-.si-trad-tag{font-size:8px;padding:2px 6px;border-radius:2px;background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.15);color:rgba(148,163,184,0.6)}
+.si-trad-tag{font-size:8px;padding:2px 6px;border-radius:2px;background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.15);color:rgba(148,163,184,0.6)}.si-ticker-wrap{width:100%;overflow:hidden;background:#0B0E14;border-bottom:1px solid rgba(148,163,184,0.14);padding:6px 0;white-space:nowrap}
+.si-ticker-track{display:inline-flex;animation:si-ticker-scroll 40s linear infinite}
+.si-ticker-item{display:inline-flex;align-items:center;gap:6px;font-family:"JetBrains Mono",monospace;font-size:11px;padding:0 18px;color:#B9C3CE}
+.si-ticker-sym{font-weight:700;color:#E5E7EB}
+.si-ticker-price{color:#9CA3AF}
+.si-ticker-up{color:#4ADE80}
+.si-ticker-dn{color:#F87171}
+@keyframes si-ticker-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}

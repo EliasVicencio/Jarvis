@@ -42,6 +42,47 @@ function fmt(iso) {
 }
 function trunc(t, n) { return t && t.length > n ? t.slice(0,n)+"…" : (t||""); }
 
+const TICKERS = ["AAPL", "TSLA", "NVDA", "GOOGL", "MSFT", "AMZN"];
+
+function StockTicker() {
+  const [precios, setPrecios] = useState([]);
+
+  useEffect(() => {
+    let activo = true;
+    Promise.all(
+      TICKERS.map(t =>
+        fetch(`https://stockprices.dev/api/stocks/${t}`)
+          .then(r => r.json())
+          .catch(() => null)
+      )
+    ).then(resultados => {
+      if (activo) setPrecios(resultados.filter(Boolean));
+    });
+    return () => { activo = false; };
+  }, []);
+
+  if (precios.length === 0) return null;
+
+  const fila = precios.map((p, i) => {
+    const sube = (p.ChangePercentage ?? 0) >= 0;
+    return (
+      <span key={i} className="si-ticker-item">
+        <span className="si-ticker-sym">{p.Ticker}</span>
+        <span className="si-ticker-price">${p.Price?.toFixed(2)}</span>
+        <span className={sube ? "si-ticker-up" : "si-ticker-dn"}>
+          {sube ? "▲" : "▼"} {Math.abs(p.ChangePercentage ?? 0).toFixed(2)}%
+        </span>
+      </span>
+    );
+  });
+
+  return (
+    <div className="si-ticker-wrap">
+      <div className="si-ticker-track">{fila}{fila}</div>
+    </div>
+  );
+}
+
 function CryptoPanel() {
   const [precios, setPrecios] = useState([]);
   useEffect(() => {
@@ -263,6 +304,8 @@ export default function Noticias({ onVolver, canalInicial = null }) {
 
         <div className="si-live"><div className="si-live-dot"/>EN VIVO</div>
       </header>
+
+      <StockTicker />
 
       <div className="si-body">
 
