@@ -2,8 +2,8 @@
 
 html, body, #root {
   height: 100%;
-  background: #060B12;
-  color: #DCEFF5;
+  background: #070B18;
+  color: #E2E8F7;
   font-family: "Space Grotesk", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -12,7 +12,7 @@ html, body, #root {
 button { font-family: inherit; cursor: pointer; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 
-::selection { background: #2DD4E8; color: #04101A; }
+::selection { background: #2DD4E8; color: #070B18; }
 
 ::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-thumb { background: rgba(45,212,232,0.3); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(81,112,199,0.35); border-radius: 4px; }

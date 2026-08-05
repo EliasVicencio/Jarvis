@@ -319,7 +319,7 @@ function RedTab() {
           {NODOS.map((n, i) => (
             <g key={i}>
               <circle cx={n.x} cy={n.y} r={26} fill="url(#starglow)" opacity={0.15} />
-              <circle cx={n.x} cy={n.y} r={5} fill="#0A121C" stroke={n.color} strokeWidth={1.3} />
+              <circle cx={n.x} cy={n.y} r={5} fill="#070B18" stroke={n.color} strokeWidth={1.3} />
               <text x={n.x} y={n.labelY} fill="#DCEFF5" fontSize={11} fontFamily="monospace" textAnchor="middle">
                 {n.nombre}
               </text>
@@ -328,7 +328,7 @@ function RedTab() {
 
           {/* nucleo central: SATURDAY */}
           <circle cx={CX} cy={CY} r={42} fill="url(#starglow)" opacity={0.3} />
-          <circle cx={CX} cy={CY} r={24} fill="#0A121C" stroke="#2DD4E8" strokeWidth={1.8} />
+          <circle cx={CX} cy={CY} r={24} fill="#070B18" stroke="#2DD4E8" strokeWidth={1.8} />
           <text x={CX} y={CY + 6} fill="#2DD4E8" fontSize={15} fontWeight="bold" fontFamily="monospace" textAnchor="middle">
             J
           </text>

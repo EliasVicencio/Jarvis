@@ -43,7 +43,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
 
     const globe = Globe({ animateIn: true })(globeRef.current)
       .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-night.jpg")
-      .backgroundColor("#0A0C10")
+      .backgroundColor("#070B18")
       .showAtmosphere(true)
       .atmosphereColor("#1a6aff")
       .atmosphereAltitude(0.18)
@@ -215,7 +215,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
     // Marcadores de resultados
     marcadores.forEach((r, i) => {
       const el = document.createElement("div");
-      el.innerHTML = `<div class="sm-marker"><div class="sm-marker-num" style="background:${r.color};color:#060B12">${i + 1}</div><div class="sm-marker-label">${r.nombre.slice(0, 20)}</div></div>`;
+      el.innerHTML = `<div class="sm-marker"><div class="sm-marker-num" style="background:${r.color};color:#070B18">${i + 1}</div><div class="sm-marker-label">${r.nombre.slice(0, 20)}</div></div>`;
       const m = new mapboxgl.Marker({ element: el.firstElementChild }).setLngLat([r.lon, r.lat]).addTo(map);
       marcRef.current.push(m);
     });
@@ -411,7 +411,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
                 </div>
                 {resultados.map((r, i) => (
                   <div key={i} className="sm-res-row">
-                    <div className="sm-res-num" style={{ background: r.color, color: "#060B12" }}>{i + 1}</div>
+                    <div className="sm-res-num" style={{ background: r.color, color: "#070B18" }}>{i + 1}</div>
                     <div className="sm-res-body" onClick={() => verCalles(r)} style={{ cursor: "pointer" }}>
                       <div className="sm-res-nombre">{r.nombre}</div>
                       <div className="sm-res-dir">{r.dir.slice(0, 40)}…</div>
