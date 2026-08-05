@@ -43,7 +43,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
 
     const globe = Globe({ animateIn: true })(globeRef.current)
       .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-night.jpg")
-      .backgroundImageUrl("https://unpkg.com/three-globe/example/img/night-sky.png")
+      .backgroundColor("#0A0C10")
       .showAtmosphere(true)
       .atmosphereColor("#1a6aff")
       .atmosphereAltitude(0.18)

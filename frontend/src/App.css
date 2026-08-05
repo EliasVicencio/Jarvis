@@ -81,10 +81,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border-radius: 20px; padding: 4px 12px;
 }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
-.status-pill[data-ok="true"]  .status-dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
-.status-pill[data-ok="false"] .status-dot { background: var(--red);   box-shadow: 0 0 5px var(--red); }
-.status-pill[data-ok="true"]  { color: var(--green); border-color: rgba(74,222,128,0.22); }
-.status-pill[data-ok="false"] { color: var(--red);   border-color: rgba(248,113,113,0.22); }
+.status-pill[data-estado="ok"]        .status-dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
+.status-pill[data-estado="offline"]   .status-dot { background: var(--red);   box-shadow: 0 0 5px var(--red); }
+.status-pill[data-estado="conectando"] .status-dot { background: var(--dim); }
+.status-pill[data-estado="ok"]        { color: var(--green); border-color: rgba(74,222,128,0.22); }
+.status-pill[data-estado="offline"]   { color: var(--red);   border-color: rgba(248,113,113,0.22); }
+.status-pill[data-estado="conectando"] { color: var(--dim); }
 
 .main-body {
   position: relative; z-index: 1;
