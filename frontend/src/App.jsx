@@ -38,7 +38,6 @@ const COMANDOS = [
   { texto: "abre calculadora",   icono: "⬚" },
   { texto: "cuéntame un chiste", icono: "✦" },
   { texto: "mis recordatorios",  icono: "✎" },
-  { texto: "qué hay en mi pantalla", icono: "▣" },
   { texto: "estado de los sistemas", icono: "◉" },
   { texto: "qué puedes hacer",   icono: "?" },
 ];
@@ -84,52 +83,6 @@ export default function App() {
     utterRef.current = utter; // evita que el navegador lo recolecte antes de sonar
     window.speechSynthesis.speak(utter);
   }, []);
-
-  // ── Captura y análisis de pantalla ──────────────────────────────────────
-  const capturarYAnalizarPantalla = useCallback(async () => {
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      setTarjetas([{ pregunta: "Analizar pantalla", respuesta: "Tu navegador no soporta capturar pantalla." }]);
-      setEstado("inactivo"); estadoRef.current = "inactivo";
-      return;
-    }
-    let stream = null;
-    try {
-      stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      await video.play();
-      await new Promise(r => setTimeout(r, 300)); // deja que el primer frame se estabilice
-
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext("2d").drawImage(video, 0, 0);
-      const imagenBase64 = canvas.toDataURL("image/png");
-
-      stream.getTracks().forEach(t => t.stop());
-
-      const resp = await fetch(`${API}/analizar-imagen`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imagen_base64: imagenBase64 }),
-      });
-      const data = await resp.json();
-      setEstado("hablando"); estadoRef.current = "hablando";
-      setTarjetas([{ pregunta: "❯ qué hay en mi pantalla", respuesta: data.respuesta || "No pude analizar la pantalla." }]);
-      if (data.audio_base64) {
-        const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
-        audio.play().catch(() => hablarBrowser(data.respuesta));
-      } else if (data.respuesta) {
-        hablarBrowser(data.respuesta);
-      }
-    } catch (err) {
-      console.error("Error capturando pantalla:", err);
-      setTarjetas([{ pregunta: "Analizar pantalla", respuesta: "No pude acceder a tu pantalla (¿cancelaste el permiso?)." }]);
-      if (stream) stream.getTracks().forEach(t => t.stop());
-    } finally {
-      setTimeout(() => { setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
-    }
-  }, [hablarBrowser]);
 
   // ── Enviar comando ─────────────────────────────────────────────────────
   const enviarComando = useCallback(async (texto, forzar = false) => {
@@ -185,10 +138,6 @@ export default function App() {
         setEstado("hablando"); estadoRef.current = "hablando";
         setTimeout(() => { setVista("stark_ops"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       }
-      if (data.accion === "analizar_pantalla") {
-        capturarYAnalizarPantalla();
-        return;
-      }
       setTimeout(() => {
         setEstado("inactivo");
         estadoRef.current = "inactivo";
@@ -197,7 +146,7 @@ export default function App() {
       setEstado("inactivo");
       estadoRef.current = "inactivo";
     }
-  }, [capturarYAnalizarPantalla]);
+  }, []);
 
   // ── Browser Speech Recognition (fallback a server-side si no disponible) ─
   const reconocerVozBrowser = useCallback(() => {
@@ -272,8 +221,6 @@ export default function App() {
         setTimeout(() => { setVista("mapa"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       } else if (data.accion === "abrir_stark_ops") {
         setTimeout(() => { setVista("stark_ops"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
-      } else if (data.accion === "analizar_pantalla") {
-        setTimeout(() => capturarYAnalizarPantalla(), 600);
       } else {
         setTimeout(() => { setEstado("inactivo"); estadoRef.current = "inactivo"; }, 1000);
       }
@@ -282,7 +229,7 @@ export default function App() {
       setEstado("inactivo");
       estadoRef.current = "inactivo";
     }
-  }, [hablarBrowser, capturarYAnalizarPantalla]);
+  }, [hablarBrowser]);
   const escucharMicrofono = useCallback(async () => {
     if (estadoRef.current === "escuchando") {
       mediaRecorderRef.current?.stop();

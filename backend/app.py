@@ -742,26 +742,6 @@ def api_celebrar_logro():
         logger.error(f"Error celebrando logro: {e}")
         return jsonify({"ok": False})
 
-@app.route("/api/analizar-imagen", methods=["POST"])
-def api_analizar_imagen():
-    """Analiza una imagen (captura de pantalla desde la web, o foto desde Telegram)
-    usando el modelo de visión de Groq."""
-    data = request.get_json(force=True) or {}
-    imagen_base64 = data.get("imagen_base64", "")
-    pregunta = data.get("pregunta")
-
-    if not imagen_base64:
-        return jsonify({"error": "Falta imagen_base64"}), 400
-
-    try:
-        respuesta = jarvis_core.analizar_imagen(imagen_base64, pregunta)
-        audio_b64 = _generar_audio_base64(respuesta)
-        jarvis_core.agregar_historial(pregunta or "[imagen]", respuesta, "analizar_imagen", fuente="web")
-        return jsonify({"respuesta": respuesta, "audio_base64": audio_b64})
-    except Exception as e:
-        logger.error(f"Error en analizar-imagen: {e}")
-        return jsonify({"error": "No se pudo analizar la imagen"}), 500
-
 @app.route("/api/proyectos-estado")
 def api_proyectos_estado():
     """Verifica en vivo si Jarvis y Hyperion (frontend/backend) están respondiendo."""

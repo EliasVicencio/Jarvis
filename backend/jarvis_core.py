@@ -580,11 +580,6 @@ def procesar_comando(comando):
             if canal:
                 return {"respuesta": f"Cambiando a {canal}", "continuar": True, "accion": "cambiar_canal", "dato": canal}
 
-    if any(p in comando for p in ["qué hay en mi pantalla", "que hay en mi pantalla",
-                                    "analiza mi pantalla", "analiza la pantalla",
-                                    "mira mi pantalla", "qué ves en mi pantalla"]):
-        return {"respuesta": "Dame un segundo, mirando tu pantalla...", "continuar": True, "accion": "analizar_pantalla"}
-
     if any(p in comando for p in ["stark ops", "abre stark ops", "mis tareas", "abre mis tareas"]):
         return {"respuesta": "Abriendo Stark Ops", "continuar": True, "accion": "abrir_stark_ops"}
 
@@ -949,9 +944,7 @@ def agregar_historial(comando, respuesta, accion=None, fuente=None):
         json.dump(historial, f, ensure_ascii=False, indent=2)
     return historial
 
-# ── Visión (análisis de imágenes) ───────────────────────────────────────────
-
-GROQ_VISION_MODEL = "qwen/qwen3.6-27b"
+# ── Utilidades de texto ──────────────────────────────────────────────────────
 
 def _limpiar_markdown(texto):
     """Quita símbolos de Markdown (headers, negritas, listas, código) que a veces
@@ -967,51 +960,6 @@ def _limpiar_markdown(texto):
     texto = re.sub(r"\n{2,}", " ", texto)                       # colapsar párrafos
     texto = re.sub(r"\n", " ", texto)
     return re.sub(r"\s{2,}", " ", texto).strip()
-
-def analizar_imagen(imagen_base64, pregunta=None):
-    """Analiza una imagen con el modelo de visión de Groq. imagen_base64 puede venir
-    con o sin el prefijo data:image/...;base64,. Se usa tanto desde la web (captura
-    de pantalla) como desde Telegram (fotos enviadas al bot)."""
-    if not GROQ_API_KEY_MEM:
-        return "No tengo configurada la clave de Groq para analizar imágenes."
-
-    if not imagen_base64.startswith("data:"):
-        imagen_base64 = f"data:image/png;base64,{imagen_base64}"
-
-    pregunta = pregunta or (
-        "Describe qué hay en esta imagen de forma clara y concisa, en 2-4 frases. "
-        "Responde en prosa conversacional, como si se lo estuvieras contando a alguien en voz alta: "
-        "sin markdown, sin títulos, sin listas con viñetas ni numeradas, sin asteriscos ni símbolos "
-        "de formato — solo texto corrido en español."
-    )
-
-    try:
-        resp = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
-            json={
-                "model": GROQ_VISION_MODEL,
-                "messages": [{
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": pregunta},
-                        {"type": "image_url", "image_url": {"url": imagen_base64}},
-                    ],
-                }],
-                "max_tokens": 1024,
-                "reasoning_effort": "none",  # qwen3.6 es un modelo "pensante"; esto apaga el razonamiento interno
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        texto = resp.json()["choices"][0]["message"]["content"]
-        # Respaldo por si igual llega un bloque de razonamiento sin filtrar
-        texto = re.sub(r"<think>.*?</think>", "", texto, flags=re.DOTALL).strip()
-        texto = _limpiar_markdown(texto)
-        return texto or "No pude generar una descripción clara de la imagen."
-    except Exception as e:
-        print(f"⚠ Error analizando imagen con Groq Vision: {e}")
-        return "No pude analizar la imagen, hubo un problema con el modelo de visión."
 
 
 # ── Diagnóstico de sistemas, investigación profunda y traducción ───────────

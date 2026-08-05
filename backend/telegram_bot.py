@@ -77,25 +77,6 @@ async def main():
     from telegram import Update
     from telegram.ext import Application, MessageHandler, filters
 
-    async def handler_foto(update: Update, _context):
-        if not update.message or not update.message.photo:
-            return
-        chat_id = str(update.message.chat_id)
-        if CHAT_ID_AUTORIZADO and chat_id != CHAT_ID_AUTORIZADO:
-            logger.warning(f"Foto ignorada de chat_id no autorizado: {chat_id}")
-            return
-        import base64
-        foto = update.message.photo[-1]  # la de mayor resolución
-        archivo = await foto.get_file()
-        contenido = await archivo.download_as_bytearray()
-        imagen_b64 = base64.b64encode(bytes(contenido)).decode("utf-8")
-        pregunta = (update.message.caption or "").strip() or None
-
-        await update.message.reply_text("Dame un segundo, mirando la imagen...")
-        respuesta = jarvis_core.analizar_imagen(imagen_b64, pregunta)
-        jarvis_core.agregar_historial(pregunta or "[imagen]", respuesta, "analizar_imagen", fuente="telegram")
-        await update.message.reply_text(respuesta)
-
     async def handler(update: Update, _context):
         if not update.message or not update.message.text:
             return
@@ -122,7 +103,6 @@ async def main():
         await update.message.reply_text(respuesta_texto)
 
     app = Application.builder().token(TELEGRAM_TOKEN).build()
-    app.add_handler(MessageHandler(filters.PHOTO, handler_foto))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handler))
     logger.info("Telegram bot iniciando (long polling)...")
     await app.initialize()
