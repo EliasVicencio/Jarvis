@@ -83,45 +83,50 @@ function StockTicker() {
   );
 }
 
-function Sparkline({ datos, sube }) {
+function LineaGrande({ datos, sube }) {
   if (!datos || datos.length < 2) return null;
   const min = Math.min(...datos), max = Math.max(...datos);
   const rango = max - min || 1;
   const puntos = datos.map((v, i) => {
-    const x = (i / (datos.length - 1)) * 100;
-    const y = 28 - ((v - min) / rango) * 26 - 1;
+    const x = (i / (datos.length - 1)) * 300;
+    const y = 90 - ((v - min) / rango) * 82 - 4;
     return `${x},${y}`;
   }).join(" ");
   return (
-    <svg viewBox="0 0 100 28" preserveAspectRatio="none" className="si-spark">
-      <polyline points={puntos} fill="none" stroke={sube ? "#4ADE80" : "#F87171"} strokeWidth="1.5" />
+    <svg viewBox="0 0 300 90" preserveAspectRatio="none" className="si-market-svg">
+      <polyline points={puntos} fill="none" stroke={sube ? "#4ADE80" : "#F87171"} strokeWidth="2" />
     </svg>
   );
 }
 
 function CryptoPanel() {
-  const [precios, setPrecios] = useState([]);
+  const [moneda, setMoneda] = useState(null);
   useEffect(() => {
-    fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana,cardano,polkadot&order=market_cap_desc&per_page=5&sparkline=true&price_change_percentage=24h")
-      .then(r => r.json()).then(d => { if (Array.isArray(d)) setPrecios(d); }).catch(() => {});
+    fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin&sparkline=true&price_change_percentage=24h")
+      .then(r => r.json()).then(d => { if (Array.isArray(d) && d[0]) setMoneda(d[0]); }).catch(() => {});
   }, []);
+
+  if (!moneda) {
+    return (
+      <div className="si-panel" style={{flexShrink:0}}>
+        <div className="si-ph">◈ MARKET OVERVIEW <div className="si-pd"/></div>
+        <div className="si-empty">Cargando…</div>
+      </div>
+    );
+  }
+
+  const cambio = moneda.price_change_percentage_24h || 0;
+  const sube = cambio >= 0;
+  const datos = moneda.sparkline_in_7d?.price;
+
   return (
     <div className="si-panel" style={{flexShrink:0}}>
-      <div className="si-ph">◈ MERCADOS CRYPTO <div className="si-pd"/></div>
-      {precios.map(p => {
-        const c = p.price_change_percentage_24h || 0;
-        const sube = c >= 0;
-        return (
-          <div key={p.id} className="si-crow">
-            <div className="si-crow-top">
-              <span className="si-sym">{p.symbol?.toUpperCase()}</span>
-              <span className="si-price">${p.current_price?.toLocaleString("en-US")}</span>
-              <span className={sube?"si-cup":"si-cdn"}>{sube?"▲":"▼"} {Math.abs(c).toFixed(1)}%</span>
-            </div>
-            <Sparkline datos={p.sparkline_in_7d?.price} sube={sube} />
-          </div>
-        );
-      })}
+      <div className="si-ph">◈ MARKET OVERVIEW <div className="si-pd"/></div>
+      <div className="si-market-body">
+        <div className="si-market-precio">${moneda.current_price?.toLocaleString("en-US")}</div>
+        <div className={sube ? "si-cup" : "si-cdn"}>{sube ? "▲" : "▼"} {Math.abs(cambio).toFixed(2)}%</div>
+        <LineaGrande datos={datos} sube={sube} />
+      </div>
     </div>
   );
 }
@@ -267,6 +272,7 @@ export default function Noticias({ onVolver, canalInicial = null }) {
               <div className="si-dot-green"/>
               <span className="si-vcanal">{canalActual.nombre}</span>
               <span className="si-vtag" style={{background:`${TAG_COLORS[canalActual.tag]}22`,color:TAG_COLORS[canalActual.tag]}}>{canalActual.tag}</span>
+              <span className="si-vtitulo">{trunc(video?.titulo||"",60)}</span>
               {video?.lang === "en" && <span className="si-lang-badge">🌐 EN · SUB ES</span>}
               {video?.lang === "es" && <span className="si-lang-badge si-lang-es">🔊 ES</span>}
               {!apiKey && <span className="si-no-key">Sin API key — videos de muestra</span>}

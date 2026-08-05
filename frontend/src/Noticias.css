@@ -41,8 +41,6 @@
 .si-sv{font-size:20px;font-weight:700;line-height:1}
 .si-ss{font-size:11px}
 
-.si-sym{font-size:12px;color:#E8F6FA;font-weight:700;width:26px;flex-shrink:0}
-.si-price{font-size:11px;color:rgba(200,220,235,0.65);flex:1}
 .si-cup{font-size:11px;font-weight:700;color:var(--green);min-width:32px;text-align:right}
 .si-cdn{font-size:11px;font-weight:700;color:var(--red);min-width:32px;text-align:right}
 .si-idx{font-size:10px;color:rgba(var(--violet-rgb),0.25);width:12px;flex-shrink:0;text-align:right}
@@ -139,10 +137,9 @@
 .si-ticker-up{color:var(--green)}
 .si-ticker-dn{color:var(--red)}
 @keyframes si-ticker-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-.si-crow{padding:5px 10px;border-bottom:1px solid rgba(var(--violet-rgb),0.05)}
-.si-crow:last-child{border-bottom:none}
-.si-crow-top{display:flex;align-items:center;gap:5px;margin-bottom:2px}
-.si-spark{width:100%;height:18px;display:block}
+.si-market-body{padding:14px 16px 6px}
+.si-market-precio{font-size:22px;font-weight:700;color:#E8F6FA;font-family:"JetBrains Mono",monospace}
+.si-market-svg{width:100%;height:80px;display:block;margin-top:8px}
 .si-ia-body{padding:10px 12px;font-size:12px;line-height:1.6;color:#C7CEDA;overflow-y:auto;flex:1;min-height:0}
 .si-ia-loading{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--dim)}
 .si-canales-bar{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding:6px 8px;border-bottom:1px solid rgba(var(--violet-rgb),0.1);flex-shrink:0}
