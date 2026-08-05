@@ -407,30 +407,19 @@ export default function Noticias({ onVolver, canalInicial = null }) {
             </div>
           </div>
           <div className="si-panel" style={{flexShrink:0}}>
-            <div className="si-ph">◎ RADAR <div className="si-pd"/></div>
-            <div className="si-radar-wrap">
-              <div className="si-radar">
-                <svg viewBox="0 0 120 120" width="120" height="120">
-                  <circle cx="60" cy="60" r="55" fill="none" stroke="rgba(45,212,232,0.07)" strokeWidth="1"/>
-                  <circle cx="60" cy="60" r="40" fill="none" stroke="rgba(45,212,232,0.09)" strokeWidth="1"/>
-                  <circle cx="60" cy="60" r="25" fill="none" stroke="rgba(45,212,232,0.11)" strokeWidth="1"/>
-                  <circle cx="60" cy="60" r="10" fill="none" stroke="rgba(45,212,232,0.18)" strokeWidth="1"/>
-                  <line x1="60" y1="5" x2="60" y2="115" stroke="rgba(45,212,232,0.05)" strokeWidth="1"/>
-                  <line x1="5" y1="60" x2="115" y2="60" stroke="rgba(45,212,232,0.05)" strokeWidth="1"/>
-                  <line x1="21" y1="21" x2="99" y2="99" stroke="rgba(45,212,232,0.05)" strokeWidth="1"/>
-                  <line x1="99" y1="21" x2="21" y2="99" stroke="rgba(45,212,232,0.05)" strokeWidth="1"/>
-                  <polygon points="60,15 85,70 45,90 35,45" fill="rgba(45,212,232,0.07)" stroke="rgba(45,212,232,0.35)" strokeWidth="1"/>
-                  <circle cx="60" cy="15" r="3" fill="#2DD4E8"/>
-                  <circle cx="85" cy="70" r="3" fill="#2DD4E8"/>
-                  <circle cx="45" cy="90" r="3" fill="#2DD4E8"/>
-                  <circle cx="35" cy="45" r="3" fill="#2DD4E8"/>
-                  <line x1="60" y1="60" x2="90" y2="20" stroke="rgba(45,212,232,0.45)" strokeWidth="1.5" className="si-radar-line"/>
-                </svg>
-                <div className="si-radar-center">
-                  <span className="si-radar-label">ACTIVO</span>
-                  <span className="si-radar-val">ON</span>
-                </div>
-              </div>
+            <div className="si-ph">◈ CANALES <div className="si-pd"/></div>
+            <div className="si-canales-grid">
+              {CANALES.map((c, i) => (
+                <button
+                  key={c.id}
+                  className={`si-canal-chip ${!canalDinamico && canalIdx === i ? "si-canal-on" : ""}`}
+                  style={{ "--tag-color": TAG_COLORS[c.tag] }}
+                  onClick={() => { setCanalDinamico(null); setCanalIdx(i); }}
+                >
+                  <span className="si-canal-tag">{c.tag}</span>
+                  {c.nombre}
+                </button>
+              ))}
             </div>
           </div>
           <ProyectosPanel />

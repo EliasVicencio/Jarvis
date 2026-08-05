@@ -20,7 +20,7 @@
 .si-live{display:flex;align-items:center;gap:4px;font-size:9px;color:#F87171;letter-spacing:0.1em;margin-left:auto}
 .si-ld{width:4px;height:4px;border-radius:50%;background:#F87171;flex-shrink:0}
 
-.si-body{height:calc(100vh - 42px);position:relative;z-index:1;display:grid;grid-template-columns:1fr 370px;gap:6px;padding:6px 8px 8px;overflow:hidden}
+.si-body{height:calc(100vh - 42px);position:relative;z-index:1;display:grid;grid-template-columns:1fr 400px;gap:6px;padding:6px 8px 8px;overflow:hidden}
 
 .si-panel{border:1px solid rgba(148,163,184,0.12);border-radius:3px;background:rgba(10,18,28,0.92);overflow:hidden;display:flex;flex-direction:column}
 .si-ph{font-size:9px;letter-spacing:0.1em;color:rgba(148,163,184,0.55);padding:5px 9px;border-bottom:1px solid rgba(148,163,184,0.07);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
@@ -86,9 +86,7 @@
 .si-rw{display:flex;align-items:center;justify-content:center;padding:8px;flex-shrink:0;border-bottom:1px solid rgba(148,163,184,0.07)}
 .si-rc{position:relative;width:100px;height:100px}
 .si-rc svg{position:absolute;inset:0}
-.si-radar-wrap{display:flex;justify-content:center;align-items:center;width:100%}
-.si-radar-line{transform-origin:60px 60px;animation:si-rspin 4s linear infinite}
-@keyframes si-rspin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
 .si-rcc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
 .si-rl{font-size:10px;letter-spacing:0.1em;color:rgba(148,163,184,0.4)}
 .si-rv{font-size:20px;font-weight:700;color:#9CA3AF;letter-spacing:0.08em}
@@ -168,3 +166,8 @@
 .si-spark{width:100%;height:26px;display:block}
 .si-ia-body{padding:10px 12px;font-size:12px;line-height:1.6;color:#C7CEDA;overflow-y:auto;flex:1}
 .si-ia-loading{font-family:"JetBrains Mono",monospace;font-size:11px;color:#6B7280}
+.si-canales-grid{display:flex;flex-direction:column;gap:4px;padding:8px 10px;max-height:220px;overflow-y:auto}
+.si-canal-chip{display:flex;align-items:center;gap:6px;text-align:left;background:rgba(255,255,255,0.02);border:1px solid rgba(148,163,184,0.1);border-radius:6px;padding:6px 8px;font-size:11px;color:#B9C3CE;cursor:pointer;transition:all .15s}
+.si-canal-chip:hover{border-color:rgba(148,163,184,0.3);background:rgba(148,163,184,0.05)}
+.si-canal-chip.si-canal-on{border-color:var(--tag-color);background:color-mix(in srgb, var(--tag-color) 12%, transparent);color:#E5E7EB}
+.si-canal-tag{font-family:"JetBrains Mono",monospace;font-size:8px;font-weight:700;color:var(--tag-color);border:1px solid var(--tag-color);border-radius:3px;padding:1px 4px;flex-shrink:0}
