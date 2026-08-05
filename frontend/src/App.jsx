@@ -55,7 +55,6 @@ export default function App() {
   const chipsAMostrar = mostrarMasChips ? COMANDOS : COMANDOS.filter(c => CHIPS_FAVORITOS.includes(c.texto));
   const [canalNoticias,   setCanalNoticias]   = useState(null);
   const [tarjetas, setTarjetas] = useState([]);
-  const [mostrarRespuesta, setMostrarRespuesta] = useState(false);
 
   const estadoRef   = useRef("inactivo");
   const escucharRef = useRef(null);
@@ -65,7 +64,6 @@ export default function App() {
   const streamRef        = useRef(null);
 
   useEffect(() => { estadoRef.current = estado; }, [estado]);
-  useEffect(() => { setMostrarRespuesta(false); }, [tarjetas]);
 
   // ── Browser TTS ────────────────────────────────────────────────────────
   const utterRef = useRef(null);
@@ -393,19 +391,6 @@ export default function App() {
               {wakeActivo ? "Di «Saturday» para activar" : "Toca el núcleo o escribe abajo"}
             </p>
           </div>
-
-          {/* Tarjeta de respuesta, oculta por defecto */}
-          {tarjetas.length > 0 && (
-            <button className="respuesta-toggle chip chip-toggle" onClick={() => setMostrarRespuesta(v => !v)}>
-              {mostrarRespuesta ? "▲ ocultar respuesta" : "▼ mostrar respuesta"}
-            </button>
-          )}
-          {mostrarRespuesta && tarjetas.map((t, i) => (
-            <div key={i} className={`tarjeta ${["diagnostico","investigar","traducir"].includes(t.accion) ? "tarjeta-holo" : ""}`}>
-              <div className="tarjeta-pregunta">❯ {t.pregunta}</div>
-              <div className="tarjeta-respuesta">{t.respuesta}</div>
-            </div>
-          ))}
         </div>
 
         <div className="bottom-area">
