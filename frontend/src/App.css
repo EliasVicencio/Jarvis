@@ -1,19 +1,19 @@
 :root {
-  --bg:        #0A0C10;
-  --bg-rgb:    10,12,16;
-  --panel:     #12151B;
-  --panel2:    #161A20;
+  --bg:        #070B18;
+  --bg-rgb:    7,11,24;
+  --panel:     #101830;
+  --panel2:    #141C38;
   --cyan:      #2DD4E8;
   --cyan-dim:  rgba(45,212,232,0.12);
-  --violet:      #9CA3AF;
-  --violet-rgb:  148,163,184;
-  --violet-dim:  rgba(148,163,184,0.10);
+  --violet:      #8DA5E8;
+  --violet-rgb:  81,112,199;
+  --violet-dim:  rgba(81,112,199,0.14);
   --amber:     #F2A93B;
   --green:     #4ADE80;
   --red:       #F87171;
-  --dim:       #6B7280;
-  --border:    rgba(148,163,184,0.14);
-  --border-hi: rgba(148,163,184,0.40);
+  --dim:       #8394BE;
+  --border:    rgba(81,112,199,0.18);
+  --border-hi: rgba(81,112,199,0.45);
   --mono:      "JetBrains Mono", monospace;
 }
 
@@ -22,7 +22,7 @@
 html, body, #root {
   height: 100%;
   background: var(--bg);
-  color: #E5E7EB;
+  color: #E2E8F7;
   font-family: "Space Grotesk", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -30,7 +30,7 @@ html, body, #root {
 
 button { font-family: inherit; cursor: pointer; }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
-::selection { background: var(--violet); color: #0A0C10; }
+::selection { background: var(--violet); color: #070B18; }
 
 .shell {
   height: 100vh;
@@ -127,13 +127,13 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   padding: 6px 14px; border-radius: 22px;
   background: rgba(255,255,255,0.02);
   border: 1px solid var(--border);
-  color: #9CA3AF; font-size: 12px;
+  color: #8394BE; font-size: 12px;
   transition: all 0.18s ease;
 }
 .chip:hover:not(:disabled) {
   border-color: var(--border-hi);
   background: var(--violet-dim);
-  color: #E5E7EB;
+  color: #E2E8F7;
 }
 .chip-icon { color: var(--violet); font-size: 12px; }
 .chip-toggle {
@@ -180,7 +180,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .txt-input {
   flex: 1; padding: 11px 16px; border-radius: 12px;
   background: rgba(255,255,255,0.03);
-  border: 1px solid var(--border); color: #E5E7EB;
+  border: 1px solid var(--border); color: #E2E8F7;
   font-size: 13px; outline: none; transition: border-color 0.2s;
   font-family: inherit;
 }
@@ -218,7 +218,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 .tarjeta-respuesta {
   font-size: 15px;
-  color: #E5E7EB;
+  color: #E2E8F7;
   line-height: 1.55;
   word-break: break-word;
 }
