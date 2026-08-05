@@ -334,11 +334,8 @@ export default function Noticias({ onVolver, canalInicial = null }) {
               )}
             </div>
 	  </div>
-        </div>
 
-        {/* Columna central: noticias */}
-        <div className="si-center">
-          {/* Noticias */}
+          {/* Noticias, debajo del reproductor */}
           <div className="si-panel si-news-panel">
             <div className="si-ph">
               ◎ INTELIGENCIA DE CAMPO
