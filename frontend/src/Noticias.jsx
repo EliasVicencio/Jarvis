@@ -331,7 +331,8 @@ export default function Noticias({ onVolver, canalInicial = null }) {
 
         {/* Columna derecha */}
         <div className="si-right">
-          <div className="si-panel si-panel-flex">
+          <CryptoPanel />
+          <div className="si-panel si-panel-flex" style={{flex:1,minHeight:0}}>
             <div className="si-ph">◆ INTELIGENCIA IA <div className="si-pd"/></div>
             <div className="si-ia-body">
               {cargandoAnalisis ? (
@@ -341,7 +342,6 @@ export default function Noticias({ onVolver, canalInicial = null }) {
               )}
             </div>
           </div>
-          <CryptoPanel />
         </div>
 
       </div>
