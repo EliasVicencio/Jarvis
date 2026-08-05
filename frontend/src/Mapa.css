@@ -129,3 +129,28 @@
 .sm-mi-ring{position:absolute;inset:0;border-radius:50%;border:2px solid var(--green);animation:sm-pulse 2s ease-out infinite}
 .sm-mi-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);position:relative;z-index:1}
 @keyframes sm-pulse{0%{transform:scale(1);opacity:.8}100%{transform:scale(2.5);opacity:0}}
+
+/* Barra de navegación (Overview/Layers/Traffic/Assets/System) */
+.sm-navbar{display:flex;gap:4px;padding:4px;background:var(--panel);border:1px solid rgba(var(--violet-rgb),0.15);border-radius:6px;flex-shrink:0}
+.sm-nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:4px;background:transparent;border:none;cursor:pointer;transition:all .15s}
+.sm-nav-tab:hover{background:rgba(var(--violet-rgb),0.06)}
+.sm-nav-tab-on{background:rgba(var(--violet-rgb),0.15);border:1px solid rgba(var(--violet-rgb),0.4)}
+.sm-nav-icon{font-size:15px;color:var(--dim)}
+.sm-nav-tab-on .sm-nav-icon{color:var(--violet)}
+.sm-nav-label{font-family:"JetBrains Mono",monospace;font-size:8px;letter-spacing:0.04em;color:var(--dim)}
+.sm-nav-tab-on .sm-nav-label{color:var(--violet)}
+
+/* Interruptores (Layers/Traffic) */
+.sm-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(var(--violet-rgb),0.06)}
+.sm-toggle-row:last-of-type{border-bottom:none}
+.sm-toggle-row:hover{background:rgba(var(--violet-rgb),0.04)}
+.sm-toggle-label{font-size:12px;color:#E8F6FA}
+.sm-switch{width:34px;height:18px;border-radius:10px;background:rgba(var(--violet-rgb),0.15);border:1px solid rgba(var(--violet-rgb),0.3);position:relative;transition:all .2s;flex-shrink:0}
+.sm-switch-dot{width:12px;height:12px;border-radius:50%;background:var(--dim);position:absolute;top:2px;left:2px;transition:all .2s}
+.sm-switch-on{background:rgba(74,222,128,0.2);border-color:var(--green)}
+.sm-switch-on .sm-switch-dot{background:var(--green);left:18px}
+
+/* Panel de sistema */
+.sm-sys-row{display:flex;justify-content:space-between;padding:9px 12px;font-size:11px;color:#8394BE;border-bottom:1px solid rgba(var(--violet-rgb),0.06)}
+.sm-sys-row:last-child{border-bottom:none}
+.sm-sys-row span:first-child{color:var(--dim)}

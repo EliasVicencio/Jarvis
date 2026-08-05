@@ -25,6 +25,9 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
   const [miPos, setMiPos] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [destActual, setDestActual] = useState(null);
+  const [navTab, setNavTab] = useState("overview");
+  const [mostrarEdificios, setMostrarEdificios] = useState(true);
+  const [mostrarTrafico, setMostrarTrafico] = useState(false);
   const busquedaEjecutadaRef = useRef(false);
   const modoRef = useRef("globo");
   useEffect(() => { modoRef.current = modo; }, [modo]);
@@ -221,6 +224,38 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
     mapInst.current?.easeTo({ pitch: nuevo ? 60 : 0, duration: 800 });
   };
 
+  const toggleEdificios = () => {
+    const map = mapInst.current;
+    const nuevo = !mostrarEdificios;
+    setMostrarEdificios(nuevo);
+    if (map?.getLayer("sm-3d-buildings")) {
+      map.setLayoutProperty("sm-3d-buildings", "visibility", nuevo ? "visible" : "none");
+    }
+  };
+
+  const toggleTrafico = () => {
+    const map = mapInst.current;
+    const nuevo = !mostrarTrafico;
+    setMostrarTrafico(nuevo);
+    if (!map) return;
+    if (!map.getSource("sm-traffic")) {
+      map.addSource("sm-traffic", { type: "vector", url: "mapbox://mapbox.mapbox-traffic-v1" });
+      map.addLayer({
+        id: "sm-traffic-layer", type: "line", source: "sm-traffic", "source-layer": "traffic",
+        paint: {
+          "line-width": 2,
+          "line-color": [
+            "match", ["get", "congestion"],
+            "low", "#4ADE80", "moderate", "#F2A93B",
+            "heavy", "#F87171", "severe", "#991B1B",
+            "#8394BE",
+          ],
+        },
+      });
+    }
+    map.setLayoutProperty("sm-traffic-layer", "visibility", nuevo ? "visible" : "none");
+  };
+
   // ── Buscar ────────────────────────────────────────────────────────────
   // ── Búsqueda por categoría ("cafés cerca", "farmacias cerca"...) vía Search Box API ──
   const CATEGORIAS = {
@@ -411,106 +446,168 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
 
       <div className="sm-body">
         <div className="sm-float-panel">
-          <div className="sm-panel">
-            <div className="sm-ph">◎ BÚSQUEDA <div className="sm-pd" /></div>
-            <div className="sm-search-box">
-              <input className="sm-search-input" placeholder="Buscar lugar…"
-                value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKey} />
-              <button className="sm-search-btn" onClick={buscar} disabled={buscando || cargando}>
-                {buscando ? "…" : "▶"}
+          <div className="sm-navbar">
+            {[
+              { id: "overview", icon: "◎", label: "OVERVIEW" },
+              { id: "layers", icon: "▤", label: "LAYERS" },
+              { id: "traffic", icon: "⛗", label: "TRAFFIC" },
+              { id: "assets", icon: "⬡", label: "ASSETS" },
+              { id: "system", icon: "◉", label: "SYSTEM" },
+            ].map(t => (
+              <button key={t.id}
+                className={`sm-nav-tab ${navTab === t.id ? "sm-nav-tab-on" : ""}`}
+                onClick={() => setNavTab(t.id)}>
+                <span className="sm-nav-icon">{t.icon}</span>
+                <span className="sm-nav-label">{t.label}</span>
               </button>
-            </div>
-            <div className="sm-btns-row">
-              {modo === "calles" && (
-                <button className="sm-mbtn sm-mbtn-cyan" onClick={volverGlobo}>◈ GLOBO</button>
-              )}
-              <button className="sm-mbtn" onClick={() => { rotarRef.current = !rotarRef.current; }}>↺ ROTAR</button>
-              <button className="sm-mbtn" onClick={() => {
-                if (miPos && mapInst.current) {
-                  rotarRef.current = false;
-                  mapInst.current.flyTo({ center: [miPos.lon, miPos.lat], zoom: modo === "calles" ? 15 : 2.2, duration: 1200 });
-                }
-              }}>⌖ MI POS</button>
-            </div>
-            {error && <div className="sm-error">⚠ {error}</div>}
+            ))}
+          </div>
 
-            {resultados.length > 0 && (
-              <div className="sm-resultados">
-                <div className="sm-res-header">
-                  {modo === "globo" ? "↓ Clic en punto o en resultado para ver calles" : `RESULTADOS (${resultados.length})`}
+          {navTab === "overview" && <>
+            <div className="sm-panel">
+              <div className="sm-ph">◎ BÚSQUEDA <div className="sm-pd" /></div>
+              <div className="sm-search-box">
+                <input className="sm-search-input" placeholder="Buscar lugar…"
+                  value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKey} />
+                <button className="sm-search-btn" onClick={buscar} disabled={buscando || cargando}>
+                  {buscando ? "…" : "▶"}
+                </button>
+              </div>
+              <div className="sm-btns-row">
+                {modo === "calles" && (
+                  <button className="sm-mbtn sm-mbtn-cyan" onClick={volverGlobo}>◈ GLOBO</button>
+                )}
+                <button className="sm-mbtn" onClick={() => { rotarRef.current = !rotarRef.current; }}>↺ ROTAR</button>
+                <button className="sm-mbtn" onClick={() => {
+                  if (miPos && mapInst.current) {
+                    rotarRef.current = false;
+                    mapInst.current.flyTo({ center: [miPos.lon, miPos.lat], zoom: modo === "calles" ? 15 : 2.2, duration: 1200 });
+                  }
+                }}>⌖ MI POS</button>
+              </div>
+              {error && <div className="sm-error">⚠ {error}</div>}
+
+              {resultados.length > 0 && (
+                <div className="sm-resultados">
+                  <div className="sm-res-header">
+                    {modo === "globo" ? "↓ Clic en punto o en resultado para ver calles" : `RESULTADOS (${resultados.length})`}
+                  </div>
+                  {resultados.map((r, i) => (
+                    <div key={i} className="sm-res-row">
+                      <div className="sm-res-num" style={{ background: r.color, color: "#070B18" }}>{i + 1}</div>
+                      <div className="sm-res-body" onClick={() => verCalles(r)} style={{ cursor: "pointer" }}>
+                        <div className="sm-res-nombre">{r.nombre}</div>
+                        <div className="sm-res-dir">{r.dir.slice(0, 40)}…</div>
+                      </div>
+                      <div className="sm-res-btns">
+                        <button className="sm-rbtn-mini sm-rbtn-map" onClick={() => verCalles(r)}>🗺</button>
+                        {modo === "calles" && (
+                          <button className="sm-rbtn-mini sm-rbtn-cyan" onClick={() => calcularRuta(r)}>RUTA</button>
+                        )}
+                        <button className="sm-rbtn-mini sm-rbtn-dim" onClick={() => guardar(r)}>✎</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                {resultados.map((r, i) => (
-                  <div key={i} className="sm-res-row">
-                    <div className="sm-res-num" style={{ background: r.color, color: "#070B18" }}>{i + 1}</div>
-                    <div className="sm-res-body" onClick={() => verCalles(r)} style={{ cursor: "pointer" }}>
-                      <div className="sm-res-nombre">{r.nombre}</div>
-                      <div className="sm-res-dir">{r.dir.slice(0, 40)}…</div>
+              )}
+            </div>
+
+            {rutas.length > 0 && (
+              <div className="sm-panel">
+                <div className="sm-ph">◈ RUTAS ({rutas.length}) <div className="sm-pd" /></div>
+                {rutas.map(r => (
+                  <div key={r.idx} className={`sm-ruta-row ${r.activa ? "sm-ruta-activa" : ""}`} onClick={() => seleccionarRuta(r.idx)}>
+                    <div className="sm-ruta-color" style={{ background: r.color }} />
+                    <div className="sm-ruta-body">
+                      <span className="sm-ruta-label">RUTA {r.idx + 1}{r.activa ? " · ACTIVA" : ""}</span>
+                      <span className="sm-ruta-vals">
+                        <span style={{ color: r.color }}>{r.km} km</span>
+                        <span className="sm-ruta-sep">·</span>
+                        <span>{r.min} min</span>
+                      </span>
                     </div>
-                    <div className="sm-res-btns">
-                      <button className="sm-rbtn-mini sm-rbtn-map" onClick={() => verCalles(r)}>🗺</button>
-                      {modo === "calles" && (
-                        <button className="sm-rbtn-mini sm-rbtn-cyan" onClick={() => calcularRuta(r)}>RUTA</button>
-                      )}
-                      <button className="sm-rbtn-mini sm-rbtn-dim" onClick={() => guardar(r)}>✎</button>
-                    </div>
+                    {r.activa && <span className="sm-ruta-check">✓</span>}
                   </div>
                 ))}
               </div>
             )}
-          </div>
 
-          {rutas.length > 0 && (
-            <div className="sm-panel">
-              <div className="sm-ph">◈ RUTAS ({rutas.length}) <div className="sm-pd" /></div>
-              {rutas.map(r => (
-                <div key={r.idx} className={`sm-ruta-row ${r.activa ? "sm-ruta-activa" : ""}`} onClick={() => seleccionarRuta(r.idx)}>
-                  <div className="sm-ruta-color" style={{ background: r.color }} />
-                  <div className="sm-ruta-body">
-                    <span className="sm-ruta-label">RUTA {r.idx + 1}{r.activa ? " · ACTIVA" : ""}</span>
-                    <span className="sm-ruta-vals">
-                      <span style={{ color: r.color }}>{r.km} km</span>
-                      <span className="sm-ruta-sep">·</span>
-                      <span>{r.min} min</span>
-                    </span>
-                  </div>
-                  {r.activa && <span className="sm-ruta-check">✓</span>}
-                </div>
-              ))}
+            <div className="sm-panel" style={{ flexShrink: 0 }}>
+              <div className="sm-ph">▸ CONTROLES <div className="sm-pd" /></div>
+              <div className="sm-hint-list">
+                {modo === "globo" ? <>
+                  <div className="sm-hint">🌍 Arrastra para rotar el globo</div>
+                  <div className="sm-hint">🔍 Scroll para zoom</div>
+                  <div className="sm-hint">📍 Clic en punto → ver calles</div>
+                  <div className="sm-hint">🗺 Clic en resultado → ver calles</div>
+                </> : <>
+                  <div className="sm-hint">🗺 Mapa real con calles OSM</div>
+                  <div className="sm-hint">◈ RUTA para calcular ruta</div>
+                  <div className="sm-hint">◈ GLOBO para volver al 3D</div>
+                </>}
+              </div>
+            </div>
+          </>}
+
+          {navTab === "layers" && (
+            <div className="sm-panel" style={{ flexShrink: 0 }}>
+              <div className="sm-ph">▤ CAPAS <div className="sm-pd" /></div>
+              <div className="sm-toggle-row" onClick={toggleEdificios}>
+                <span className="sm-toggle-label">Edificios 3D</span>
+                <div className={`sm-switch ${mostrarEdificios ? "sm-switch-on" : ""}`}><div className="sm-switch-dot" /></div>
+              </div>
+              <div className="sm-toggle-row" onClick={alternarVista3D}>
+                <span className="sm-toggle-label">Cámara inclinada</span>
+                <div className={`sm-switch ${vista3D ? "sm-switch-on" : ""}`}><div className="sm-switch-dot" /></div>
+              </div>
+              <div className="sm-hint" style={{ padding: "8px 12px" }}>Los edificios en 3D solo se ven al acercarte a nivel de calle.</div>
             </div>
           )}
 
-          {guardados.length > 0 && (
-            <div className="sm-panel sm-panel-flex">
-              <div className="sm-ph">⬡ GUARDADOS ({guardados.length}) <div className="sm-pd" /></div>
-              <div className="sm-mlist">
-                {guardados.map((g, i) => (
-                  <div key={i} className="sm-mrow" onClick={() => { verCalles(g); calcularRuta(g); }}>
-                    <div className="sm-micon" style={{ background: `${g.color}22`, color: g.color, border: `1px solid ${g.color}55` }}>◈</div>
-                    <div className="sm-mbody">
-                      <div className="sm-mname">{g.nombre}</div>
-                      <div className="sm-maddr">{g.lat.toFixed(4)}° · {g.lon.toFixed(4)}°</div>
-                    </div>
-                  </div>
-                ))}
+          {navTab === "traffic" && (
+            <div className="sm-panel" style={{ flexShrink: 0 }}>
+              <div className="sm-ph">⛗ TRÁFICO <div className="sm-pd" /></div>
+              <div className="sm-toggle-row" onClick={toggleTrafico}>
+                <span className="sm-toggle-label">Tráfico en vivo</span>
+                <div className={`sm-switch ${mostrarTrafico ? "sm-switch-on" : ""}`}><div className="sm-switch-dot" /></div>
+              </div>
+              <div className="sm-hint" style={{ padding: "8px 12px" }}>
+                Verde = fluido, ámbar = moderado, rojo = congestionado. Se ve mejor con zoom cercano.
               </div>
             </div>
           )}
 
-          <div className="sm-panel" style={{ flexShrink: 0 }}>
-            <div className="sm-ph">▸ CONTROLES <div className="sm-pd" /></div>
-            <div className="sm-hint-list">
-              {modo === "globo" ? <>
-                <div className="sm-hint">🌍 Arrastra para rotar el globo</div>
-                <div className="sm-hint">🔍 Scroll para zoom</div>
-                <div className="sm-hint">📍 Clic en punto → ver calles</div>
-                <div className="sm-hint">🗺 Clic en resultado → ver calles</div>
-              </> : <>
-                <div className="sm-hint">🗺 Mapa real con calles OSM</div>
-                <div className="sm-hint">◈ RUTA para calcular ruta</div>
-                <div className="sm-hint">◈ GLOBO para volver al 3D</div>
-              </>}
+          {navTab === "assets" && (
+            <div className="sm-panel sm-panel-flex">
+              <div className="sm-ph">⬡ GUARDADOS ({guardados.length}) <div className="sm-pd" /></div>
+              {guardados.length === 0 ? (
+                <div className="sm-hint" style={{ padding: "10px 12px" }}>Toca el ✎ junto a un resultado para guardarlo acá.</div>
+              ) : (
+                <div className="sm-mlist">
+                  {guardados.map((g, i) => (
+                    <div key={i} className="sm-mrow" onClick={() => { verCalles(g); calcularRuta(g); }}>
+                      <div className="sm-micon" style={{ background: `${g.color}22`, color: g.color, border: `1px solid ${g.color}55` }}>◈</div>
+                      <div className="sm-mbody">
+                        <div className="sm-mname">{g.nombre}</div>
+                        <div className="sm-maddr">{g.lat.toFixed(4)}° · {g.lon.toFixed(4)}°</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
+          )}
+
+          {navTab === "system" && (
+            <div className="sm-panel" style={{ flexShrink: 0 }}>
+              <div className="sm-ph">◉ SISTEMA <div className="sm-pd" /></div>
+              <div className="sm-sys-row"><span>Motor</span><span>Mapbox GL JS</span></div>
+              <div className="sm-sys-row"><span>Estado</span><span style={{ color: cargando ? "#F2A93B" : "#4ADE80" }}>{cargando ? "Cargando…" : "Listo"}</span></div>
+              <div className="sm-sys-row"><span>GPS</span><span style={{ color: miPos ? "#4ADE80" : "#F87171" }}>{miPos ? "Activo" : "Sin señal"}</span></div>
+              {miPos && <div className="sm-sys-row"><span>Coordenadas</span><span>{miPos.lat.toFixed(4)}° · {miPos.lon.toFixed(4)}°</span></div>}
+              <div className="sm-sys-row"><span>Vista actual</span><span>{modo === "globo" ? "Globo 3D" : "Calles 3D"}</span></div>
+            </div>
+          )}
         </div>
 
         <div className="sm-map-container">
