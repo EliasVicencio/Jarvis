@@ -546,6 +546,43 @@ def api_noticias():
         logger.error(f"Error obteniendo noticias: {e}")
         return jsonify({"error": str(e), "noticias": []})
 
+@app.route("/api/noticias-analisis", methods=["POST"])
+def api_noticias_analisis():
+    """Genera un análisis breve con IA sobre un conjunto de titulares de noticias."""
+    data = request.get_json(force=True) or {}
+    titulares = data.get("titulares", [])
+    if not titulares:
+        return jsonify({"analisis": ""})
+
+    lista = "\n".join(f"- {t}" for t in titulares[:10])
+    try:
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "openai/gpt-oss-20b",
+                "reasoning_effort": "low",
+                "messages": [{
+                    "role": "user",
+                    "content": (
+                        "Eres un analista. Basado en estos titulares recientes, escribe un análisis "
+                        "breve (2 párrafos cortos) que conecte los puntos en común, el contexto detrás "
+                        "de las noticias, y por qué importan. En español de Chile, prosa conversacional, "
+                        "sin markdown, sin listas, sin títulos:\n\n" + lista
+                    ),
+                }],
+                "max_tokens": 400,
+            },
+            timeout=25,
+        )
+        resp.raise_for_status()
+        texto = resp.json()["choices"][0]["message"]["content"]
+        texto = jarvis_core._limpiar_markdown(texto)
+        return jsonify({"analisis": texto})
+    except Exception as e:
+        logger.error(f"Error en análisis de noticias: {e}")
+        return jsonify({"analisis": "No pude generar el análisis en este momento."})
+
 # ── Email Send ────────────────────────────────────────────────────────────
 
 @app.route("/api/enviar-email", methods=["POST"])

@@ -285,6 +285,23 @@ export default function Noticias({ onVolver, canalInicial = null }) {
 
   useEffect(() => { cargarNoticias(categoria); }, [categoria, cargarNoticias]);
 
+  // Análisis con IA sobre los titulares actuales
+  const [analisisIA, setAnalisisIA] = useState("");
+  const [cargandoAnalisis, setCargandoAnalisis] = useState(false);
+  useEffect(() => {
+    if (noticias.length === 0) return;
+    setCargandoAnalisis(true);
+    fetch(`${API}/noticias-analisis`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ titulares: noticias.slice(0, 8).map(n => n.titulo) }),
+    })
+      .then(r => r.json())
+      .then(d => setAnalisisIA(d.analisis || ""))
+      .catch(() => setAnalisisIA(""))
+      .finally(() => setCargandoAnalisis(false));
+  }, [noticias]);
+
   const destacada = noticias[0] || null;
   const lista     = noticias.slice(1, 5);
 
@@ -379,6 +396,16 @@ export default function Noticias({ onVolver, canalInicial = null }) {
 
         {/* Columna derecha */}
         <div className="si-right">
+          <div className="si-panel si-panel-flex">
+            <div className="si-ph">◆ INTELIGENCIA IA <div className="si-pd"/></div>
+            <div className="si-ia-body">
+              {cargandoAnalisis ? (
+                <span className="si-ia-loading">Analizando…</span>
+              ) : (
+                analisisIA || "Sin análisis disponible todavía."
+              )}
+            </div>
+          </div>
           <div className="si-panel" style={{flexShrink:0}}>
             <div className="si-ph">◎ RADAR <div className="si-pd"/></div>
             <div className="si-radar-wrap">
