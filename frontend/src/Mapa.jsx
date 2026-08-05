@@ -222,9 +222,81 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
   };
 
   // ── Buscar ────────────────────────────────────────────────────────────
+  // ── Búsqueda por categoría ("cafés cerca", "farmacias cerca"...) vía Search Box API ──
+  const CATEGORIAS = {
+    coffee_shop: ["café", "cafe", "cafetería", "cafeteria", "starbucks"],
+    restaurant: ["restaurante", "restaurantes", "donde comer"],
+    pharmacy: ["farmacia", "farmacias", "botica"],
+    hospital: ["hospital", "hospitales", "urgencia", "urgencias"],
+    bank: ["banco", "bancos"],
+    gas_station: ["bencinera", "bencineras", "gasolinera", "gasolineras", "combustible"],
+    supermarket: ["supermercado", "supermercados", "almacén", "almacen"],
+    hotel: ["hotel", "hoteles", "alojamiento"],
+    atm: ["cajero", "cajeros", "atm"],
+    bar: ["bar", "bares", "pub"],
+    bakery: ["panadería", "panaderia", "panaderías", "panaderias"],
+  };
+
+  const detectarCategoria = (termino) => {
+    const t = termino.toLowerCase();
+    for (const [id, palabras] of Object.entries(CATEGORIAS)) {
+      if (palabras.some(p => t.includes(p))) return id;
+    }
+    return null;
+  };
+
+  // Muestra varios resultados como pines a la vez (en vez de navegar directo a uno)
+  const mostrarComoMarcadores = useCallback((res) => {
+    const map = mapInst.current;
+    if (!map) return;
+    rotarRef.current = false;
+    marcRef.current.forEach(m => m.remove());
+    marcRef.current = [];
+    const mapboxgl = window.mapboxgl;
+    const bounds = new mapboxgl.LngLatBounds();
+    res.forEach((r, i) => {
+      const el = document.createElement("div");
+      el.innerHTML = `<div class="sm-marker"><div class="sm-marker-num" style="background:${r.color};color:#070B18">${i + 1}</div><div class="sm-marker-label">${r.nombre.slice(0, 20)}</div></div>`;
+      el.firstElementChild.style.cursor = "pointer";
+      el.firstElementChild.onclick = () => verCalles(r);
+      const m = new mapboxgl.Marker({ element: el.firstElementChild }).setLngLat([r.lon, r.lat]).addTo(map);
+      marcRef.current.push(m);
+      bounds.extend([r.lon, r.lat]);
+    });
+    if (miPos) bounds.extend([miPos.lon, miPos.lat]);
+    map.fitBounds(bounds, { padding: 80, pitch: 0, bearing: 0, duration: 1500, maxZoom: 15 });
+  }, [miPos, verCalles]);
+
+  const buscarCategoria = useCallback(async (categoriaId) => {
+    setBuscando(true); setError(null); setResultados([]);
+    try {
+      const centro = miPos ? `${miPos.lon},${miPos.lat}` : "-70.65,-33.45";
+      const r = await fetch(
+        `https://api.mapbox.com/search/searchbox/v1/category/${categoriaId}?access_token=${MAPBOX_TOKEN}&proximity=${centro}&limit=10&language=es`
+      );
+      const data = await r.json();
+      if (!data.features?.length) { setError("Sin resultados cerca de ti."); setBuscando(false); return; }
+      const res = data.features.map((f, i) => ({
+        nombre: f.properties.name,
+        dir: f.properties.full_address || f.properties.place_formatted || f.properties.name,
+        lat: f.geometry.coordinates[1],
+        lon: f.geometry.coordinates[0],
+        color: COLORES[i % COLORES.length],
+      }));
+      setResultados(res);
+      setModo("globo");
+      mostrarComoMarcadores(res);
+    } catch { setError("Error de conexión."); }
+    setBuscando(false);
+  }, [miPos, mostrarComoMarcadores]);
+
   const buscarPorTermino = useCallback(async (termino) => {
     if (!termino?.trim()) return;
     setQuery(termino);
+
+    const categoria = detectarCategoria(termino);
+    if (categoria) { await buscarCategoria(categoria); return; }
+
     setBuscando(true); setError(null); setResultados([]);
     try {
       const proximidad = miPos ? `&proximity=${miPos.lon},${miPos.lat}` : "";
@@ -241,13 +313,10 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
         color: COLORES[i],
       }));
       setResultados(res);
-      if (mapInst.current && modoRef.current === "globo") {
-        rotarRef.current = false;
-        mapInst.current.flyTo({ center: [res[0].lon, res[0].lat], zoom: 3.5, duration: 1500 });
-      }
+      verCalles(res[0]);
     } catch { setError("Error de conexión."); }
     setBuscando(false);
-  }, [miPos]);
+  }, [miPos, verCalles, buscarCategoria]);
 
   const buscar = useCallback(async () => {
     await buscarPorTermino(query);
@@ -426,6 +495,22 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
               </div>
             </div>
           )}
+
+          <div className="sm-panel" style={{ flexShrink: 0 }}>
+            <div className="sm-ph">▸ CONTROLES <div className="sm-pd" /></div>
+            <div className="sm-hint-list">
+              {modo === "globo" ? <>
+                <div className="sm-hint">🌍 Arrastra para rotar el globo</div>
+                <div className="sm-hint">🔍 Scroll para zoom</div>
+                <div className="sm-hint">📍 Clic en punto → ver calles</div>
+                <div className="sm-hint">🗺 Clic en resultado → ver calles</div>
+              </> : <>
+                <div className="sm-hint">🗺 Mapa real con calles OSM</div>
+                <div className="sm-hint">◈ RUTA para calcular ruta</div>
+                <div className="sm-hint">◈ GLOBO para volver al 3D</div>
+              </>}
+            </div>
+          </div>
         </div>
 
         <div className="sm-map-container">
