@@ -83,10 +83,26 @@ function StockTicker() {
   );
 }
 
+function Sparkline({ datos, sube }) {
+  if (!datos || datos.length < 2) return null;
+  const min = Math.min(...datos), max = Math.max(...datos);
+  const rango = max - min || 1;
+  const puntos = datos.map((v, i) => {
+    const x = (i / (datos.length - 1)) * 100;
+    const y = 28 - ((v - min) / rango) * 26 - 1;
+    return `${x},${y}`;
+  }).join(" ");
+  return (
+    <svg viewBox="0 0 100 28" preserveAspectRatio="none" className="si-spark">
+      <polyline points={puntos} fill="none" stroke={sube ? "#4ADE80" : "#F87171"} strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 function CryptoPanel() {
   const [precios, setPrecios] = useState([]);
   useEffect(() => {
-    fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana,cardano,polkadot&order=market_cap_desc&per_page=5&sparkline=false&price_change_percentage=24h")
+    fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana,cardano,polkadot&order=market_cap_desc&per_page=5&sparkline=true&price_change_percentage=24h")
       .then(r => r.json()).then(d => { if (Array.isArray(d)) setPrecios(d); }).catch(() => {});
   }, []);
   return (
@@ -94,35 +110,18 @@ function CryptoPanel() {
       <div className="si-ph">◈ MERCADOS CRYPTO <div className="si-pd"/></div>
       {precios.map(p => {
         const c = p.price_change_percentage_24h || 0;
+        const sube = c >= 0;
         return (
-          <div key={p.id} className="si-row">
-            <span className="si-sym">{p.symbol?.toUpperCase()}</span>
-            <span className="si-price">${p.current_price?.toLocaleString("en-US")}</span>
-            <span className={c>=0?"si-cup":"si-cdn"}>{c>=0?"▲":"▼"} {Math.abs(c).toFixed(1)}%</span>
+          <div key={p.id} className="si-crow">
+            <div className="si-crow-top">
+              <span className="si-sym">{p.symbol?.toUpperCase()}</span>
+              <span className="si-price">${p.current_price?.toLocaleString("en-US")}</span>
+              <span className={sube?"si-cup":"si-cdn"}>{sube?"▲":"▼"} {Math.abs(c).toFixed(1)}%</span>
+            </div>
+            <Sparkline datos={p.sparkline_in_7d?.price} sube={sube} />
           </div>
         );
       })}
-    </div>
-  );
-}
-
-function GithubPanel() {
-  const [repos, setRepos] = useState([]);
-  useEffect(() => {
-    const d = new Date(); d.setDate(d.getDate()-7);
-    fetch(`https://api.github.com/search/repositories?q=created:>${d.toISOString().split("T")[0]}&sort=stars&order=desc&per_page=8`)
-      .then(r => r.json()).then(d => { if (d.items) setRepos(d.items); }).catch(() => {});
-  }, []);
-  return (
-    <div className="si-panel si-panel-flex">
-      <div className="si-ph">⬡ GITHUB TRENDING <div className="si-pd"/></div>
-      {repos.map((r,i) => (
-        <a key={r.id} href={r.html_url} target="_blank" rel="noreferrer" className="si-row si-row-a">
-          <span className="si-idx">{String(i+1).padStart(2,"0")}</span>
-          <span className="si-ghn">{trunc(r.full_name,22)}</span>
-          <span className="si-ghs">★{r.stargazers_count>=1000?(r.stargazers_count/1000).toFixed(1)+"k":r.stargazers_count}</span>
-        </a>
-      ))}
     </div>
   );
 }
@@ -309,14 +308,8 @@ export default function Noticias({ onVolver, canalInicial = null }) {
 
       <div className="si-body">
 
-        {/* Columna izquierda */}
+        {/* Columna izquierda: reproductor de video */}
         <div className="si-left">
-          <CryptoPanel />
-          <GithubPanel />
-        </div>
-
-        {/* Columna central */}
-        <div className="si-center">
           <div className="si-panel" style={{flexShrink:0}}>
             <div className="si-video-hdr">
               <div className="si-dot-green"/>
@@ -341,7 +334,10 @@ export default function Noticias({ onVolver, canalInicial = null }) {
               )}
             </div>
 	  </div>
+        </div>
 
+        {/* Columna central: noticias */}
+        <div className="si-center">
           {/* Noticias */}
           <div className="si-panel si-news-panel">
             <div className="si-ph">
@@ -414,6 +410,7 @@ export default function Noticias({ onVolver, canalInicial = null }) {
             </div>
           </div>
           <ProyectosPanel />
+          <CryptoPanel />
           <GithubActividadPanel />
         </div>
 
