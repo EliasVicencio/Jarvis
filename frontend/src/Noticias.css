@@ -59,7 +59,7 @@
 .si-vtag-tech{background:rgba(242,169,59,0.12);color:#F2A93B}
 .si-vtit{font-size:11px;color:rgba(200,220,230,0.6);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.si-player{flex-shrink:0;width:100%;aspect-ratio:16/9;height:auto;background:#000}
+.si-player{flex-shrink:0;width:100%;max-width:700px;aspect-ratio:16/9;height:auto;background:#000;margin:0 auto}
 .si-player iframe{width:100%;height:100%;display:block}
 
 .si-news-panel{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
