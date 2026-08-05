@@ -11,7 +11,7 @@ Desplegado en **Oracle Cloud** — https://jarvis-elias.viewdns.net
 - **Backend:** Flask (Python) — Oracle Cloud Always Free (`VM.Standard.E2.1.Micro`)
 - **Voz:** Edge TTS (`es-MX-JorgeNeural`) + Google STT
 - **IA:** Groq — `openai/gpt-oss-20b` (chat/personalidad), `groq/compound-mini` (investigación con búsqueda web real)
-- **Mapas:** Globe.gl (globo 3D) + Mapbox GL JS (calles en 3D, edificios reales)
+- **Mapas:** Mapbox GL JS — un solo motor para el globo 3D (proyección nativa `globe`) y la vista de calles (edificios reales, cámara inclinable)
 - **Núcleo holográfico:** Three.js (cargado por CDN)
 - **APIs:** NewsAPI, CoinGecko, Google Calendar (OAuth2), Gmail IMAP, YouTube (RSS + Data API v3 opcional), Telegram Bot API
 
@@ -29,8 +29,8 @@ evalúa de verdad antes de aplaudirlas. Se activa por voz diciendo **"Saturday"*
 
 - **Stark Intel** — Reproductor de video (YouTube) por canal, ticker de acciones, feed de
   noticias por categoría, análisis de titulares con IA, y overview del mercado cripto (Bitcoin).
-- **Stark Maps** — Globo 3D interactivo con ciudades, y vista de calles en 3D real
-  (Mapbox GL JS: edificios con volumen, cámara inclinable 2D/3D, cálculo de rutas).
+- **Stark Maps** — Globo 3D interactivo con ciudades y vista de calles en 3D real, ambos
+  sobre el mismo motor (Mapbox GL JS: edificios con volumen, cámara inclinable 2D/3D, cálculo de rutas).
 - **Stark Ops** — Tablero Kanban de tareas y recordatorios.
 - **Mission Control** — Panel interno de sistema (memoria, estado de red). Sin acceso desde
   la interfaz a propósito — es de uso interno, no un módulo navegable.

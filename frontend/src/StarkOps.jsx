@@ -30,13 +30,13 @@ function ContenidoTab() {
     {id:3,col:"IDEA",       tag:"IA",   titulo:"Chatbot soporte",  desc:"Integrar LLM local para responder tickets",fecha:"",prioridad:"media",checklist:[]},
     {id:4,col:"IDEA",       tag:"WEB",  titulo:"Portfolio web",    desc:"Mostrar proyectos con animaciones HUD",fecha:"",prioridad:"baja",checklist:[]},
     {id:5,col:"REVISIÓN",   tag:"DB",   titulo:"Memoria semántica",desc:"JSON + extracción automática con Groq",fecha:"",prioridad:"baja",checklist:[]},
-    {id:6,col:"COMPLETADO", tag:"WEB",  titulo:"Stark Maps 3D",    desc:"Globe.gl + Leaflet integrado",fecha:"",prioridad:"media",checklist:[]},
+    {id:6,col:"COMPLETADO", tag:"WEB",  titulo:"Stark Maps 3D",    desc:"Mapbox GL JS (globo + calles unificado)",fecha:"",prioridad:"media",checklist:[]},
     {id:7,col:"COMPLETADO", tag:"WEB",  titulo:"Stark Intel HUD",  desc:"Panel de noticias y métricas en tiempo real",fecha:"",prioridad:"media",checklist:[]},
   ]);
   const [notas,    setNotas]    = useLocalStorage("mc-notas", [
     {id:1,titulo:"Ideas rápidas",      texto:"— Agregar comando 'toma nota'\n— Integrar Notion API\n— Modelo embeddings offline",fecha:"hoy"},
     {id:2,titulo:"Entrega Duoc UC",    texto:"Subir repo con README actualizado. Incluir capturas del HUD y demostración en video.",fecha:"15 jul"},
-    {id:3,titulo:"Stack tecnológico",  texto:"Tauri · React · Flask · JSON · Globe.gl · Leaflet · Edge TTS · Google STT",fecha:"esta semana"},
+    {id:3,titulo:"Stack tecnológico",  texto:"Tauri · React · Flask · JSON · Mapbox GL JS · Edge TTS · Google STT",fecha:"esta semana"},
   ]);
   const [modal,     setModal]     = useState(null); // null | "card" | "nota"
   const [editCard,  setEditCard]  = useState(null);

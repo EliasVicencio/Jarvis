@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 const THREE_CDN = "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js";
 
 // Núcleo holográfico 3D que reacciona al estado de Saturday (inactivo / escuchando / hablando).
-// Reemplaza el anillo plano central. Carga Three.js por CDN, mismo patrón que Globe.gl en Mapa.jsx.
+// Reemplaza el anillo plano central. Carga Three.js por CDN, mismo patrón que Mapbox GL en Mapa.jsx.
 export default function HoloCore({ estado, wakeFlash, onClick }) {
   const mountRef = useRef(null);
   const sceneRef = useRef({});

@@ -51,11 +51,11 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
 
       map.on("load", () => {
         map.setFog({
-          color: "rgb(20, 30, 60)",
-          "high-color": "rgb(10, 15, 35)",
+          color: "rgb(16, 24, 48)",
+          "high-color": "rgb(10, 15, 30)",
           "horizon-blend": 0.03,
-          "space-color": "rgb(4, 7, 18)",
-          "star-intensity": 0.35,
+          "space-color": "rgb(7, 11, 24)",
+          "star-intensity": 0.4,
         });
 
         const layers = map.getStyle().layers;
@@ -68,7 +68,7 @@ export default function Mapa({ onVolver, busquedaInicial = null }) {
           type: "fill-extrusion",
           minzoom: 14,
           paint: {
-            "fill-extrusion-color": "#0F3A45",
+            "fill-extrusion-color": "#1B2B57",
             "fill-extrusion-height": ["get", "height"],
             "fill-extrusion-base": ["get", "min_height"],
             "fill-extrusion-opacity": 0.75,

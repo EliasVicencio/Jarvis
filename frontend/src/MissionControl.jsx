@@ -26,7 +26,7 @@ function SistemaTab() {
     { nombre:"Edge TTS",       desc:"Jorge Neural · es-MX", key:"tts"      },
     { nombre:"Google STT",     desc:"Reconocimiento voz",   key:"stt"      },
     { nombre:"Stark Intel",    desc:"NewsAPI · YouTube",    key:"intel"    },
-    { nombre:"Stark Maps",     desc:"Globe.gl · Leaflet",   key:"maps"     },
+    { nombre:"Stark Maps",     desc:"Mapbox GL JS",        key:"maps"     },
     { nombre:"Mission Control",desc:"Activo",               key:"mc"       },
     { nombre:"Memoria",        desc:"SQLite local",         key:"memoria"  },
   ];
