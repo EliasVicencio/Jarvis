@@ -992,7 +992,8 @@ def diagnostico_sistemas():
 
 def investigar_profundo(consulta):
     """Investigación con búsqueda web real, vía el sistema Compound de Groq
-    (usa la misma GROQ_API_KEY, sin proveedores ni claves nuevas)."""
+    (usa la misma GROQ_API_KEY, sin proveedores ni claves nuevas). Incluye las
+    fuentes que el modelo realmente consultó, no solo el resumen."""
     if not GROQ_API_KEY_MEM:
         return "No tengo configurada la clave de Groq para investigar."
     try:
@@ -1005,17 +1006,36 @@ def investigar_profundo(consulta):
                     "role": "user",
                     "content": (
                         f"Investiga sobre esto y dame un resumen claro y actualizado en español: {consulta}. "
-                        "Responde en prosa conversacional de 4-6 frases, sin markdown, como si se lo "
-                        "contaras a alguien en voz alta."
+                        "Responde en prosa conversacional de 3-5 frases, directo al punto, sin markdown, "
+                        "como si se lo contaras a alguien en voz alta."
                     ),
                 }],
-                "max_tokens": 700,
+                "max_tokens": 500,
             },
-            timeout=45,
+            timeout=30,
         )
         resp.raise_for_status()
-        texto = resp.json()["choices"][0]["message"]["content"]
-        return _limpiar_markdown(texto)
+        data = resp.json()
+        mensaje = data["choices"][0]["message"]
+        texto = _limpiar_markdown(mensaje.get("content", ""))
+
+        # Extraer las fuentes reales que consultó (no inventadas por el modelo)
+        dominios = []
+        for tool in mensaje.get("executed_tools") or []:
+            resultados = tool.get("search_results") or {}
+            items = resultados.get("results") if isinstance(resultados, dict) else resultados
+            for item in (items or []):
+                url = item.get("url") if isinstance(item, dict) else None
+                if not url:
+                    continue
+                dominio = re.sub(r"^https?://(www\.)?", "", url).split("/")[0]
+                if dominio and dominio not in dominios:
+                    dominios.append(dominio)
+
+        if dominios:
+            texto += f" Fuentes consultadas: {', '.join(dominios[:5])}."
+
+        return texto
     except Exception as e:
         print(f"⚠ Error en investigación profunda: {e}")
         return "No pude completar la investigación en este momento."
