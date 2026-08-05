@@ -224,7 +224,7 @@ export default function Noticias({ onVolver, canalInicial = null }) {
   }, [noticias]);
 
   const destacada = noticias[0] || null;
-  const lista     = noticias.slice(1, 5);
+  const lista     = noticias.slice(1, 12);
 
   return (
     <div className="si-shell">
