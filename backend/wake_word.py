@@ -4,7 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-WAKE_WORDS = ["jarvis", "jarvi", "jarbes", "harvis"]
+WAKE_WORDS = ["otto", "oto", "hoto"]
 
 
 class WakeWordDetector:
@@ -46,7 +46,7 @@ class WakeWordDetector:
         recognizer.pause_threshold = 0.6
         recognizer.energy_threshold = 300
 
-        logger.info("Escuchando wake word 'Jarvis'...")
+        logger.info("Escuchando wake word 'Otto'...")
 
         while self._running:
             if self._pausado:
@@ -67,7 +67,7 @@ class WakeWordDetector:
 
                 if any(w in texto for w in WAKE_WORDS):
                     logger.info(f"Wake word detectada: '{texto}'")
-                    self._activar("jarvis")
+                    self._activar("otto")
                     time.sleep(2.0)  # cooldown
 
             except Exception:

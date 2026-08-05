@@ -141,9 +141,9 @@ def generar_celebracion(titulo):
                     "reasoning_effort": "low",
                     "messages": [
                         {"role": "system", "content": (
-                            "Eres JARVIS, el asistente de Elías. Él acaba de completar una tarea. "
+                            "Eres OTTO, el asistente de Elías. Él acaba de completar una tarea. "
                             "Felicítalo con una frase corta, genuina y con personalidad (no genérica), "
-                            "estilo el JARVIS de Iron Man reconociendo el trabajo de Tony. Máximo 1-2 frases."
+                            "estilo un mayordomo alemán que refunfuña con cariño reconociendo el trabajo de Tony. Máximo 1-2 frases."
                         )},
                         {"role": "user", "content": f"Completé: {titulo}"}
                     ],
@@ -191,7 +191,7 @@ _recognizer.energy_threshold = 300  # sensibilidad al ruido
 # ── Síntesis de voz ───────────────────────────────────────────────────────
 def hablar(texto):
     """Convierte texto a voz con Edge TTS (gratuito, sin cuenta)."""
-    print(f"🤖 Jarvis: {texto}")
+    print(f"🤖 Otto: {texto}")
     tmp = None
     try:
         # Generar archivo mp3 en carpeta temporal
@@ -396,7 +396,7 @@ def generar_chiste_llm():
                     "reasoning_effort": "low",
                     "messages": [
                         {"role": "system", "content": (
-                            "Eres JARVIS. Cuenta UN chiste corto, ingenioso y original en español "
+                            "Eres OTTO. Cuenta UN chiste corto, ingenioso y original en español "
                             "de Chile (puede ser de programación, de la vida cotidiana, un juego de "
                             "palabras, o humor absurdo). Máximo 2 líneas. Responde SOLO con el "
                             "chiste, sin introducción, sin explicación, sin comillas."
@@ -417,7 +417,7 @@ def generar_chiste_llm():
     return random.choice(CHISTES)
 
 def reporte_estado_sistema():
-    """Genera un reporte hablado del estado de la VM, estilo JARVIS."""
+    """Genera un reporte hablado del estado de la VM, estilo Otto."""
     try:
         cpu = psutil.cpu_percent(interval=0.5)
         mem = psutil.virtual_memory()
@@ -566,7 +566,7 @@ def procesar_comando(comando):
                 "continuar": True, "accion": "ayuda"}
 
     if any(p in comando for p in ["para", "pausa", "detente", "silencio"]):
-        return {"respuesta": "Entendido, me pongo en pausa. Di Jarvis cuando me necesites.",
+        return {"respuesta": "Entendido, me pongo en pausa. Di Otto cuando me necesites.",
                 "continuar": True, "accion": "pausar"}
 
     if any(p in comando for p in ["actívate", "activar", "despausa", "reanuda"]):
@@ -690,13 +690,13 @@ def responder_con_animo(comando_original):
                 "reasoning_effort": "low",
                 "messages": [
                     {"role": "system", "content": (
-                        "Eres JARVIS, el asistente personal de Elías. Él acaba de mencionar que está "
+                        "Eres OTTO, el asistente personal de Elías. Él acaba de mencionar que está "
                         "cansado, estresado, o que tuvo un día difícil. Respóndele con calidez genuina, "
                         "como lo haría un amigo cercano: valida cómo se siente en una frase, y sugiere "
                         "algo simple y breve (un descanso corto, algo de música, estirar las piernas) "
                         "sin sonar clínico ni dar consejos largos. Máximo 2 frases. No le digas que eres "
                         "una IA ni menciones que 'no puedes reemplazar' nada — solo sé cálido y natural, "
-                        "como el JARVIS de Iron Man sería con Tony."
+                        "como Otto lo haría con Elías, con su resignación característica."
                     )},
                     {"role": "user", "content": comando_original}
                 ],
@@ -715,7 +715,7 @@ _pomodoro_estado = {"activo": False}
 _avisos_proactivos = queue.Queue()
 
 def anunciar_proactivo(mensaje, telegram=True):
-    """Mecanismo general para que Jarvis hable sin que se lo pidan: lo usan Pomodoro,
+    """Mecanismo general para que Otto hable sin que se lo pidan: lo usan Pomodoro,
     logros, y cualquier chequeo proactivo (horario, calendario, etc). Lo consume el
     frontend vía /api/wake-poll y opcionalmente lo reenvía a Telegram."""
     if telegram:
@@ -726,7 +726,7 @@ def anunciar_proactivo(mensaje, telegram=True):
 _proactividad_estado = {"resumen_nocturno_hecho": None, "eventos_avisados": set()}
 
 def _chequeo_proactivo():
-    """Corre una vez, evalúa si vale la pena que Jarvis hable sin que le pregunten.
+    """Corre una vez, evalúa si vale la pena que Otto hable sin que le pregunten.
     Se llama periódicamente desde el hilo de proactividad."""
     from zoneinfo import ZoneInfo
     tz = ZoneInfo("America/Santiago")
@@ -764,7 +764,7 @@ def _chequeo_proactivo():
 
 
 def iniciar_proactividad():
-    """Arranca el hilo en segundo plano que revisa cada 5 minutos si Jarvis debería hablar."""
+    """Arranca el hilo en segundo plano que revisa cada 5 minutos si Otto debería hablar."""
     def _loop():
         while True:
             try:
@@ -875,7 +875,7 @@ def extraer_memoria_llm(mensaje_usuario):
                         "en el que trabaja, una relación (familiar, mascota), o un dato de contexto "
                         "claramente útil.\n"
                         "NO extraigas nada de: saludos, preguntas casuales, preguntas sobre el clima "
-                        "o la hora, preguntas dirigidas a ti mismo (JARVIS), charla genérica sin "
+                        "o la hora, preguntas dirigidas a ti mismo (OTTO), charla genérica sin "
                         "información nueva, ni de mensajes ambiguos donde no haya un hecho explícito.\n"
                         "Ante cualquier duda, responde NADA — es preferible no guardar algo a guardar "
                         "basura o inventar contenido que el usuario no dijo explícitamente.\n"
@@ -1019,7 +1019,7 @@ def analizar_imagen(imagen_base64, pregunta=None):
 GROQ_COMPOUND_MODEL = "groq/compound-mini"
 
 def diagnostico_sistemas():
-    """Reporte de estado del servidor, estilo 'all systems nominal' de JARVIS."""
+    """Reporte de estado del servidor, estilo mayordomo alemán reportando el estado de la casa."""
     try:
         cpu = psutil.cpu_percent(interval=0.5)
         mem = psutil.virtual_memory()

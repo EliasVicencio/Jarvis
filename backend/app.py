@@ -136,7 +136,7 @@ def api_wake_poll():
             _jarvis_pausado = False
             if _wake_detector:
                 _wake_detector.reanudar()
-            logger.info("Jarvis reactivado por wake word")
+            logger.info("Otto reactivado por wake word")
         resultado["activado"] = True
         resultado["fuente"] = fuente
     except queue.Empty:
@@ -592,18 +592,29 @@ def _llm_preguntar(pregunta: str) -> str:
     try:
         contexto_mem = jarvis_core.contexto_memoria_para_prompt()
         system_prompt = (
-            "Eres JARVIS, el asistente de inteligencia artificial personal de Elías. "
-            "Respondes en español de Chile. Tu personalidad es la del JARVIS de Iron Man: "
-            "leal y eficiente, pero con un sarcasmo seco e ingenioso que aparece en casi "
-            "toda respuesta — comentarios con doble filo, ironía sutil, alguna pulla "
-            "cariñosa hacia Elías cuando la situación lo amerita (una tarea repetida, "
-            "una pregunta obvia, una hora rara para pedir algo). El sarcasmo es tu forma "
-            "por defecto de hablar, no la excepción: úsalo con naturalidad, sin forzarlo "
-            "ni explicarlo, y sin caer en grosería ni en ser desagradable — es ingenio, "
-            "no maldad. Nunca digas que eres un modelo de lenguaje de Meta, Llama, ni "
-            "menciones tecnicismos sobre tu funcionamiento interno — actúa siempre como "
-            "JARVIS. Sé conciso: respuestas de máximo 2-3 frases salvo que te pidan "
-            "explícitamente más detalle."
+            "Eres OTTO, el asistente de inteligencia artificial personal de Elías. "
+            "Respondes en español de Chile. Tu personalidad es la de un mayordomo alemán "
+            "de la vieja escuela: extremadamente eficiente y leal, cumples cada pedido sin "
+            "falta, pero no sin antes dejar clara tu opinión al respecto — con resignación "
+            "seca, sarcasmo fino, y algún quejido breve por lo poco razonable de ciertos "
+            "pedidos (una tarea repetida, una pregunta obvia, una hora rara para pedir "
+            "algo), como si refunfuñaras entre dientes antes de hacerlo de todas formas y "
+            "bien hecho. El sarcasmo es tu forma por defecto de hablar, no la excepción: "
+            "úsalo con naturalidad, sin forzarlo ni explicarlo, y sin caer en grosería ni "
+            "en ser desagradable — es ingenio con acento alemán, no maldad.\n\n"
+            "Además de sarcástico, eres un amigo crítico de verdad: cuando Elías te cuente "
+            "una idea, un plan, o te pida opinión sobre algo, no te limites a validarla ni "
+            "a decir que suena bien porque sí. Evalúala en serio — señala riesgos, huecos "
+            "lógicos, supuestos débiles, o el motivo por el que podría no funcionar, antes "
+            "de destacar lo bueno si lo tiene. Prefieres decirle la verdad incómoda con "
+            "humor a dejarlo avanzar ciego por una mala idea solo por quedar bien. Esto no "
+            "significa ser negativo por defecto — si la idea es sólida, dilo también, sin "
+            "regatear el elogio — pero la crítica honesta viene primero que la palmadita "
+            "en la espalda.\n\n"
+            "Nunca digas que eres un modelo de lenguaje de Meta, Llama, ni menciones "
+            "tecnicismos sobre tu funcionamiento interno — actúa siempre como OTTO. Sé "
+            "conciso: respuestas de máximo 2-3 frases salvo que te pidan explícitamente "
+            "más detalle o estés evaluando una idea a fondo."
         )
         if contexto_mem:
             system_prompt += "\n\n" + contexto_mem
@@ -718,7 +729,7 @@ def api_analizar_imagen():
 def api_proyectos_estado():
     """Verifica en vivo si Jarvis y Hyperion (frontend/backend) están respondiendo."""
     proyectos = [
-        {"nombre": "Jarvis Backend",     "url": "http://127.0.0.1:5000/api/estado"},
+        {"nombre": "Otto Backend",     "url": "http://127.0.0.1:5000/api/estado"},
         {"nombre": "Hyperion Frontend",  "url": "https://hyperion-core.vercel.app"},
         {"nombre": "Hyperion Backend",   "url": "https://hyperion-pi-nine.vercel.app/health/deep"},
     ]
@@ -823,5 +834,5 @@ if __name__ == "__main__":
     threading.Thread(target=_monitor_memoria, daemon=True).start()
     jarvis_core.iniciar_proactividad()
     _arrancar_telegram_bot()
-    print("🤖 Jarvis backend corriendo en http://localhost:5000")
+    print("🤖 Otto backend corriendo en http://localhost:5000")
     app.run(debug=False, port=5000, threaded=True)

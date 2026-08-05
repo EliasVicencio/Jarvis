@@ -22,7 +22,7 @@ function SistemaTab() {
 
   const MODULOS_BASE = [
     { nombre:"Backend Flask",  desc:"Puerto 5000",          key:"backend"  },
-    { nombre:"Wake Word",      desc:'Escucha "Jarvis"',     key:"wake"     },
+    { nombre:"Wake Word",      desc:'Escucha "Otto"',       key:"wake"     },
     { nombre:"Edge TTS",       desc:"Jorge Neural · es-MX", key:"tts"      },
     { nombre:"Google STT",     desc:"Reconocimiento voz",   key:"stt"      },
     { nombre:"Stark Intel",    desc:"NewsAPI · YouTube",    key:"intel"    },
@@ -103,7 +103,7 @@ function SistemaTab() {
         <div className="mc-ph">⬡ MEMORIA SEMÁNTICA<div className="mc-pd"/></div>
         <div className="mc-scroll" style={{flex:1}}>
           {memoria.length === 0 ? (
-            <div className="mc-empty">La memoria se llena con el uso de Jarvis</div>
+            <div className="mc-empty">La memoria se llena con el uso de Otto</div>
           ) : memoria.slice().reverse().map((m,i) => {
             const color = CAT_COLOR[m.categoria] || CAT_COLOR.OTRO;
             return (
@@ -206,7 +206,7 @@ function BandejaTab() {
           <div className="mc-bandeja-setup">
             <div className="mc-setup-icon">◈</div>
             <div className="mc-setup-title">Conectar correo</div>
-            <div className="mc-setup-desc">Para ver tus correos necesitas configurar el acceso IMAP en el backend de Jarvis.</div>
+            <div className="mc-setup-desc">Para ver tus correos necesitas configurar el acceso IMAP en el backend de Otto.</div>
             <div className="mc-setup-steps">
               <div className="mc-step"><span className="mc-step-num">1</span>Agrega en <code>.env</code>:<br/><code>EMAIL_USER=tu@gmail.com<br/>EMAIL_PASS=contraseña_app</code></div>
               <div className="mc-step"><span className="mc-step-num">2</span>Activa acceso IMAP en Gmail → Configuración → Reenvío e IMAP</div>
@@ -286,7 +286,7 @@ function RedTab() {
     <div style={{ padding: 10, height: "100%", minHeight: 0, display: "flex", flexDirection: "column" }}>
       <div className="mc-panel" style={{ padding: 16, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div className="mc-ph">
-          ◉ RED NEURONAL · CEREBRO DE JARVIS
+          ◉ RED NEURONAL · CEREBRO DE OTTO
           <div className="mc-pd" />
         </div>
 
@@ -326,7 +326,7 @@ function RedTab() {
             </g>
           ))}
 
-          {/* nucleo central: JARVIS */}
+          {/* nucleo central: OTTO */}
           <circle cx={CX} cy={CY} r={42} fill="url(#starglow)" opacity={0.3} />
           <circle cx={CX} cy={CY} r={24} fill="#0A121C" stroke="#2DD4E8" strokeWidth={1.8} />
           <text x={CX} y={CY + 6} fill="#2DD4E8" fontSize={15} fontWeight="bold" fontFamily="monospace" textAnchor="middle">
@@ -365,7 +365,7 @@ export default function MissionControl({ onVolver }) {
       <header className="mc-hdr">
         <button className="mc-back" onClick={onVolver}>← VOLVER</button>
         <div className="mc-brand">
-          <span className="mc-btag">JARVIS</span>
+          <span className="mc-btag">OTTO</span>
           <span className="mc-bname">MISSION CONTROL</span>
         </div>
 

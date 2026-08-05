@@ -353,7 +353,7 @@ export default function App() {
           }
         }
         if (data.aviso_proactivo) {
-          setTarjetas([{ pregunta: "Jarvis", respuesta: data.aviso_proactivo }]);
+          setTarjetas([{ pregunta: "Otto", respuesta: data.aviso_proactivo }]);
           hablarBrowser(data.aviso_proactivo);
         }
       } catch {}
@@ -386,7 +386,7 @@ export default function App() {
       <div className="bg-grid" />
 
       {wakeFlash && (
-        <div className="wake-flash">🎤 «Jarvis» detectado</div>
+        <div className="wake-flash">🎤 «Otto» detectado</div>
       )}
 
       {/* ── Topbar ─────────────────────────────────────────── */}
@@ -394,7 +394,7 @@ export default function App() {
         <div className="brand">
           <div className="brand-mark">J</div>
           <div>
-            <div className="brand-name">JARVIS</div>
+            <div className="brand-name">OTTO</div>
             <div className="brand-sub">asistente personal</div>
           </div>
         </div>
@@ -441,7 +441,7 @@ export default function App() {
             <HoloCore estado={estado} wakeFlash={wakeFlash} onClick={escucharMicrofono} />
             <p className="estado-label">{labelEstado(estado)}</p>
             <p className="hint">
-              {wakeActivo ? "Di «Jarvis» para activar" : "Toca el núcleo o escribe abajo"}
+              {wakeActivo ? "Di «Otto» para activar" : "Toca el núcleo o escribe abajo"}
             </p>
           </div>
 
@@ -481,5 +481,5 @@ export default function App() {
 
 function labelEstado(e) {
   return { escuchando: "Escuchando…", procesando: "Procesando…", hablando: "Respondiendo…" }[e]
-    ?? "Listo — di «Jarvis»";
+    ?? "Listo — di «Otto»";
 }
