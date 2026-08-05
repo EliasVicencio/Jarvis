@@ -1,17 +1,17 @@
 :root {
-  --bg:        #0C0714;
-  --panel:     #150E22;
-  --panel2:    #1C1430;
+  --bg:        #0A0C10;
+  --panel:     #12151B;
+  --panel2:    #161A20;
   --cyan:      #2DD4E8;
   --cyan-dim:  rgba(45,212,232,0.12);
-  --violet:      #A855F7;
-  --violet-dim:  rgba(168,85,247,0.12);
+  --violet:      #9CA3AF;
+  --violet-dim:  rgba(148,163,184,0.10);
   --amber:     #F2A93B;
   --green:     #4ADE80;
   --red:       #F87171;
-  --dim:       #8B7FA0;
-  --border:    rgba(168,85,247,0.16);
-  --border-hi: rgba(168,85,247,0.45);
+  --dim:       #6B7280;
+  --border:    rgba(148,163,184,0.14);
+  --border-hi: rgba(148,163,184,0.40);
   --mono:      "JetBrains Mono", monospace;
 }
 
@@ -20,7 +20,7 @@
 html, body, #root {
   height: 100%;
   background: var(--bg);
-  color: #E7DFF2;
+  color: #E5E7EB;
   font-family: "Space Grotesk", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -28,29 +28,19 @@ html, body, #root {
 
 button { font-family: inherit; cursor: pointer; }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
-::selection { background: var(--violet); color: #0C0714; }
+::selection { background: var(--violet); color: #0A0C10; }
 
-/* ── Shell ──────────────────────────────────────────────── */
 .shell {
   height: 100vh;
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 30%, rgba(168,85,247,0.09) 0%, transparent 55%),
-    var(--bg);
+  background: var(--bg);
 }
 
-.bg-grid {
-  position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
-    linear-gradient(rgba(168,85,247,0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(168,85,247,0.035) 1px, transparent 1px);
-  background-size: 44px 44px;
-}
+.bg-grid { display: none; }
 
-/* ── Wake flash ─────────────────────────────────────────── */
 .wake-flash {
   position: fixed; top: 72px; left: 50%; transform: translateX(-50%);
   z-index: 100; padding: 9px 22px; border-radius: 30px;
@@ -64,7 +54,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 @keyframes flash-in { from { opacity: 0; transform: translateX(-50%) translateY(-6px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 
-/* ── Topbar ─────────────────────────────────────────────── */
 .topbar {
   position: relative; z-index: 2; flex-shrink: 0;
   display: flex; align-items: center; gap: 16px;
@@ -80,7 +69,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   color: var(--violet);
   border: 1px solid var(--border-hi);
   background: var(--violet-dim);
-  box-shadow: 0 0 16px rgba(168,85,247,0.18);
 }
 .brand-name { font-weight: 700; letter-spacing: 0.12em; font-size: 15px; }
 .brand-sub  { font-family: var(--mono); font-size: 10px; color: var(--dim); }
@@ -98,7 +86,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .status-pill[data-ok="true"]  { color: var(--green); border-color: rgba(74,222,128,0.22); }
 .status-pill[data-ok="false"] { color: var(--red);   border-color: rgba(248,113,113,0.22); }
 
-/* ── Main body ──────────────────────────────────────────── */
 .main-body {
   position: relative; z-index: 1;
   flex: 1; min-height: 0;
@@ -114,7 +101,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   overflow-y: auto;
   gap: 14px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(168,85,247,0.25) transparent;
+  scrollbar-color: rgba(148,163,184,0.25) transparent;
 }
 
 .bottom-area {
@@ -124,7 +111,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   padding-top: 8px;
 }
 
-/* ── Chips arriba ───────────────────────────────────────── */
 .chips-row {
   display: flex; flex-wrap: wrap;
   justify-content: center; gap: 8px;
@@ -135,25 +121,24 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .chip {
   display: flex; align-items: center; gap: 7px;
   padding: 6px 14px; border-radius: 22px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255,255,255,0.02);
   border: 1px solid var(--border);
-  color: #B9AFC9; font-size: 12px;
+  color: #9CA3AF; font-size: 12px;
   transition: all 0.18s ease;
 }
 .chip:hover:not(:disabled) {
   border-color: var(--border-hi);
   background: var(--violet-dim);
-  color: #F0EAF7;
+  color: #E5E7EB;
 }
 .chip-icon { color: var(--violet); font-size: 12px; }
 .chip-toggle {
   color: var(--violet);
-  border-color: rgba(168,85,247,0.4);
-  background: rgba(168,85,247,0.08);
+  border-color: rgba(148,163,184,0.4);
+  background: rgba(148,163,184,0.08);
 }
 .respuesta-toggle { margin-top: 4px; }
 
-/* ── Anillo central ─────────────────────────────────────── */
 .core-wrap {
   display: flex; flex-direction: column;
   align-items: center; gap: 14px;
@@ -184,15 +169,14 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 .hint { font-size: 12px; color: var(--dim); text-align: center; }
 
-/* ── Input centrado abajo ───────────────────────────────── */
 .input-row {
   display: flex; gap: 8px;
   width: 100%; max-width: 480px;
 }
 .txt-input {
   flex: 1; padding: 11px 16px; border-radius: 12px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border); color: #F0EAF7;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border); color: #E5E7EB;
   font-size: 13px; outline: none; transition: border-color 0.2s;
   font-family: inherit;
 }
@@ -206,7 +190,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   transition: background 0.2s;
   display: flex; align-items: center; justify-content: center;
 }
-.btn-send:hover:not(:disabled) { background: rgba(168,85,247,0.26); }
+.btn-send:hover:not(:disabled) { background: rgba(148,163,184,0.2); }
 
 
 .tarjeta {
@@ -219,7 +203,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border: 1px solid var(--border);
   border-radius: 12px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(168,85,247,0.25) transparent;
+  scrollbar-color: rgba(148,163,184,0.25) transparent;
 }
 .tarjeta-pregunta {
   font-family: var(--mono);
@@ -230,12 +214,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 .tarjeta-respuesta {
   font-size: 15px;
-  color: #ECE4F5;
+  color: #E5E7EB;
   line-height: 1.55;
   word-break: break-word;
 }
 
-/* ── Proyección holográfica (diagnóstico / investigación / traducción) ── */
 .tarjeta-holo {
   position: relative;
   border-color: rgba(45,212,232,0.5);
