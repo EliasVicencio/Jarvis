@@ -1,0 +1,3 @@
+/* Stark Ops reutiliza casi todo el estilo de Mission Control (mc-*).
+   Este archivo queda para ajustes propios si hacen falta más adelante. */
+.so-shell { --so-accent: var(--cyan, #2DD4E8); }

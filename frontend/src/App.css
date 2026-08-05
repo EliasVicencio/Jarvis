@@ -1,15 +1,17 @@
 :root {
-  --bg:        #060B12;
-  --panel:     #0B141F;
-  --panel2:    #0F1B29;
+  --bg:        #0C0714;
+  --panel:     #150E22;
+  --panel2:    #1C1430;
   --cyan:      #2DD4E8;
   --cyan-dim:  rgba(45,212,232,0.12);
+  --violet:      #A855F7;
+  --violet-dim:  rgba(168,85,247,0.12);
   --amber:     #F2A93B;
   --green:     #4ADE80;
   --red:       #F87171;
-  --dim:       #6E8B9A;
-  --border:    rgba(45,212,232,0.12);
-  --border-hi: rgba(45,212,232,0.40);
+  --dim:       #8B7FA0;
+  --border:    rgba(168,85,247,0.16);
+  --border-hi: rgba(168,85,247,0.45);
   --mono:      "JetBrains Mono", monospace;
 }
 
@@ -18,7 +20,7 @@
 html, body, #root {
   height: 100%;
   background: var(--bg);
-  color: #DCEFF5;
+  color: #E7DFF2;
   font-family: "Space Grotesk", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -26,7 +28,7 @@ html, body, #root {
 
 button { font-family: inherit; cursor: pointer; }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
-::selection { background: var(--cyan); color: #04101A; }
+::selection { background: var(--violet); color: #0C0714; }
 
 /* ── Shell ──────────────────────────────────────────────── */
 .shell {
@@ -36,15 +38,15 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 30%, rgba(45,212,232,0.07) 0%, transparent 55%),
+    radial-gradient(circle at 50% 30%, rgba(168,85,247,0.09) 0%, transparent 55%),
     var(--bg);
 }
 
 .bg-grid {
   position: fixed; inset: 0; pointer-events: none; z-index: 0;
   background-image:
-    linear-gradient(rgba(45,212,232,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(45,212,232,0.03) 1px, transparent 1px);
+    linear-gradient(rgba(168,85,247,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(168,85,247,0.035) 1px, transparent 1px);
   background-size: 44px 44px;
 }
 
@@ -55,7 +57,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   font-family: var(--mono); font-size: 12px; font-weight: 600;
   color: var(--cyan);
   background: rgba(45,212,232,0.1);
-  border: 1px solid var(--border-hi);
+  border: 1px solid rgba(45,212,232,0.4);
   box-shadow: 0 0 24px rgba(45,212,232,0.2);
   pointer-events: none;
   animation: flash-in 0.2s ease;
@@ -75,10 +77,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   width: 36px; height: 36px; border-radius: 9px;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--mono); font-weight: 700; font-size: 16px;
-  color: var(--cyan);
+  color: var(--violet);
   border: 1px solid var(--border-hi);
-  background: var(--cyan-dim);
-  box-shadow: 0 0 16px rgba(45,212,232,0.15);
+  background: var(--violet-dim);
+  box-shadow: 0 0 16px rgba(168,85,247,0.18);
 }
 .brand-name { font-weight: 700; letter-spacing: 0.12em; font-size: 15px; }
 .brand-sub  { font-family: var(--mono); font-size: 10px; color: var(--dim); }
@@ -96,10 +98,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .status-pill[data-ok="true"]  { color: var(--green); border-color: rgba(74,222,128,0.22); }
 .status-pill[data-ok="false"] { color: var(--red);   border-color: rgba(248,113,113,0.22); }
 
-.clock { text-align: right; font-family: var(--mono); flex-shrink: 0; }
-.clock-time { font-size: 17px; color: var(--cyan); font-weight: 500; letter-spacing: 0.04em; }
-.clock-date { font-size: 10px; color: var(--dim); text-transform: capitalize; }
-
 /* ── Main body ──────────────────────────────────────────── */
 .main-body {
   position: relative; z-index: 1;
@@ -116,7 +114,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   overflow-y: auto;
   gap: 14px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(45,212,232,0.2) transparent;
+  scrollbar-color: rgba(168,85,247,0.25) transparent;
 }
 
 .bottom-area {
@@ -139,20 +137,21 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   padding: 6px 14px; border-radius: 22px;
   background: rgba(255,255,255,0.03);
   border: 1px solid var(--border);
-  color: #9BBACB; font-size: 12px;
+  color: #B9AFC9; font-size: 12px;
   transition: all 0.18s ease;
 }
 .chip:hover:not(:disabled) {
   border-color: var(--border-hi);
-  background: var(--cyan-dim);
-  color: #E8F6FA;
+  background: var(--violet-dim);
+  color: #F0EAF7;
 }
-.chip-icon { color: var(--cyan); font-size: 12px; }
+.chip-icon { color: var(--violet); font-size: 12px; }
 .chip-toggle {
-  color: var(--cyan);
-  border-color: rgba(45,212,232,0.35);
-  background: rgba(45,212,232,0.06);
+  color: var(--violet);
+  border-color: rgba(168,85,247,0.4);
+  background: rgba(168,85,247,0.08);
 }
+.respuesta-toggle { margin-top: 4px; }
 
 /* ── Anillo central ─────────────────────────────────────── */
 .core-wrap {
@@ -181,7 +180,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .estado-label {
   font-family: var(--mono); font-size: 13px;
-  color: var(--cyan); letter-spacing: 0.04em;
+  color: var(--violet); letter-spacing: 0.04em;
 }
 .hint { font-size: 12px; color: var(--dim); text-align: center; }
 
@@ -193,7 +192,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .txt-input {
   flex: 1; padding: 11px 16px; border-radius: 12px;
   background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border); color: #E8F6FA;
+  border: 1px solid var(--border); color: #F0EAF7;
   font-size: 13px; outline: none; transition: border-color 0.2s;
   font-family: inherit;
 }
@@ -202,12 +201,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-send {
   width: 44px; border-radius: 12px; font-size: 15px;
-  background: var(--cyan-dim); color: var(--cyan);
+  background: var(--violet-dim); color: var(--violet);
   border: 1px solid var(--border-hi);
   transition: background 0.2s;
   display: flex; align-items: center; justify-content: center;
 }
-.btn-send:hover:not(:disabled) { background: rgba(45,212,232,0.24); }
+.btn-send:hover:not(:disabled) { background: rgba(168,85,247,0.26); }
 
 
 .tarjeta {
@@ -220,7 +219,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border: 1px solid var(--border);
   border-radius: 12px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(45,212,232,0.2) transparent;
+  scrollbar-color: rgba(168,85,247,0.25) transparent;
 }
 .tarjeta-pregunta {
   font-family: var(--mono);
@@ -231,7 +230,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 .tarjeta-respuesta {
   font-size: 15px;
-  color: #dcebf0;
+  color: #ECE4F5;
   line-height: 1.55;
   word-break: break-word;
 }

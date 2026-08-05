@@ -238,7 +238,7 @@ def api_comando():
         _accion_queue.put(f"cambiar_canal:{resultado.get('dato', '')}")
         resultado["audio_base64"] = _generar_audio_base64(resultado["respuesta"])
         return jsonify(resultado)
-    elif resultado.get("accion") in ("abrir_noticias", "abrir_mapa", "abrir_mission"):
+    elif resultado.get("accion") in ("abrir_noticias", "abrir_mapa", "abrir_stark_ops"):
         _accion_queue.put(resultado["accion"])
         resultado["audio_base64"] = _generar_audio_base64(resultado["respuesta"])
         return jsonify(resultado)
@@ -615,7 +615,8 @@ def _llm_preguntar(pregunta: str) -> str:
                 "Content-Type": "application/json"
             },
             json={
-                "model": "llama-3.1-8b-instant",
+                "model": "openai/gpt-oss-20b",
+                "reasoning_effort": "low",
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": pregunta}

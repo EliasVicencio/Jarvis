@@ -4,8 +4,7 @@ import Noticias from "./Noticias";
 import "./Noticias.css";
 import Mapa from "./Mapa";
 import "./Mapa.css";
-import MissionControl from "./MissionControl";
-import "./MissionControl.css";
+import StarkOps from "./StarkOps";
 import HoloCore from "./HoloCore";
 
 const API = "/api";
@@ -44,15 +43,6 @@ const COMANDOS = [
   { texto: "qué puedes hacer",   icono: "?" },
 ];
 
-function useReloj() {
-  const [hora, setHora] = useState(new Date());
-  useEffect(() => {
-    const id = setInterval(() => setHora(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return hora;
-}
-
 export default function App() {
   const [vista,       setVista]       = useState("principal");
   const [estado,      setEstado]      = useState("inactivo");
@@ -66,6 +56,7 @@ export default function App() {
   const chipsAMostrar = mostrarMasChips ? COMANDOS : COMANDOS.filter(c => CHIPS_FAVORITOS.includes(c.texto));
   const [canalNoticias,   setCanalNoticias]   = useState(null);
   const [tarjetas, setTarjetas] = useState([]);
+  const [mostrarRespuesta, setMostrarRespuesta] = useState(false);
 
   const estadoRef   = useRef("inactivo");
   const escucharRef = useRef(null);
@@ -73,9 +64,9 @@ export default function App() {
   const mediaRecorderRef = useRef(null);
   const chunksRef        = useRef([]);
   const streamRef        = useRef(null);
-  const hora = useReloj();
 
   useEffect(() => { estadoRef.current = estado; }, [estado]);
+  useEffect(() => { setMostrarRespuesta(false); }, [tarjetas]);
 
   // ── Browser TTS ────────────────────────────────────────────────────────
   const utterRef = useRef(null);
@@ -190,9 +181,9 @@ export default function App() {
         setEstado("hablando"); estadoRef.current = "hablando";
         setTimeout(() => { setVista("mapa"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       }
-      if (data.accion === "abrir_mission") {
+      if (data.accion === "abrir_stark_ops") {
         setEstado("hablando"); estadoRef.current = "hablando";
-        setTimeout(() => { setVista("mission"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+        setTimeout(() => { setVista("stark_ops"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       }
       if (data.accion === "analizar_pantalla") {
         capturarYAnalizarPantalla();
@@ -279,8 +270,8 @@ export default function App() {
         setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       } else if (data.accion === "abrir_mapa") {
         setTimeout(() => { setVista("mapa"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
-      } else if (data.accion === "abrir_mission") {
-        setTimeout(() => { setVista("mission"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
+      } else if (data.accion === "abrir_stark_ops") {
+        setTimeout(() => { setVista("stark_ops"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       } else if (data.accion === "analizar_pantalla") {
         setTimeout(() => capturarYAnalizarPantalla(), 600);
       } else {
@@ -378,9 +369,6 @@ export default function App() {
     }
   };
 
-  const horaStr  = hora.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const fechaStr = hora.toLocaleDateString("es-CL",  { weekday: "long", day: "numeric", month: "long" });
-
   if (vista === "noticias") {
     return <Noticias onVolver={() => { setVista("principal"); setCanalNoticias(null); }} canalInicial={canalNoticias} />;
   }
@@ -389,8 +377,8 @@ export default function App() {
     return <Mapa onVolver={() => { setVista("principal"); setBusquedaMapa(null); }} busquedaInicial={busquedaMapa} />;
   }
 
-  if (vista === "mission") {
-    return <MissionControl onVolver={() => setVista("principal")} />;
+  if (vista === "stark_ops") {
+    return <StarkOps onVolver={() => setVista("principal")} />;
   }
 
   return (
@@ -420,11 +408,6 @@ export default function App() {
             <span className="status-dot" />
             {backendOk === null ? "Conectando…" : backendOk ? "Sistema OK" : "Sistema offline"}
           </div>
-        </div>
-
-        <div className="clock">
-          <div className="clock-time">{horaStr}</div>
-          <div className="clock-date">{fechaStr}</div>
         </div>
       </header>
 
@@ -462,8 +445,13 @@ export default function App() {
             </p>
           </div>
 
-          {/* Tarjetas de respuesta */}
-          {tarjetas.map((t, i) => (
+          {/* Tarjeta de respuesta, oculta por defecto */}
+          {tarjetas.length > 0 && (
+            <button className="respuesta-toggle chip chip-toggle" onClick={() => setMostrarRespuesta(v => !v)}>
+              {mostrarRespuesta ? "▲ ocultar respuesta" : "▼ mostrar respuesta"}
+            </button>
+          )}
+          {mostrarRespuesta && tarjetas.map((t, i) => (
             <div key={i} className={`tarjeta ${["diagnostico","investigar","traducir"].includes(t.accion) ? "tarjeta-holo" : ""}`}>
               <div className="tarjeta-pregunta">❯ {t.pregunta}</div>
               <div className="tarjeta-respuesta">{t.respuesta}</div>

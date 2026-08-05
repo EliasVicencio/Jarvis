@@ -137,7 +137,8 @@ def generar_celebracion(titulo):
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
                 json={
-                    "model": "llama-3.1-8b-instant",
+                    "model": "openai/gpt-oss-20b",
+                    "reasoning_effort": "low",
                     "messages": [
                         {"role": "system", "content": (
                             "Eres JARVIS, el asistente de Elías. Él acaba de completar una tarea. "
@@ -391,7 +392,8 @@ def generar_chiste_llm():
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
                 json={
-                    "model": "llama-3.1-8b-instant",
+                    "model": "openai/gpt-oss-20b",
+                    "reasoning_effort": "low",
                     "messages": [
                         {"role": "system", "content": (
                             "Eres JARVIS. Cuenta UN chiste corto, ingenioso y original en español "
@@ -583,8 +585,8 @@ def procesar_comando(comando):
                                     "mira mi pantalla", "qué ves en mi pantalla"]):
         return {"respuesta": "Dame un segundo, mirando tu pantalla...", "continuar": True, "accion": "analizar_pantalla"}
 
-    if any(p in comando for p in ["abre mission control", "abrir mission control", "mission control"]):
-        return {"respuesta": "Abriendo Mission Control", "continuar": True, "accion": "abrir_mission"}
+    if any(p in comando for p in ["stark ops", "abre stark ops", "mis tareas", "abre mis tareas"]):
+        return {"respuesta": "Abriendo Stark Ops", "continuar": True, "accion": "abrir_stark_ops"}
 
     if any(p in comando for p in ["abre mapa", "abrir mapa", "stark maps", "mapa"]):
         return {"respuesta": "Abriendo Stark Maps", "continuar": True, "accion": "abrir_mapa"}
@@ -684,7 +686,8 @@ def responder_con_animo(comando_original):
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
             json={
-                "model": "llama-3.1-8b-instant",
+                "model": "openai/gpt-oss-20b",
+                "reasoning_effort": "low",
                 "messages": [
                     {"role": "system", "content": (
                         "Eres JARVIS, el asistente personal de Elías. Él acaba de mencionar que está "
@@ -862,7 +865,8 @@ def extraer_memoria_llm(mensaje_usuario):
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
             json={
-                "model": "llama-3.1-8b-instant",
+                "model": "openai/gpt-oss-20b",
+                "reasoning_effort": "low",
                 "messages": [
                     {"role": "system", "content": (
                         "Tu única tarea es decidir si el mensaje del usuario contiene un HECHO "
@@ -1078,7 +1082,8 @@ def traducir_texto(texto, idioma_destino):
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {GROQ_API_KEY_MEM}", "Content-Type": "application/json"},
             json={
-                "model": "llama-3.1-8b-instant",
+                "model": "openai/gpt-oss-20b",
+                "reasoning_effort": "low",
                 "messages": [{
                     "role": "user",
                     "content": (
