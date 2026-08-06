@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import "./Mapa.css";
 
 const MAPBOX_TOKEN = "pk.eyJ1IjoiZWxpYXN2aWNlbmNpbyIsImEiOiJjbXM2cWtsaG4wYWxqMnhwenFvaHV4emY3In0.2lKF_fqI-LulLtJZTyPP0Q";
-const COLORES = ["#2DD4E8", "#4ADE80", "#F2A93B", "#F87171", "#A78BFA"];
+const COLORES = ["#3f399c", "#4ADE80", "#F2A93B", "#F87171", "#fdfdff"];
 const MAPBOXGL_SRC = "https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js";
 const MAPBOXGL_CSS = "https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css";
 
@@ -54,26 +54,29 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
 
       map.on("load", () => {
         map.setFog({
-          color: "rgb(20, 70, 80)",
-          "high-color": "rgb(10, 45, 55)",
+          color: "rgb(20, 80, 90)",
+          "high-color": "rgb(8, 35, 45)",
           "horizon-blend": 0.04,
-          "space-color": "rgb(7, 11, 24)",
-          "star-intensity": 0.4,
+          "space-color": "rgb(3, 6, 12)",
+          "star-intensity": 0.5,
         });
 
-        // Recolorear el globo: continentes cian oscuro, océano azul, atmósfera con resplandor cian
+        // Recolorear el globo: continentes oscuros con borde cian, océano casi negro
         const layers = map.getStyle().layers;
         layers.forEach(layer => {
           const sl = layer["source-layer"];
           try {
             if (sl === "water") {
-              map.setPaintProperty(layer.id, "fill-color", "#0B3A5C");
+              map.setPaintProperty(layer.id, "fill-color", "#050B14");
             } else if (sl === "landuse" || sl === "landcover" || sl === "land") {
-              map.setPaintProperty(layer.id, "fill-color", "#0D4A52");
+              map.setPaintProperty(layer.id, "fill-color", "#0A1520");
+            } else if (sl === "admin") {
+              map.setPaintProperty(layer.id, "line-color", "#2DD4E8");
+              map.setPaintProperty(layer.id, "line-opacity", 0.6);
             } else if (layer.type === "background") {
-              map.setPaintProperty(layer.id, "background-color", "#0B3A5C");
+              map.setPaintProperty(layer.id, "background-color", "#050B14");
             }
-          } catch { /* algunas capas no tienen fill-color, se ignoran */ }
+          } catch { /* algunas capas no tienen esas propiedades, se ignoran */ }
         });
 
         const labelLayerId = layers.find(l => l.type === "symbol" && l.layout?.["text-field"])?.id;
@@ -155,7 +158,7 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
             "text-field": ["get", "nombre"], "text-size": 10, "text-offset": [0, 1],
             "text-anchor": "top", "text-font": ["Open Sans Regular"],
           },
-          paint: { "text-color": "#ffffff", "text-halo-color": "#070B18", "text-halo-width": 1 },
+          paint: { "text-color": "#E94BB8", "text-halo-color": "#050B14", "text-halo-width": 1 },
           minzoom: 2,
         });
         map.on("click", "sm-ciudades-pt", (e) => {
