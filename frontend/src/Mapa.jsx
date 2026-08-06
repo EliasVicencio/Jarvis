@@ -55,7 +55,7 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
       map.on("load", () => {
         map.setFog({
           color: "rgb(32, 70, 126)",
-          "high-color": "rgb(8, 35, 45)",
+          "high-color": "rgb(32, 70, 126)",
           "horizon-blend": 0.04,
           "space-color": "rgb(3, 6, 12)",
           "star-intensity": 0.5,
