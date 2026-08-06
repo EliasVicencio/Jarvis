@@ -171,6 +171,38 @@ def procesar_comando(comando):
             if lugar:
                 return {"respuesta": f"Localizando {lugar}", "continuar": True, "accion": "abrir_mapa", "dato": lugar}
 
+    # Categorías dichas de forma natural ("café cerca", "farmacia", "hoteles cerca de mí"),
+    # sin necesitar decir "localiza" o "busca en el mapa" antes.
+    categorias_mapa = ["café", "cafe", "cafetería", "cafeteria", "restaurante", "restaurantes",
+                        "farmacia", "farmacias", "hospital", "hospitales", "banco", "bancos",
+                        "bencinera", "bencineras", "gasolinera", "gasolineras", "supermercado",
+                        "supermercados", "hotel", "hoteles", "cajero", "cajeros", "panadería", "panaderia"]
+    palabras = comando.split()
+    if len(palabras) <= 5:
+        for cat in categorias_mapa:
+            if cat in comando and ("cerca" in comando or len(palabras) <= 2):
+                return {"respuesta": f"Buscando {comando}", "continuar": True, "accion": "abrir_mapa", "dato": comando}
+
+    if any(p in comando for p in ["activa el tráfico", "activa trafico", "muestra el tráfico",
+                                    "muestra trafico", "ver tráfico", "ver trafico", "con tráfico"]):
+        return {"respuesta": "Abriendo el mapa con el tráfico en vivo", "continuar": True,
+                "accion": "abrir_mapa", "capa": "trafico_on"}
+
+    if any(p in comando for p in ["oculta el tráfico", "oculta trafico", "quita el tráfico",
+                                    "desactiva el tráfico", "desactiva trafico", "sin tráfico"]):
+        return {"respuesta": "Abriendo el mapa sin tráfico", "continuar": True,
+                "accion": "abrir_mapa", "capa": "trafico_off"}
+
+    if any(p in comando for p in ["sin edificios", "oculta los edificios", "quita los edificios",
+                                    "desactiva los edificios", "sin edificios 3d"]):
+        return {"respuesta": "Abriendo el mapa sin edificios 3D", "continuar": True,
+                "accion": "abrir_mapa", "capa": "edificios_off"}
+
+    if any(p in comando for p in ["con edificios 3d", "activa los edificios", "muestra los edificios",
+                                    "activa edificios 3d", "muestra edificios 3d"]):
+        return {"respuesta": "Abriendo el mapa con edificios 3D", "continuar": True,
+                "accion": "abrir_mapa", "capa": "edificios_on"}
+
     if "busca" in comando:
         m = re.search(r"busca(?:r)?\s+(.+)", comando)
         if m:
