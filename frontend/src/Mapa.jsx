@@ -106,6 +106,7 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
             } else if (sl === "admin") {
               map.setPaintProperty(layer.id, "line-color", colores.bordes);
               map.setPaintProperty(layer.id, "line-opacity", esDeDia ? 0.4 : 0.6);
+              map.setPaintProperty(layer.id, "line-width", 0.5); 
             } else if (layer.type === "background") {
               map.setPaintProperty(layer.id, "background-color", colores.bgMapa);
             }
@@ -182,7 +183,7 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
           id: "sm-ciudades-pt", type: "circle", source: "sm-ciudades",
           paint: {
             "circle-radius": ["interpolate", ["linear"], ["get", "poblacion"], 200000, 1.5, 20000000, 4],
-            "circle-color": ["case", ["get", "capital"], "#F2A93B", "#2DD4E8"],
+            "circle-color": ["case", ["get", "capital"], "#F2A93B", "#ffffff"],
             "circle-opacity": 0.85,
           },
         });
