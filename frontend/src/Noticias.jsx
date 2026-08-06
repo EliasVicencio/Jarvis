@@ -271,7 +271,6 @@ export default function Noticias({ onVolver, canalInicial = null }) {
             <div className="si-video-hdr">
               <div className="si-dot-green"/>
               <span className="si-vcanal">{canalActual.nombre}</span>
-              <span className="si-vtag" style={{background:`${TAG_COLORS[canalActual.tag]}22`,color:TAG_COLORS[canalActual.tag]}}>{canalActual.tag}</span>
               <span className="si-vtitulo">{trunc(video?.titulo||"",60)}</span>
               {!apiKey && <span className="si-no-key">Sin API key — videos de muestra</span>}
             </div>
