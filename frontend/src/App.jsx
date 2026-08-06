@@ -339,7 +339,7 @@ export default function App() {
       {/* ── Topbar ─────────────────────────────────────────── */}
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark">J</div>
+          <div className="brand-mark">S</div>
           <div>
             <div className="brand-name">SATURDAY</div>
             <div className="brand-sub">asistente personal</div>

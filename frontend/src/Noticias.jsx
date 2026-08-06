@@ -169,7 +169,7 @@ export default function Noticias({ onVolver, canalInicial = null }) {
       .then(r => r.json())
       .then(d => {
         if (d.channel_id) {
-          setCanalDinamico({ id: d.channel_id, nombre: d.nombre, tag: "YT", alias: [] });
+          setCanalDinamico({ id: d.channel_id, nombre: d.nombre, tag: " ", alias: [] });
         }
       })
       .catch(() => {});
@@ -273,8 +273,6 @@ export default function Noticias({ onVolver, canalInicial = null }) {
               <span className="si-vcanal">{canalActual.nombre}</span>
               <span className="si-vtag" style={{background:`${TAG_COLORS[canalActual.tag]}22`,color:TAG_COLORS[canalActual.tag]}}>{canalActual.tag}</span>
               <span className="si-vtitulo">{trunc(video?.titulo||"",60)}</span>
-              {video?.lang === "en" && <span className="si-lang-badge">🌐 EN · SUB ES</span>}
-              {video?.lang === "es" && <span className="si-lang-badge si-lang-es">🔊 ES</span>}
               {!apiKey && <span className="si-no-key">Sin API key — videos de muestra</span>}
             </div>
             {/* Video con autoplay */}

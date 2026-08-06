@@ -697,39 +697,6 @@ GITHUB_REPOS = [
     {"nombre": "Dani ISO27001",  "repo": "EliasVicencio19/Dani-ISO27001"},
 ]
 
-@app.route("/api/github-actividad")
-def api_github_actividad():
-    ahora = time.time()
-    if _github_cache["data"] and (ahora - _github_cache["timestamp"] < 600):
-        return jsonify({"proyectos": _github_cache["data"]})
-
-    resultado = []
-    for p in GITHUB_REPOS:
-        try:
-            r = requests.get(
-                f"https://api.github.com/repos/{p['repo']}/commits",
-                params={"per_page": 1}, timeout=8,
-                headers={"Accept": "application/vnd.github+json"}
-            )
-            if r.ok and r.json():
-                commit = r.json()[0]
-                resultado.append({
-                    "nombre": p["nombre"],
-                    "ok": True,
-                    "mensaje": commit["commit"]["message"].split("\n")[0][:80],
-                    "fecha": commit["commit"]["author"]["date"],
-                    "autor": commit["commit"]["author"]["name"],
-                })
-            else:
-                resultado.append({"nombre": p["nombre"], "ok": False, "mensaje": "No disponible"})
-        except Exception as e:
-            logger.error(f"Error GitHub {p['repo']}: {e}")
-            resultado.append({"nombre": p["nombre"], "ok": False, "mensaje": "No disponible"})
-
-    _github_cache["data"] = resultado
-    _github_cache["timestamp"] = ahora
-    return jsonify({"proyectos": resultado})
-
 @app.route("/api/celebrar-logro", methods=["POST"])
 def api_celebrar_logro():
     data = request.get_json(force=True) or {}
@@ -742,29 +709,7 @@ def api_celebrar_logro():
         logger.error(f"Error celebrando logro: {e}")
         return jsonify({"ok": False})
 
-@app.route("/api/proyectos-estado")
-def api_proyectos_estado():
-    """Verifica en vivo si Jarvis y Hyperion (frontend/backend) están respondiendo."""
-    proyectos = [
-        {"nombre": "Saturday Backend",     "url": "http://127.0.0.1:5000/api/estado"},
-        {"nombre": "Hyperion Frontend",  "url": "https://hyperion-core.vercel.app"},
-        {"nombre": "Hyperion Backend",   "url": "https://hyperion-pi-nine.vercel.app/health/deep"},
-    ]
-    resultado = []
-    for p in proyectos:
-        try:
-            r = requests.get(p["url"], timeout=5)
-            ok = r.status_code < 500
-        except Exception:
-            ok = False
-        resultado.append({"nombre": p["nombre"], "ok": ok})
-    return jsonify({"proyectos": resultado})
-
 # ── Deploy Frontend ──────────────────────────────────────────────────────────
-
-import zipfile
-import io
-import shutil
 
 FRONTEND_DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend", "dist")
 
