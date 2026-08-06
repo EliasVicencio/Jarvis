@@ -52,33 +52,67 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
       });
       mapInst.current = map;
 
-      map.on("load", () => {
+            map.on("load", () => {
+        // --- 1. OBTENER LA HORA ACTUAL ---
+        const horaActual = new Date().getHours();
+        // Definimos: Día de 6:00 AM a 7:59 PM (06 a 19). Noche de 8:00 PM a 5:59 AM (20 a 05).
+        const esDeDia = (horaActual >= 6 && horaActual < 20);
+
+        // --- 2. DEFINIR PALETAS DE COLORES DINÁMICAS ---
+        const colores = esDeDia ? {
+          // 🟢 PALETA DE DÍA (Amigable y brillante)
+          fondo: "rgb(186, 210, 255)",
+          cieloAlto: "rgb(36, 92, 242)",
+          espacio: "rgb(11, 19, 41)",
+          estrellas: 0.0,
+          océano: "#4A90D9",
+          tierra: "#C2D1B5",
+          bordes: "#7A8B99",
+          bgMapa: "#7EC8E3",
+          edificios: "#D4D9DD",
+          opacidadEd: 0.5,
+        } : {
+          // 🔵 PALETA DE NOCHE (Cósmica y oscura como la tenías originalmente)
+          fondo: "rgb(32, 70, 126)",
+          cieloAlto: "rgb(32, 70, 126)",
+          espacio: "rgb(3, 6, 12)",
+          estrellas: 0.5,
+          océano: "#050B14",
+          tierra: "#0A1520",
+          bordes: "#2DD4E8", // El borde neón cian se ve genial de noche
+          bgMapa: "#050B14",
+          edificios: "#1B2B57",
+          opacidadEd: 0.75,
+        };
+
+        // --- 3. APLICAR LA NIEBLA (FOG) ---
         map.setFog({
-          color: "rgb(32, 70, 126)",
-          "high-color": "rgb(32, 70, 126)",
-          "horizon-blend": 0.04,
-          "space-color": "rgb(3, 6, 12)",
-          "star-intensity": 0.5,
+          color: colores.fondo,
+          "high-color": colores.cieloAlto,
+          "horizon-blend": esDeDia ? 0.3 : 0.04,
+          "space-color": colores.espacio,
+          "star-intensity": colores.estrellas,
         });
 
-        // Recolorear el globo: continentes oscuros con borde cian, océano casi negro
+        // --- 4. RECOLOREAR EL GLOBO ---
         const layers = map.getStyle().layers;
         layers.forEach(layer => {
           const sl = layer["source-layer"];
           try {
             if (sl === "water") {
-              map.setPaintProperty(layer.id, "fill-color", "#050B14");
+              map.setPaintProperty(layer.id, "fill-color", colores.océano);
             } else if (sl === "landuse" || sl === "landcover" || sl === "land") {
-              map.setPaintProperty(layer.id, "fill-color", "#0A1520");
+              map.setPaintProperty(layer.id, "fill-color", colores.tierra);
             } else if (sl === "admin") {
-              map.setPaintProperty(layer.id, "line-color", "#2DD4E8");
-              map.setPaintProperty(layer.id, "line-opacity", 0.6);
+              map.setPaintProperty(layer.id, "line-color", colores.bordes);
+              map.setPaintProperty(layer.id, "line-opacity", esDeDia ? 0.4 : 0.6);
             } else if (layer.type === "background") {
-              map.setPaintProperty(layer.id, "background-color", "#050B14");
+              map.setPaintProperty(layer.id, "background-color", colores.bgMapa);
             }
           } catch { /* algunas capas no tienen esas propiedades, se ignoran */ }
         });
 
+        // --- 5. EDIFICIOS 3D ---
         const labelLayerId = layers.find(l => l.type === "symbol" && l.layout?.["text-field"])?.id;
         map.addLayer({
           id: "sm-3d-buildings",
@@ -88,10 +122,10 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
           type: "fill-extrusion",
           minzoom: 14,
           paint: {
-            "fill-extrusion-color": "#1B2B57",
+            "fill-extrusion-color": colores.edificios,
             "fill-extrusion-height": ["get", "height"],
             "fill-extrusion-base": ["get", "min_height"],
-            "fill-extrusion-opacity": 0.75,
+            "fill-extrusion-opacity": colores.opacidadEd,
           },
         }, labelLayerId);
 
