@@ -64,7 +64,7 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
           fondo: "rgb(186, 210, 255)",
           cieloAlto: "rgb(36, 92, 242)",
           espacio: "rgb(11, 19, 41)",
-          estrellas: 0.5,
+          estrellas: 0.75,
           océano: "#4A90D9",
           tierra: "#C2D1B5",
           bordes: "#7A8B99",
@@ -79,7 +79,7 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
           estrellas: 0.5,
           océano: "#050B14",
           tierra: "#0A1520",
-          bordes: "#fdfdfd", // El borde neón cian se ve genial de noche
+          bordes: "#2DD4E8", // El borde neón cian se ve genial de noche
           bgMapa: "#050B14",
           edificios: "#1B2B57",
           opacidadEd: 0.75,
