@@ -54,14 +54,28 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
 
       map.on("load", () => {
         map.setFog({
-          color: "rgb(16, 24, 48)",
-          "high-color": "rgb(10, 15, 30)",
-          "horizon-blend": 0.03,
+          color: "rgb(20, 70, 80)",
+          "high-color": "rgb(10, 45, 55)",
+          "horizon-blend": 0.04,
           "space-color": "rgb(7, 11, 24)",
           "star-intensity": 0.4,
         });
 
+        // Recolorear el globo: continentes cian oscuro, océano azul, atmósfera con resplandor cian
         const layers = map.getStyle().layers;
+        layers.forEach(layer => {
+          const sl = layer["source-layer"];
+          try {
+            if (sl === "water") {
+              map.setPaintProperty(layer.id, "fill-color", "#0B3A5C");
+            } else if (sl === "landuse" || sl === "landcover" || sl === "land") {
+              map.setPaintProperty(layer.id, "fill-color", "#0D4A52");
+            } else if (layer.type === "background") {
+              map.setPaintProperty(layer.id, "background-color", "#0B3A5C");
+            }
+          } catch { /* algunas capas no tienen fill-color, se ignoran */ }
+        });
+
         const labelLayerId = layers.find(l => l.type === "symbol" && l.layout?.["text-field"])?.id;
         map.addLayer({
           id: "sm-3d-buildings",
@@ -458,23 +472,6 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
 
       <div className="sm-body">
         <div className="sm-float-panel">
-          <div className="sm-navbar">
-            {[
-              { id: "overview", icon: "◎", label: "OVERVIEW" },
-              { id: "layers", icon: "▤", label: "LAYERS" },
-              { id: "traffic", icon: "⛗", label: "TRAFFIC" },
-              { id: "assets", icon: "⬡", label: "ASSETS" },
-              { id: "system", icon: "◉", label: "SYSTEM" },
-            ].map(t => (
-              <button key={t.id}
-                className={`sm-nav-tab ${navTab === t.id ? "sm-nav-tab-on" : ""}`}
-                onClick={() => setNavTab(t.id)}>
-                <span className="sm-nav-icon">{t.icon}</span>
-                <span className="sm-nav-label">{t.label}</span>
-              </button>
-            ))}
-          </div>
-
           {navTab === "overview" && <>
             <div className="sm-panel">
               <div className="sm-ph">◎ BÚSQUEDA <div className="sm-pd" /></div>
@@ -543,6 +540,22 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
                 ))}
               </div>
             )}
+
+            <div className="sm-panel" style={{ flexShrink: 0 }}>
+              <div className="sm-ph">▸ CONTROLES <div className="sm-pd" /></div>
+              <div className="sm-hint-list">
+                {modo === "globo" ? <>
+                  <div className="sm-hint">🌍 "localiza [lugar]" por voz</div>
+                  <div className="sm-hint">☕ "café cerca" muestra varios</div>
+                  <div className="sm-hint">🚦 "activa el tráfico" por voz</div>
+                  <div className="sm-hint">🏢 "muestra edificios" por voz</div>
+                </> : <>
+                  <div className="sm-hint">🗺 Mapa real con calles OSM</div>
+                  <div className="sm-hint">◈ RUTA para calcular ruta</div>
+                  <div className="sm-hint">◈ GLOBO para volver al 3D</div>
+                </>}
+              </div>
+            </div>
           </>}
 
           {navTab === "layers" && (
@@ -620,6 +633,7 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
             <div ref={mapRef} className="sm-globe" />
             {modo === "calles" && (
               <div className="sm-hud-tl">
+                <div className="sm-hbadge sm-hbadge-cyan">VISTA CALLES</div>
                 {destActual && <div className="sm-hbadge">{destActual.nombre.slice(0, 20)}</div>}
                 {rutas.length > 0 && <div className="sm-hbadge sm-hbadge-amber">{rutas.length} RUTAS</div>}
               </div>
@@ -635,6 +649,23 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
                 {vista3D ? "◪ 3D" : "▭ 2D"}
               </button>
             )}
+
+            <div className="sm-navbar">
+              {[
+                { id: "overview", icon: "◎", label: "OVERVIEW" },
+                { id: "layers", icon: "▤", label: "LAYERS" },
+                { id: "traffic", icon: "⛗", label: "TRAFFIC" },
+                { id: "assets", icon: "⬡", label: "ASSETS" },
+                { id: "system", icon: "◉", label: "SYSTEM" },
+              ].map(t => (
+                <button key={t.id}
+                  className={`sm-nav-tab ${navTab === t.id ? "sm-nav-tab-on" : ""}`}
+                  onClick={() => setNavTab(t.id)}>
+                  <span className="sm-nav-icon">{t.icon}</span>
+                  <span className="sm-nav-label">{t.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

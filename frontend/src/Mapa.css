@@ -145,3 +145,14 @@
 .sm-sys-row{display:flex;justify-content:space-between;padding:9px 12px;font-size:11px;color:#8394BE;border-bottom:1px solid rgba(var(--violet-rgb),0.06)}
 .sm-sys-row:last-child{border-bottom:none}
 .sm-sys-row span:first-child{color:var(--dim)}
+
+/* Barra de navegación (Overview/Layers/Traffic/Assets/System), overlay sobre el mapa */
+.sm-navbar{position:absolute;bottom:14px;left:14px;z-index:1000;display:flex;gap:3px;padding:4px;background:rgba(var(--bg-rgb),0.88);backdrop-filter:blur(6px);border:1px solid rgba(var(--violet-rgb),0.25);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.4)}
+.sm-nav-tab{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:5px;background:transparent;border:none;cursor:pointer;transition:all .15s;white-space:nowrap}
+.sm-nav-tab:hover{background:rgba(var(--violet-rgb),0.08)}
+.sm-nav-tab-on{background:rgba(var(--violet-rgb),0.18);box-shadow:inset 0 0 0 1px rgba(var(--violet-rgb),0.4)}
+.sm-nav-icon{font-size:13px;color:var(--dim);line-height:1}
+.sm-nav-tab-on .sm-nav-icon{color:var(--violet)}
+.sm-nav-label{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:0.04em;color:var(--dim)}
+.sm-nav-tab-on .sm-nav-label{color:var(--violet)}
+@media(max-width:1100px){.sm-nav-label{display:none}.sm-nav-tab{padding:8px 9px}}
