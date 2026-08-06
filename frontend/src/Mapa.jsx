@@ -335,15 +335,15 @@ export default function Mapa({ onVolver, busquedaInicial = null, capaInicial = n
     try {
       const proximidad = miPos ? `&proximity=${miPos.lon},${miPos.lat}` : "";
       const r = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(termino)}.json?access_token=${MAPBOX_TOKEN}&limit=5&language=es${proximidad}`
+        `https://api.mapbox.com/search/searchbox/v1/forward?q=${encodeURIComponent(termino)}&access_token=${MAPBOX_TOKEN}&limit=5&language=es${proximidad}`
       );
       const data = await r.json();
       if (!data.features?.length) { setError("Sin resultados."); setBuscando(false); return; }
-      const res = data.features.map((r, i) => ({
-        nombre: r.place_name.split(",")[0],
-        dir: r.place_name,
-        lat: r.center[1],
-        lon: r.center[0],
+      const res = data.features.map((f, i) => ({
+        nombre: f.properties.name,
+        dir: f.properties.full_address || f.properties.place_formatted || f.properties.name,
+        lat: f.geometry.coordinates[1],
+        lon: f.geometry.coordinates[0],
         color: COLORES[i],
       }));
       setResultados(res);
