@@ -270,7 +270,6 @@ export default function Noticias({ onVolver, canalInicial = null }) {
           <div className="si-panel" style={{flexShrink:0}}>
             <div className="si-video-hdr">
               <div className="si-dot-green"/>
-              <span className="si-vcanal">{canalActual.nombre}</span>
               <span className="si-vtitulo">{trunc(video?.titulo||"",60)}</span>
               {!apiKey && <span className="si-no-key">Sin API key — videos de muestra</span>}
             </div>
