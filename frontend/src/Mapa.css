@@ -130,15 +130,6 @@
 .sm-mi-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);position:relative;z-index:1}
 @keyframes sm-pulse{0%{transform:scale(1);opacity:.8}100%{transform:scale(2.5);opacity:0}}
 
-/* Barra de navegación (Overview/Layers/Traffic/Assets/System) */
-.sm-navbar{display:flex;gap:4px;padding:4px;background:var(--panel);border:1px solid rgba(var(--violet-rgb),0.15);border-radius:6px;flex-shrink:0}
-.sm-nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:4px;background:transparent;border:none;cursor:pointer;transition:all .15s}
-.sm-nav-tab:hover{background:rgba(var(--violet-rgb),0.06)}
-.sm-nav-tab-on{background:rgba(var(--violet-rgb),0.15);border:1px solid rgba(var(--violet-rgb),0.4)}
-.sm-nav-icon{font-size:15px;color:var(--dim)}
-.sm-nav-tab-on .sm-nav-icon{color:var(--violet)}
-.sm-nav-label{font-family:"JetBrains Mono",monospace;font-size:8px;letter-spacing:0.04em;color:var(--dim)}
-.sm-nav-tab-on .sm-nav-label{color:var(--violet)}
 
 /* Interruptores (Layers/Traffic) */
 .sm-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(var(--violet-rgb),0.06)}
