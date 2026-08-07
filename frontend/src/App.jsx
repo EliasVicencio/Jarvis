@@ -64,6 +64,8 @@ export default function App() {
   const mediaRecorderRef = useRef(null);
   const chunksRef        = useRef([]);
   const streamRef        = useRef(null);
+  const wakeRecognitionRef = useRef(null);
+  const wakeActivoRef      = useRef(false);
 
   useEffect(() => { estadoRef.current = estado; }, [estado]);
   useEffect(() => { setMostrarRespuesta(false); }, [tarjetas]);
@@ -84,18 +86,6 @@ export default function App() {
     utterRef.current = utter; // evita que el navegador lo recolecte antes de sonar
     window.speechSynthesis.speak(utter);
   }, []);
-
-  // ── Saludo al abrir la app (una sola vez) ───────────────────────────────
-  useEffect(() => {
-    fetch(`${API}/saludo`)
-      .then(r => r.json())
-      .then(data => {
-        if (!data.audio_base64) return;
-        const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
-        audio.play().catch(() => hablarBrowser(data.saludo));
-      })
-      .catch(() => {});
-  }, [hablarBrowser]);
 
   // ── Enviar comando ─────────────────────────────────────────────────────
   const enviarComando = useCallback(async (texto, forzar = false) => {
@@ -283,15 +273,78 @@ export default function App() {
     }
   }, [enviarAudioGrabado]);
 
-  // ── Carga inicial ──────────────────────────────────────────────────────
+  // ── "Siempre escucha": reconocimiento continuo en el navegador para la
+  // palabra de activación ("Saturday" / "despierta Saturday"). No usa el
+  // servidor (la VM no tiene micrófono real) — corre 100% en tu navegador. ──
+  const WAKE_WORDS = ["saturday", "saturdei", "sadurdei", "satur day"];
+
+  const detenerEscuchaWake = useCallback(() => {
+    if (wakeRecognitionRef.current) {
+      wakeRecognitionRef.current.onend = null; // evita que se auto-reinicie al detenerlo a propósito
+      wakeRecognitionRef.current.stop();
+      wakeRecognitionRef.current = null;
+    }
+  }, []);
+
+  const iniciarEscuchaWake = useCallback(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    detenerEscuchaWake();
+
+    const rec = new SpeechRecognition();
+    rec.lang = "es-MX";
+    rec.continuous = true;
+    rec.interimResults = false;
+
+    rec.onresult = (e) => {
+      const ultimo = e.results[e.results.length - 1];
+      const texto = ultimo[0].transcript.toLowerCase();
+      if (WAKE_WORDS.some(w => texto.includes(w))) {
+        setWakeFlash("navegador");
+        setTimeout(() => setWakeFlash(null), 1500);
+        detenerEscuchaWake();
+        if (estadoRef.current === "inactivo") escucharMicrofono();
+      }
+    };
+    rec.onerror = () => {}; // "no-speech"/"aborted" son normales en modo continuo, se ignoran
+    rec.onend = () => {
+      // El navegador corta el reconocimiento continuo solo cada cierto tiempo — si seguimos
+      // en modo "siempre escucha" y no estamos ocupados, lo reiniciamos.
+      if (wakeActivoRef.current && estadoRef.current === "inactivo") {
+        setTimeout(() => iniciarEscuchaWake(), 300);
+      }
+    };
+
+    wakeRecognitionRef.current = rec;
+    try { rec.start(); } catch { /* ya estaba corriendo, se ignora */ }
+  }, [detenerEscuchaWake, escucharMicrofono]);
+
+  const alternarSiempreEscucha = useCallback(() => {
+    const nuevo = !wakeActivoRef.current;
+    wakeActivoRef.current = nuevo;
+    setWakeActivo(nuevo);
+    if (nuevo) iniciarEscuchaWake();
+    else detenerEscuchaWake();
+  }, [iniciarEscuchaWake, detenerEscuchaWake]);
+
+  // Pausar la escucha de wake word mientras Saturday está grabando/procesando/hablando,
+  // y reanudarla cuando vuelve a estar libre — para no escucharse a sí mismo.
+  useEffect(() => {
+    if (!wakeActivoRef.current) return;
+    if (estado === "inactivo") {
+      iniciarEscuchaWake();
+    } else {
+      detenerEscuchaWake();
+    }
+  }, [estado, iniciarEscuchaWake, detenerEscuchaWake]);
+
+  // ── Carga inicial: confirma conexión con el backend y reproduce el saludo ──
   useEffect(() => {
     fetch(`${API}/saludo`)
       .then(r => r.json())
       .then(data => {
         setBackendOk(true);
-        setWakeActivo(data.wake_activo || false);
         if (data.saludo) {
-          setTarjetas([{ pregunta: "Bienvenida", respuesta: data.saludo }]);
           if (data.audio_base64) {
             const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
             audio.play().catch(() => hablarBrowser(data.saludo));
@@ -372,6 +425,15 @@ export default function App() {
             <span className="status-dot" />
             {backendOk === null ? "Conectando…" : backendOk ? "Sistema OK" : "Sistema offline"}
           </div>
+          <button
+            className="status-pill status-pill-toggle"
+            data-estado={wakeActivo ? "ok" : "conectando"}
+            title={wakeActivo ? "Siempre escuchando — clic para apagar" : "Activar escucha continua de 'Saturday'"}
+            onClick={alternarSiempreEscucha}
+          >
+            <span className="status-dot" />
+            {wakeActivo ? "Escuchando" : "Activar por voz"}
+          </button>
         </div>
       </header>
 

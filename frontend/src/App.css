@@ -83,6 +83,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border-radius: 20px; padding: 4px 12px;
 }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+.status-pill-toggle { border-style: solid; transition: all 0.15s ease; }
+.status-pill-toggle:hover { border-color: var(--border-hi); }
 .status-pill[data-estado="ok"]        .status-dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
 .status-pill[data-estado="offline"]   .status-dot { background: var(--red);   box-shadow: 0 0 5px var(--red); }
 .status-pill[data-estado="conectando"] .status-dot { background: var(--dim); }
