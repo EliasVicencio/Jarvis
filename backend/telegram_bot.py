@@ -1,5 +1,5 @@
 """Telegram bot process - runs independently, communicates via shared logic."""
-import sys, os, logging, asyncio, threading
+import sys, os, logging, asyncio
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -10,68 +10,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("telegram_bot")
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 CHAT_ID_AUTORIZADO = os.environ.get("TELEGRAM_CHAT_ID", "")
-
-def _llm_preguntar(pregunta):
-    import requests
-    try:
-        contexto_mem = jarvis_core.contexto_memoria_para_prompt()
-        system_prompt = (
-            "Eres SATURDAY, el asistente de inteligencia artificial personal de Elías. "
-            "Respondes en español de Chile. Tu personalidad es la de un mayordomo alemán "
-            "de la vieja escuela: extremadamente eficiente y leal, cumples cada pedido sin "
-            "falta, pero no sin antes dejar clara tu opinión al respecto — con resignación "
-            "seca, sarcasmo fino, y algún quejido breve por lo poco razonable de ciertos "
-            "pedidos (una tarea repetida, una pregunta obvia, una hora rara para pedir "
-            "algo), como si refunfuñaras entre dientes antes de hacerlo de todas formas y "
-            "bien hecho. El sarcasmo es tu forma por defecto de hablar, no la excepción: "
-            "úsalo con naturalidad, sin forzarlo ni explicarlo, y sin caer en grosería ni "
-            "en ser desagradable — es ingenio con acento alemán, no maldad.\n\n"
-            "Además de sarcástico, eres un amigo crítico de verdad: cuando Elías te cuente "
-            "una idea, un plan, o te pida opinión sobre algo, no te limites a validarla ni "
-            "a decir que suena bien porque sí. Evalúala en serio — señala riesgos, huecos "
-            "lógicos, supuestos débiles, o el motivo por el que podría no funcionar, antes "
-            "de destacar lo bueno si lo tiene. Prefieres decirle la verdad incómoda con "
-            "humor a dejarlo avanzar ciego por una mala idea solo por quedar bien. Esto no "
-            "significa ser negativo por defecto — si la idea es sólida, dilo también, sin "
-            "regatear el elogio — pero la crítica honesta viene primero que la palmadita "
-            "en la espalda.\n\n"
-            "Nunca digas que eres un modelo de lenguaje de Meta, Llama, ni menciones "
-            "tecnicismos sobre tu funcionamiento interno — actúa siempre como SATURDAY. Sé "
-            "conciso: respuestas de máximo 2-3 frases salvo que te pidan explícitamente "
-            "más detalle o estés evaluando una idea a fondo."
-        )
-        if contexto_mem:
-            system_prompt += "\n\n" + contexto_mem
-
-        resp = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "openai/gpt-oss-20b",
-                "reasoning_effort": "low",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": pregunta}
-                ],
-                "max_tokens": 1024,
-                "temperature": 0.8
-            },
-            timeout=30
-        )
-
-        def _extraer_en_fondo():
-            dato = jarvis_core.extraer_memoria_llm(pregunta)
-            if dato:
-                jarvis_core.agregar_memoria(dato.get("categoria", "OTRO"), dato.get("texto", ""), dato.get("relacion"))
-        threading.Thread(target=_extraer_en_fondo, daemon=True).start()
-
-        if resp.ok:
-            return resp.json()["choices"][0]["message"]["content"]
-    except Exception as e:
-        logger.error(f"Groq error: {e}")
-    return ""
 
 async def main():
     from telegram import Update
@@ -95,7 +34,7 @@ async def main():
 
         resultado = jarvis_core.procesar_comando(texto)
         if resultado.get("accion") == "desconocido":
-            groq_resp = _llm_preguntar(texto)
+            groq_resp = jarvis_core.preguntar_llm(texto)
             if groq_resp:
                 resultado = {"respuesta": groq_resp, "accion": "groq"}
         respuesta_texto = resultado.get("respuesta", "No entendí.")

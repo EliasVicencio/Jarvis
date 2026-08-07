@@ -146,11 +146,11 @@ export default function Noticias({ onVolver, canalInicial = null }) {
   const canalActual = canalDinamico || CANALES[canalIdx];
   const video       = videos[videoIdx];
 
-  // Cargar API key del backend al iniciar
+  // Verificar si el backend tiene la API key configurada (nunca la recibimos, solo el sí/no)
   useEffect(() => {
     fetch(`${API}/youtube-key`)
       .then(r => r.json())
-      .then(d => { if (d.key) setApiKey(d.key); })
+      .then(d => { if (d.configurada) setApiKey(true); })
       .catch(() => {});
   }, []);
 

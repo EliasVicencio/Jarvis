@@ -85,6 +85,18 @@ export default function App() {
     window.speechSynthesis.speak(utter);
   }, []);
 
+  // ── Saludo al abrir la app (una sola vez) ───────────────────────────────
+  useEffect(() => {
+    fetch(`${API}/saludo`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.audio_base64) return;
+        const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
+        audio.play().catch(() => hablarBrowser(data.saludo));
+      })
+      .catch(() => {});
+  }, [hablarBrowser]);
+
   // ── Enviar comando ─────────────────────────────────────────────────────
   const enviarComando = useCallback(async (texto, forzar = false) => {
     if (!texto.trim()) return;

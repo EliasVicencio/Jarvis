@@ -12,8 +12,6 @@ import base64
 import tempfile
 import re
 from flask import Flask, request, jsonify
-import imaplib, email as emaillib
-from email.header import decode_header
 from datetime import datetime
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -223,7 +221,7 @@ def api_comando():
 
     # Si el comando local no lo reconoce, preguntar a Groq
     if resultado.get("accion") == "desconocido":
-        groq_resp = _llm_preguntar(comando)
+        groq_resp = jarvis_core.preguntar_llm(comando)
         if groq_resp:
             resultado = {"respuesta": groq_resp, "accion": "groq", "continuar": True}
 
@@ -295,7 +293,7 @@ def api_voice_comando():
         resultado = jarvis_core.procesar_comando(texto)
 
         if resultado.get("accion") == "desconocido":
-            groq_resp = _llm_preguntar(texto)
+            groq_resp = jarvis_core.preguntar_llm(texto)
             if groq_resp:
                 resultado = {"respuesta": groq_resp, "accion": "groq", "continuar": True}
 
@@ -337,8 +335,9 @@ def api_memoria_eliminar(indice):
 
 @app.route("/api/youtube-key", methods=["GET"])
 def api_youtube_key():
-    key = os.environ.get("YOUTUBE_API_KEY", "")
-    return jsonify({"key": key})
+    """Nunca devuelve la clave real — solo si está configurada, para que el frontend
+    sepa si mostrar el aviso 'Sin API key'."""
+    return jsonify({"configurada": bool(os.environ.get("YOUTUBE_API_KEY", ""))})
 
 @app.route("/api/hablar", methods=["POST"])
 def api_hablar():
@@ -381,11 +380,14 @@ def api_notas_rapidas_eliminar(indice):
     return jsonify({"notas": notas})
 
 def _contar_correos_no_leidos():
+    """Devuelve el número de correos sin leer, o None si EMAIL_USER/EMAIL_PASS no están
+    configurados (en cuyo caso el saludo simplemente no menciona correos)."""
     user = os.environ.get("EMAIL_USER", "")
     pwd  = os.environ.get("EMAIL_PASS", "")
     if not user or not pwd:
         return None
     try:
+        import imaplib
         M = imaplib.IMAP4_SSL("imap.gmail.com", timeout=4)
         M.login(user, pwd)
         M.select("INBOX")
@@ -398,6 +400,8 @@ def _contar_correos_no_leidos():
 
 @app.route("/api/saludo")
 def api_saludo():
+    """Saludo que se dispara una vez al abrir la app (ver App.jsx). Menciona correos sin
+    leer solo si EMAIL_USER/EMAIL_PASS están configurados."""
     hora = datetime.now().hour
     if hora < 12:
         saludo_base = "Buenos días"
@@ -406,28 +410,14 @@ def api_saludo():
     else:
         saludo_base = "Buenas noches"
 
-    recordatorios = jarvis_core.obtener_recordatorios()
     no_leidos = _contar_correos_no_leidos()
-
-    extras = []
-    if recordatorios:
-        n = len(recordatorios)
-        extras.append("tienes un recordatorio pendiente" if n == 1 else f"tienes {n} recordatorios pendientes")
     if no_leidos:
-        extras.append("un correo sin leer" if no_leidos == 1 else f"{no_leidos} correos sin leer")
-
-    if extras:
-        saludo_texto = f"{saludo_base}, Elías, " + " y ".join(extras) + ". ¿En qué puedo ayudarte?"
+        extra = "un correo sin leer" if no_leidos == 1 else f"{no_leidos} correos sin leer"
+        saludo_texto = f"{saludo_base}, Elías, tienes {extra}. ¿En qué puedo ayudarte?"
     else:
-        saludo_texto = f"{saludo_base}, Elías, todo al día. ¿En qué puedo ayudarte?"
+        saludo_texto = f"{saludo_base}, Elías. ¿En qué puedo ayudarte?"
 
-    return jsonify({
-        "saludo": saludo_texto,
-        "audio_base64": _generar_audio_base64(saludo_texto),
-        "recordatorios": recordatorios,
-        "correos_no_leidos": no_leidos,
-        "wake_activo": _wake_activo,
-    })
+    return jsonify({"saludo": saludo_texto, "audio_base64": _generar_audio_base64(saludo_texto)})
 
 @app.route("/api/wake-status")
 def api_wake_status():
@@ -541,70 +531,6 @@ def api_noticias_analisis():
 # ── Groq / LLM Integration ─────────────────────────────────────────────────
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-def _llm_preguntar(pregunta: str) -> str:
-    try:
-        contexto_mem = jarvis_core.contexto_memoria_para_prompt()
-        system_prompt = (
-            "Eres SATURDAY, el asistente de inteligencia artificial personal de Elías. "
-            "Respondes en español de Chile. Tu personalidad es la de un mayordomo alemán "
-            "de la vieja escuela: extremadamente eficiente y leal, cumples cada pedido sin "
-            "falta, pero no sin antes dejar clara tu opinión al respecto — con resignación "
-            "seca, sarcasmo fino, y algún quejido breve por lo poco razonable de ciertos "
-            "pedidos (una tarea repetida, una pregunta obvia, una hora rara para pedir "
-            "algo), como si refunfuñaras entre dientes antes de hacerlo de todas formas y "
-            "bien hecho. El sarcasmo es tu forma por defecto de hablar, no la excepción: "
-            "úsalo con naturalidad, sin forzarlo ni explicarlo, y sin caer en grosería ni "
-            "en ser desagradable — es ingenio con acento alemán, no maldad.\n\n"
-            "Además de sarcástico, eres un amigo crítico de verdad: cuando Elías te cuente "
-            "una idea, un plan, o te pida opinión sobre algo, no te limites a validarla ni "
-            "a decir que suena bien porque sí. Evalúala en serio — señala riesgos, huecos "
-            "lógicos, supuestos débiles, o el motivo por el que podría no funcionar, antes "
-            "de destacar lo bueno si lo tiene. Prefieres decirle la verdad incómoda con "
-            "humor a dejarlo avanzar ciego por una mala idea solo por quedar bien. Esto no "
-            "significa ser negativo por defecto — si la idea es sólida, dilo también, sin "
-            "regatear el elogio — pero la crítica honesta viene primero que la palmadita "
-            "en la espalda.\n\n"
-            "Nunca digas que eres un modelo de lenguaje de Meta, Llama, ni menciones "
-            "tecnicismos sobre tu funcionamiento interno — actúa siempre como SATURDAY. Sé "
-            "conciso: respuestas de máximo 2-3 frases salvo que te pidan explícitamente "
-            "más detalle o estés evaluando una idea a fondo."
-        )
-        if contexto_mem:
-            system_prompt += "\n\n" + contexto_mem
-
-        resp = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "openai/gpt-oss-20b",
-                "reasoning_effort": "low",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": pregunta}
-                ],
-                "max_tokens": 1024,
-                "temperature": 0.8
-            },
-            timeout=30
-        )
-
-        def _extraer_en_fondo():
-            dato = jarvis_core.extraer_memoria_llm(pregunta)
-            if dato:
-                jarvis_core.agregar_memoria(dato.get("categoria", "OTRO"), dato.get("texto", ""), dato.get("relacion"))
-        threading.Thread(target=_extraer_en_fondo, daemon=True).start()
-
-        if resp.ok:
-            data = resp.json()
-            return data["choices"][0]["message"]["content"]
-        logger.error(f"Groq error: {resp.status_code} {resp.text}")
-        return ""
-    except Exception as e:
-        logger.error(f"Error en LLM: {e}")
-        return ""
 
 _github_cache = {"data": None, "timestamp": 0}
 GITHUB_REPOS = [
@@ -696,7 +622,6 @@ def api_youtube_buscar_canal():
 _telegram_process = None
 
 def _arrancar_telegram_bot():
-    import subprocess
     global _telegram_process
     script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "telegram_bot.py")
     _telegram_process = subprocess.Popen(
