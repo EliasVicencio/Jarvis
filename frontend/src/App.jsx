@@ -50,11 +50,13 @@ export default function App() {
   const [wakeActivo,  setWakeActivo]  = useState(false);
   const [wakeFlash,   setWakeFlash]   = useState(null);
   const [busquedaMapa,    setBusquedaMapa]    = useState(null);
+  const [capaMapa,        setCapaMapa]        = useState(null);
   const [mostrarMasChips, setMostrarMasChips] = useState(false);
   const CHIPS_FAVORITOS = ["qué hora es", "clima en Santiago", "stark intel", "mis recordatorios", "qué puedes hacer"];
   const chipsAMostrar = mostrarMasChips ? COMANDOS : COMANDOS.filter(c => CHIPS_FAVORITOS.includes(c.texto));
   const [canalNoticias,   setCanalNoticias]   = useState(null);
   const [tarjetas, setTarjetas] = useState([]);
+  const [mostrarRespuesta, setMostrarRespuesta] = useState(false);
 
   const estadoRef   = useRef("inactivo");
   const escucharRef = useRef(null);
@@ -64,6 +66,7 @@ export default function App() {
   const streamRef        = useRef(null);
 
   useEffect(() => { estadoRef.current = estado; }, [estado]);
+  useEffect(() => { setMostrarRespuesta(false); }, [tarjetas]);
 
   // ── Browser TTS ────────────────────────────────────────────────────────
   const utterRef = useRef(null);
@@ -130,6 +133,7 @@ export default function App() {
       }
       if (data.accion === "abrir_mapa") {
         if (data.dato) setBusquedaMapa(data.dato);
+        if (data.capa) setCapaMapa(data.capa);
         setEstado("hablando"); estadoRef.current = "hablando";
         setTimeout(() => { setVista("mapa"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       }
@@ -218,6 +222,7 @@ export default function App() {
         setTimeout(() => { setVista("noticias"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       } else if (data.accion === "abrir_mapa") {
         if (data.dato) setBusquedaMapa(data.dato);
+        if (data.capa) setCapaMapa(data.capa);
         setTimeout(() => { setVista("mapa"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
       } else if (data.accion === "abrir_stark_ops") {
         setTimeout(() => { setVista("stark_ops"); setEstado("inactivo"); estadoRef.current = "inactivo"; }, 800);
@@ -301,12 +306,7 @@ export default function App() {
         }
         if (data.aviso_proactivo) {
           setTarjetas([{ pregunta: "Saturday", respuesta: data.aviso_proactivo }]);
-          if (data.audio_base64) {
-            const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
-            audio.play().catch(() => hablarBrowser(data.aviso_proactivo));
-          } else {
-            hablarBrowser(data.aviso_proactivo);
-          }
+          hablarBrowser(data.aviso_proactivo);
         }
       } catch {}
     }, 500);
@@ -326,7 +326,7 @@ export default function App() {
   }
 
   if (vista === "mapa") {
-    return <Mapa onVolver={() => { setVista("principal"); setBusquedaMapa(null); }} busquedaInicial={busquedaMapa} />;
+    return <Mapa onVolver={() => { setVista("principal"); setBusquedaMapa(null); setCapaMapa(null); }} busquedaInicial={busquedaMapa} capaInicial={capaMapa} />;
   }
 
   if (vista === "stark_ops") {
@@ -344,7 +344,7 @@ export default function App() {
       {/* ── Topbar ─────────────────────────────────────────── */}
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark">S</div>
+          <div className="brand-mark">J</div>
           <div>
             <div className="brand-name">SATURDAY</div>
             <div className="brand-sub">asistente personal</div>
