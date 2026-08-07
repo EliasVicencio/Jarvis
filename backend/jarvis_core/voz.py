@@ -17,11 +17,10 @@ VOZ = "es-MX-JorgeNeural"
 VOZ_RATE = "+0%"    # velocidad natural, sin acelerar (acelerar sonaba más robótico, no menos)
 VOZ_PITCH = "+0Hz"  # tono natural, sin forzar
 
-# MiniMax Speech (voz paga, opcional) — si no está configurado, sigue usando Edge TTS gratis.
-MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
-MINIMAX_GROUP_ID = os.getenv("MINIMAX_GROUP_ID", "")
-MINIMAX_MODEL = "speech-2.8-turbo"   # más barato que "-hd", calidad ya es alta
-MINIMAX_VOICE_ID = "Spanish_ReliableManager"  # revisa/cambia el ID real en tu cuenta de MiniMax
+# Google Cloud TTS (Chirp 3 HD, voz natural) — si no está configurado, usa Edge TTS gratis.
+GOOGLE_TTS_API_KEY = os.getenv("GOOGLE_TTS_API_KEY", "")
+GOOGLE_TTS_LANG = os.getenv("GOOGLE_TTS_LANG", "es-US")
+GOOGLE_TTS_VOICE = os.getenv("GOOGLE_TTS_VOICE", "es-US-Chirp3-HD-Achernar")  # verifica/cambia en tu consola
 
 # Reconocedor de voz (reutilizable)
 _recognizer = sr.Recognizer()
@@ -143,47 +142,43 @@ def transcribir_archivo(path_wav):
         return ""
 
 # ── Generar audio sin reproducirlo localmente ─────────────────────────────
-def _generar_audio_minimax(texto, output_path):
-    """Genera audio con MiniMax Speech (voz paga, más natural). Devuelve True si funcionó."""
-    if not MINIMAX_API_KEY or not MINIMAX_GROUP_ID:
+def _generar_audio_google(texto, output_path):
+    """Genera audio con Google Cloud TTS (Chirp 3 HD, voz natural), vía REST con API key.
+    Devuelve True si funcionó."""
+    if not GOOGLE_TTS_API_KEY:
         return False
     try:
+        import base64
         resp = requests.post(
-            f"https://api.minimax.io/v1/t2a_v2?GroupId={MINIMAX_GROUP_ID}",
-            headers={"Authorization": f"Bearer {MINIMAX_API_KEY}", "Content-Type": "application/json"},
+            f"https://texttospeech.googleapis.com/v1/text:synthesize?key={GOOGLE_TTS_API_KEY}",
             json={
-                "model": MINIMAX_MODEL,
-                "text": texto,
-                "stream": False,
-                "language_boost": "Spanish",
-                "output_format": "hex",
-                "voice_setting": {"voice_id": MINIMAX_VOICE_ID, "speed": 1.0, "vol": 1.0, "pitch": 0, "emotion": "neutral"},
-                "audio_setting": {"sample_rate": 32000, "bitrate": 128000, "format": "mp3", "channel": 1},
+                "input": {"text": texto},
+                "voice": {"languageCode": GOOGLE_TTS_LANG, "name": GOOGLE_TTS_VOICE},
+                "audioConfig": {"audioEncoding": "MP3"},
             },
             timeout=20,
         )
         data = resp.json()
-        if data.get("base_resp", {}).get("status_code") != 0:
-            print(f"⚠ MiniMax devolvió error: {data.get('base_resp')}")
+        if "audioContent" not in data:
+            print(f"⚠ Google Cloud TTS devolvió error: {data}")
             return False
-        audio_hex = data["data"]["audio"]
         with open(output_path, "wb") as f:
-            f.write(bytes.fromhex(audio_hex))
+            f.write(base64.b64decode(data["audioContent"]))
         return True
     except Exception as e:
-        print(f"⚠ MiniMax falló, usando Edge TTS de respaldo: {e}")
+        print(f"⚠ Google Cloud TTS falló, usando Edge TTS de respaldo: {e}")
         return False
 
 
 def generar_audio_mp3(texto, output_path=None, rate=VOZ_RATE, pitch=VOZ_PITCH):
-    """Genera audio: intenta MiniMax primero (si está configurado, más natural), y si falla
-    o no está configurado, usa Edge TTS (gratuito) como respaldo automático."""
+    """Genera audio: intenta Google Cloud TTS primero (si está configurado, más natural), y si
+    falla o no está configurado, usa Edge TTS (gratuito) como respaldo automático."""
     if output_path is None:
         output_path = os.path.join(
             tempfile.gettempdir(), f"jarvis_tts_{os.getpid()}_{int(time.time() * 1000)}.mp3"
         )
 
-    if _generar_audio_minimax(texto, output_path):
+    if _generar_audio_google(texto, output_path):
         return output_path
 
     async def _generar():
