@@ -1,20 +1,16 @@
-# Síntesis de voz (gratuito, sin cuenta)
-
 # Reconocimiento de voz via Google STT (gratuito)
-SpeechRecognition>=3.10.0
-pyaudio>=0.2.14
+SpeechRecognition>=3.10.0,<4.0.0
+pyaudio>=0.2.14,<0.3.0
 
-# Audio (reproducción de mp3 sin ffmpeg)
-pygame>=2.5.0
-
-# Conversión de audio para el flujo de voz web + Telegram (requiere ffmpeg instalado en el sistema)
-pydub>=0.25.1
+# Audio (reproducción de mp3 sin ffmpeg / conversión para Telegram, requiere ffmpeg instalado en el sistema)
+pygame>=2.5.0,<3.0.0
+pydub>=0.25.1,<0.26.0
 
 # Flask y servidor
-flask>=3.0.0
-flask-cors>=4.0.0
-python-dotenv>=1.0.0
+flask>=3.0.0,<4.0.0
+flask-cors>=4.0.0,<7.0.0
+python-dotenv>=1.0.0,<2.0.0
 
-# OpenClaw integration
-requests>=2.31.0
-psutil
+# HTTP y sistema
+requests>=2.31.0,<3.0.0
+psutil>=5.9.0,<8.0.0

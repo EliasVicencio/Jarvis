@@ -1,4 +1,5 @@
 """Notas rápidas, recordatorios, resumen del día, modo seguro y Pomodoro."""
+import logging
 import os
 import re
 import json
@@ -10,6 +11,8 @@ import requests
 from .proactividad import anunciar_proactivo
 from .memoria import obtener_historial
 
+
+logger = logging.getLogger(__name__)
 GROQ_API_KEY_MEM = os.getenv("GROQ_API_KEY", "")
 RECORDATORIOS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "recordatorios.txt")
 _pomodoro_estado = {"activo": False}
@@ -87,7 +90,7 @@ def generar_celebracion(titulo):
             if resp.ok:
                 return "🎉 " + resp.json()["choices"][0]["message"]["content"]
         except Exception as e:
-            print(f"⚠ Error generando celebracion: {e}")
+            logger.error(f"⚠ Error generando celebracion: {e}")
     return f"🎉 ¡Completaste \"{titulo}\"! Buen trabajo, Elías."
 
 def despedida_fin_dia():

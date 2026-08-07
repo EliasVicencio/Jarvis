@@ -1,9 +1,12 @@
 """Memoria semántica (contexto persistente sobre Elías) e historial de comandos."""
+import logging
 import os
 import json
 import datetime
 import requests
 
+
+logger = logging.getLogger(__name__)
 GROQ_API_KEY_MEM = os.getenv("GROQ_API_KEY", "")
 HISTORIAL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "historial.json")
 HISTORIAL_MAX = 15
@@ -118,7 +121,7 @@ def extraer_memoria_llm(mensaje_usuario):
             dato["categoria"] = "OTRO"
         return dato
     except Exception as e:
-        print(f"⚠ Error extrayendo memoria: {e}")
+        logger.error(f"⚠ Error extrayendo memoria: {e}")
         return None
 
 def obtener_historial():

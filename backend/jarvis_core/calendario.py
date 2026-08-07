@@ -1,7 +1,10 @@
 """Integración con Google Calendar: agenda del día."""
+import logging
 import os
 import datetime
 
+
+logger = logging.getLogger(__name__)
 CALENDAR_TOKEN_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "token.json")
 CALENDAR_SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 
@@ -52,5 +55,5 @@ def resumen_agenda_hoy():
                 partes.append(f"{titulo}, todo el día.")
         return " ".join(partes)
     except Exception as e:
-        print(f"⚠ Error obteniendo eventos del calendario: {e}")
+        logger.error(f"⚠ Error obteniendo eventos del calendario: {e}")
         return "No pude acceder a tu calendario en este momento, señor."

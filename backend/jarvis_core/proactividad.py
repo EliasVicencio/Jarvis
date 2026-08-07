@@ -1,4 +1,5 @@
 """Mecanismo general para que Saturday hable sin que se lo pidan (Pomodoro, logros, horario, calendario)."""
+import logging
 import time
 import threading
 import datetime
@@ -7,6 +8,8 @@ import queue
 from .voz import enviar_texto_telegram
 from .calendario import _obtener_servicio_calendar, resumen_agenda_hoy
 
+
+logger = logging.getLogger(__name__)
 _avisos_proactivos = queue.Queue()
 
 def anunciar_proactivo(mensaje, telegram=True):
@@ -55,7 +58,7 @@ def _chequeo_proactivo():
                 _proactividad_estado["eventos_avisados"].add(ev_id)
                 anunciar_proactivo(f"Recordatorio: tienes \"{titulo}\" a las {hora}, en menos de 15 minutos.")
     except Exception as e:
-        print(f"⚠ Error en chequeo proactivo de calendario: {e}")
+        logger.error(f"⚠ Error en chequeo proactivo de calendario: {e}")
 
 
 def iniciar_proactividad():
@@ -65,6 +68,6 @@ def iniciar_proactividad():
             try:
                 _chequeo_proactivo()
             except Exception as e:
-                print(f"⚠ Error en hilo de proactividad: {e}")
+                logger.error(f"⚠ Error en hilo de proactividad: {e}")
             time.sleep(300)  # cada 5 minutos
     threading.Thread(target=_loop, daemon=True).start()

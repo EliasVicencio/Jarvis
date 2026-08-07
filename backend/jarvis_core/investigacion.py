@@ -1,9 +1,12 @@
 """Diagnóstico de sistemas, investigación profunda con búsqueda web, y traducción."""
+import logging
 import os
 import re
 import requests
 import psutil
 
+
+logger = logging.getLogger(__name__)
 GROQ_API_KEY_MEM = os.getenv("GROQ_API_KEY", "")
 
 # ── Utilidades de texto ──────────────────────────────────────────────────────
@@ -48,7 +51,7 @@ def diagnostico_sistemas():
             f"disco al {disco.percent:.0f} por ciento."
         )
     except Exception as e:
-        print(f"⚠ Error en diagnóstico de sistemas: {e}")
+        logger.error(f"⚠ Error en diagnóstico de sistemas: {e}")
         return "No pude generar el diagnóstico de sistemas en este momento."
 
 
@@ -99,7 +102,7 @@ def investigar_profundo(consulta):
 
         return texto
     except Exception as e:
-        print(f"⚠ Error en investigación profunda: {e}")
+        logger.error(f"⚠ Error en investigación profunda: {e}")
         return "No pude completar la investigación en este momento."
 
 
@@ -129,5 +132,5 @@ def traducir_texto(texto, idioma_destino):
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        print(f"⚠ Error traduciendo: {e}")
+        logger.error(f"⚠ Error traduciendo: {e}")
         return "No pude traducir el texto en este momento."

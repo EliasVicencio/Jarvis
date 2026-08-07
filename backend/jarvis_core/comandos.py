@@ -1,4 +1,5 @@
 """Reconocimiento y despacho de comandos de voz/texto: el 'switch' central de Saturday."""
+import logging
 import re
 import json
 import time
@@ -18,6 +19,8 @@ from .productividad import (
 )
 from .investigacion import diagnostico_sistemas, investigar_profundo, traducir_texto
 from .memoria import contexto_memoria_para_prompt, extraer_memoria_llm, agregar_memoria
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_SATURDAY = (
     "Eres SATURDAY, el asistente de inteligencia artificial personal de Elías. "
@@ -79,10 +82,10 @@ def preguntar_llm(pregunta: str) -> str:
 
         if resp.ok:
             return resp.json()["choices"][0]["message"]["content"]
-        print(f"⚠ Groq error: {resp.status_code} {resp.text}")
+        logger.error(f"⚠ Groq error: {resp.status_code} {resp.text}")
         return ""
     except Exception as e:
-        print(f"⚠ Error en LLM: {e}")
+        logger.error(f"⚠ Error en LLM: {e}")
         return ""
 
 def _clima(ciudad="Santiago"):
@@ -145,7 +148,7 @@ def generar_chiste_llm():
                 if chiste:
                     return chiste
         except Exception as e:
-            print(f"⚠ Error generando chiste con Groq: {e}")
+            logger.error(f"⚠ Error generando chiste con Groq: {e}")
     return random.choice(CHISTES)
 
 def reporte_estado_sistema():
@@ -475,5 +478,5 @@ def responder_con_animo(comando_original):
         if resp.ok:
             return resp.json()["choices"][0]["message"]["content"]
     except Exception as e:
-        print(f"⚠ Error en respuesta de ánimo: {e}")
+        logger.error(f"⚠ Error en respuesta de ánimo: {e}")
     return "Te escucho. Tómate un respiro si lo necesitas, aquí estoy."

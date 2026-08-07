@@ -1,86 +1,37 @@
+"""Punto de entrada del backend: crea la app de Flask, registra los Blueprints de rutas/,
+y arranca los servicios de fondo (wake word, monitor de memoria, bot de Telegram)."""
 import os
-import psutil
-import queue
-import threading
-import time
-import logging
-import urllib.request
-import urllib.parse
-import json as _json
 import sys
-import base64
-import tempfile
-import re
-from flask import Flask, request, jsonify
-from datetime import datetime
+import time
+import threading
+import logging
+import subprocess
+import psutil
+from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
 load_dotenv()
+
 import jarvis_core
-import requests
-import subprocess
-from pydub import AudioSegment
+import estado_compartido as estado
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 app = Flask(__name__)
 CORS(app, origins=["https://jarvis-elias.viewdns.net"])
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB máximo por petición
 
-from collections import defaultdict
+from rutas.voz import bp as voz_bp
+from rutas.datos import bp as datos_bp
+from rutas.noticias import bp as noticias_bp
 
-_rate_limit_tracker = defaultdict(list)
-RATE_LIMIT_MAX = 15
-RATE_LIMIT_WINDOW = 60  # segundos
+app.register_blueprint(voz_bp)
+app.register_blueprint(datos_bp)
+app.register_blueprint(noticias_bp)
 
-_anomalia_tracker = defaultdict(list)
-UMBRAL_ANOMALIA = 3       # veces que debe gatillar el limite
-VENTANA_ANOMALIA = 300    # en 5 minutos
 
-def _registrar_anomalia(ip):
-    ahora = time.time()
-    intentos = _anomalia_tracker[ip]
-    intentos[:] = [t for t in intentos if ahora - t < VENTANA_ANOMALIA]
-    intentos.append(ahora)
-    if len(intentos) >= UMBRAL_ANOMALIA and not jarvis_core.esta_en_modo_seguro():
-        jarvis_core.activar_modo_seguro(f"Actividad sospechosa desde {ip}")
-        logger.warning(f"⚠ MODO SEGURO ACTIVADO — anomalia desde {ip}")
-        jarvis_core.enviar_texto_telegram(
-            f"⚠️ Alerta, Elías. Detecté actividad sospechosa (varias ráfagas de peticiones "
-            f"seguidas desde una misma dirección). Activé el modo seguro por mi cuenta — "
-            f"los comandos por la web quedan bloqueados. Escríbeme aquí 'desactiva modo seguro' "
-            f"cuando confirmes que todo está bien."
-        )
-
-def _rate_limited(ip):
-    ahora = time.time()
-    intentos = _rate_limit_tracker[ip]
-    intentos[:] = [t for t in intentos if ahora - t < RATE_LIMIT_WINDOW]
-    if len(intentos) >= RATE_LIMIT_MAX:
-        _registrar_anomalia(ip)
-        return True
-    intentos.append(ahora)
-    return False
-
-_wake_queue    = queue.Queue()
-_accion_queue  = queue.Queue()   # acciones para el frontend (abrir_noticias, etc.)
-_wake_detector = None
-_wake_activo   = False
-_ultimo_wake   = 0
-_jarvis_pausado = False
-WAKE_COOLDOWN  = 4.0
-
-def _on_wake(fuente: str):
-    global _ultimo_wake
-    ahora = time.time()
-    if ahora - _ultimo_wake < WAKE_COOLDOWN:
-        logger.info(f"Wake ignorada (cooldown): {fuente}")
-        return
-    _ultimo_wake = ahora
-    logger.info(f"Wake activada: {fuente}")
-    _wake_queue.put(fuente)
-
+# ── Servicios de fondo ───────────────────────────────────────────────────
 def _monitor_memoria():
     """Chequea la memoria cada 5 minutos; si se pone critica, avisa por Telegram y se reinicia solo."""
     UMBRAL_ALERTA = 90
@@ -105,519 +56,17 @@ def _monitor_memoria():
         except Exception as e:
             logger.error(f"Error monitoreando memoria: {e}")
 
+
 def iniciar_wake_detector():
-    global _wake_detector, _wake_activo
     try:
         from wake_word import WakeWordDetector
-        _wake_detector = WakeWordDetector(
-            callback=_on_wake,
-        )
-        _wake_detector.start()
-        _wake_activo = True
+        estado.wake_detector = WakeWordDetector(callback=estado.on_wake)
+        estado.wake_detector.start()
+        estado.wake_activo = True
         logger.info("Wake word detector activo (Azure Speech loop)")
     except Exception as e:
         logger.error(f"No se pudo iniciar el wake detector: {e}")
 
-# ── Endpoints ──────────────────────────────────────────────────────────────
-
-@app.route("/api/wake-poll")
-def api_wake_poll():
-    global _jarvis_pausado
-    resultado = {
-        "activado": False, "fuente": None,
-        "aviso_proactivo": None,
-    }
-
-    try:
-        fuente = _wake_queue.get_nowait()
-        if _jarvis_pausado:
-            _jarvis_pausado = False
-            if _wake_detector:
-                _wake_detector.reanudar()
-            logger.info("Saturday reactivado por wake word")
-        resultado["activado"] = True
-        resultado["fuente"] = fuente
-    except queue.Empty:
-        pass
-
-    try:
-        resultado["aviso_proactivo"] = jarvis_core._avisos_proactivos.get_nowait()
-        resultado["audio_base64"] = _generar_audio_base64(resultado["aviso_proactivo"])
-    except queue.Empty:
-        pass
-
-    return jsonify(resultado)
-
-@app.route("/api/escuchar", methods=["POST"])
-def api_escuchar():
-    global _ultimo_wake
-    if _wake_detector:
-        _wake_detector.pausar()
-    try:
-        texto = jarvis_core.reconocer_voz()
-    finally:
-        if _wake_detector:
-            _wake_detector.reanudar()
-
-    if not texto:
-        return jsonify({"texto": "", "ok": False})
-
-    texto_limpio = texto.strip().rstrip(".").lower()
-    if texto_limpio in ("jarvis", "jarvi", "jarbes", "harvis"):
-        logger.info("Ignorando 'jarvis' como comando (era la wake word)")
-        _ultimo_wake = time.time()
-        return jsonify({"texto": "", "ok": False, "mensaje": "Wake word ignorada como comando"})
-
-    return jsonify({"texto": texto, "ok": True})
-
-def _generar_audio_base64(texto):
-    """Genera el mp3 de una respuesta y lo devuelve en base64 para el navegador."""
-    try:
-        mp3_path = jarvis_core.generar_audio_mp3(texto)
-        with open(mp3_path, "rb") as f:
-            b64 = base64.b64encode(f.read()).decode("utf-8")
-        os.remove(mp3_path)
-        return b64
-    except Exception as e:
-        logger.error(f"Error generando audio: {e}")
-        return None
-
-def _reenviar_a_telegram_async(texto_usuario, respuesta_texto, audio_b64, prefijo="⌨️ Tú (texto)"):
-    """Reenvía a Telegram en un hilo aparte, reutilizando el audio ya generado (sin duplicar la síntesis de voz)."""
-    def _hacer():
-        try:
-            jarvis_core.enviar_texto_telegram(f"{prefijo}: {texto_usuario}")
-            if not audio_b64:
-                return
-            mp3_path = os.path.join(tempfile.gettempdir(), f"jarvis_tg_{int(time.time()*1000)}.mp3")
-            with open(mp3_path, "wb") as f:
-                f.write(base64.b64decode(audio_b64))
-            ogg_path = mp3_path.replace(".mp3", ".ogg")
-            AudioSegment.from_file(mp3_path).export(ogg_path, format="ogg", codec="libopus")
-            jarvis_core.enviar_voz_telegram(ogg_path, caption=respuesta_texto[:200])
-            os.remove(mp3_path)
-            os.remove(ogg_path)
-        except Exception as e:
-            logger.error(f"Error reenviando a Telegram: {e}")
-    threading.Thread(target=_hacer, daemon=True).start()
-
-@app.route("/api/comando", methods=["POST"])
-def api_comando():
-    global _jarvis_pausado
-    ip = request.headers.get("X-Real-IP", request.remote_addr)
-    if jarvis_core.esta_en_modo_seguro():
-        return jsonify({"error": "Modo seguro activo"}), 503
-    if _rate_limited(ip):
-        return jsonify({"error": "Demasiadas solicitudes, espera un momento"}), 429
-    data    = request.get_json(force=True) or {}
-    comando = data.get("comando", "")
-    hablar  = data.get("hablar", True)
-    if not comando:
-        return jsonify({"error": "Falta comando"}), 400
-    if len(comando) > 500:
-        return jsonify({"error": "Comando demasiado largo"}), 400
-
-    resultado = jarvis_core.procesar_comando(comando)
-
-    # Si el comando local no lo reconoce, preguntar a Groq
-    if resultado.get("accion") == "desconocido":
-        groq_resp = jarvis_core.preguntar_llm(comando)
-        if groq_resp:
-            resultado = {"respuesta": groq_resp, "accion": "groq", "continuar": True}
-
-    if resultado.get("accion") == "pausar":
-        _jarvis_pausado = True
-        if _wake_detector:
-            _wake_detector.pausar()
-    elif resultado.get("accion") == "reanudar":
-        _jarvis_pausado = False
-        if _wake_detector:
-            _wake_detector.reanudar()
-    elif resultado.get("accion") == "cambiar_canal":
-        _accion_queue.put(f"cambiar_canal:{resultado.get('dato', '')}")
-        resultado["audio_base64"] = _generar_audio_base64(resultado["respuesta"])
-        return jsonify(resultado)
-    elif resultado.get("accion") in ("abrir_noticias", "abrir_mapa", "abrir_stark_ops"):
-        _accion_queue.put(resultado["accion"])
-        resultado["audio_base64"] = _generar_audio_base64(resultado["respuesta"])
-        return jsonify(resultado)
-
-    respuesta_texto = resultado.get("respuesta", "")
-    if respuesta_texto:
-        resultado["audio_base64"] = _generar_audio_base64(respuesta_texto)
-        _reenviar_a_telegram_async(comando, respuesta_texto, resultado["audio_base64"])
-
-    jarvis_core.agregar_historial(comando, respuesta_texto, resultado.get("accion"), fuente="texto")
-    return jsonify(resultado)
-
-@app.route("/api/voice-comando", methods=["POST"])
-def api_voice_comando():
-    """
-    Recibe un audio grabado en el navegador, lo transcribe, procesa el comando,
-    genera la respuesta en voz, la reenvía a Telegram, y devuelve el audio
-    en base64 para reproducirlo también en la web.
-    """
-    global _jarvis_pausado
-    ip = request.headers.get("X-Real-IP", request.remote_addr)
-    if jarvis_core.esta_en_modo_seguro():
-        return jsonify({"ok": False, "error": "Modo seguro activo"}), 503
-    if _rate_limited(ip):
-        return jsonify({"ok": False, "error": "Demasiadas solicitudes, espera un momento"}), 429
-
-    if "audio" not in request.files:
-        return jsonify({"ok": False, "error": "Falta el archivo de audio"}), 400
-
-    audio_file = request.files["audio"]
-    tmp_dir = tempfile.gettempdir()
-    ts = int(time.time() * 1000)
-    entrada_path = os.path.join(tmp_dir, f"jarvis_in_{ts}.webm")
-    wav_path     = os.path.join(tmp_dir, f"jarvis_in_{ts}.wav")
-    audio_file.save(entrada_path)
-
-    try:
-        try:
-            audio = AudioSegment.from_file(entrada_path)
-            audio.export(wav_path, format="wav")
-        except Exception as e:
-            logger.error(f"Error convirtiendo audio: {e}")
-            return jsonify({"ok": False, "error": "No se pudo procesar el audio"}), 500
-
-        texto = jarvis_core.transcribir_archivo(wav_path)
-        if not texto:
-            return jsonify({"ok": False, "error": "No se entendió el audio"})
-
-        texto_limpio = texto.strip().rstrip(".").lower()
-        if texto_limpio in ("jarvis", "jarvi", "jarbes", "harvis"):
-            return jsonify({"ok": False, "mensaje": "Wake word ignorada como comando"})
-
-        resultado = jarvis_core.procesar_comando(texto)
-
-        if resultado.get("accion") == "desconocido":
-            groq_resp = jarvis_core.preguntar_llm(texto)
-            if groq_resp:
-                resultado = {"respuesta": groq_resp, "accion": "groq", "continuar": True}
-
-        if resultado.get("accion") == "pausar":
-            _jarvis_pausado = True
-        elif resultado.get("accion") == "reanudar":
-            _jarvis_pausado = False
-
-        respuesta_texto = resultado.get("respuesta", "")
-        resultado["ok"] = True
-        resultado["texto_usuario"] = texto
-        resultado["audio_base64"] = _generar_audio_base64(respuesta_texto)
-        _reenviar_a_telegram_async(texto, respuesta_texto, resultado["audio_base64"], prefijo="🎙️ Tú (voz web)")
-
-        jarvis_core.agregar_historial(texto, respuesta_texto, resultado.get("accion"), fuente="voz")
-        return jsonify(resultado)
-
-    finally:
-        for p in (entrada_path, wav_path):
-            try:
-                if os.path.exists(p):
-                    os.remove(p)
-            except Exception:
-                pass
-
-@app.route("/api/historial")
-def api_historial():
-    return jsonify({"historial": jarvis_core.obtener_historial()})
-
-@app.route("/api/memoria")
-def api_memoria():
-    return jsonify({"memoria": jarvis_core.obtener_memoria()})
-
-
-@app.route("/api/memoria/<int:indice>", methods=["DELETE"])
-def api_memoria_eliminar(indice):
-    memorias = jarvis_core.eliminar_memoria(indice)
-    return jsonify({"memoria": memorias})
-
-@app.route("/api/youtube-key", methods=["GET"])
-def api_youtube_key():
-    """Nunca devuelve la clave real — solo si está configurada, para que el frontend
-    sepa si mostrar el aviso 'Sin API key'."""
-    return jsonify({"configurada": bool(os.environ.get("YOUTUBE_API_KEY", ""))})
-
-@app.route("/api/hablar", methods=["POST"])
-def api_hablar():
-    data  = request.get_json(force=True) or {}
-    texto = data.get("texto", "")
-    if not texto:
-        return jsonify({"error": "Falta texto"}), 400
-    if _wake_detector:
-        _wake_detector.pausar()
-    try:
-        jarvis_core.hablar(texto)
-    finally:
-        if _wake_detector:
-            _wake_detector.reanudar()
-    return jsonify({"ok": True})
-
-@app.route("/api/recordatorios")
-def api_recordatorios():
-    return jsonify({"recordatorios": jarvis_core.obtener_recordatorios()})
-
-@app.route("/api/recordatorios", methods=["POST"])
-def api_recordatorios_agregar():
-    data = request.get_json(force=True) or {}
-    texto = data.get("texto", "")
-    recs = jarvis_core.agregar_recordatorio(texto)
-    return jsonify({"recordatorios": recs})
-
-@app.route("/api/recordatorios/<int:indice>", methods=["DELETE"])
-def api_recordatorios_eliminar(indice):
-    recs = jarvis_core.eliminar_recordatorio(indice)
-    return jsonify({"recordatorios": recs})
-
-@app.route("/api/notas-rapidas")
-def api_notas_rapidas():
-    return jsonify({"notas": jarvis_core.obtener_notas()})
-
-@app.route("/api/notas-rapidas/<int:indice>", methods=["DELETE"])
-def api_notas_rapidas_eliminar(indice):
-    notas = jarvis_core.eliminar_nota(indice)
-    return jsonify({"notas": notas})
-
-def _contar_correos_no_leidos():
-    """Devuelve el número de correos sin leer, o None si EMAIL_USER/EMAIL_PASS no están
-    configurados (en cuyo caso el saludo simplemente no menciona correos)."""
-    user = os.environ.get("EMAIL_USER", "")
-    pwd  = os.environ.get("EMAIL_PASS", "")
-    if not user or not pwd:
-        return None
-    try:
-        import imaplib
-        M = imaplib.IMAP4_SSL("imap.gmail.com", timeout=4)
-        M.login(user, pwd)
-        M.select("INBOX")
-        _, data = M.search(None, "UNSEEN")
-        M.logout()
-        return len(data[0].split()) if data and data[0] else 0
-    except Exception as e:
-        logger.error(f"Error contando correos no leidos: {e}")
-        return None
-
-@app.route("/api/saludo")
-def api_saludo():
-    """Saludo que se dispara una vez al abrir la app (ver App.jsx). Menciona correos sin
-    leer solo si EMAIL_USER/EMAIL_PASS están configurados."""
-    hora = datetime.now().hour
-    if hora < 12:
-        saludo_base = "Buenos días"
-    elif hora < 19:
-        saludo_base = "Buenas tardes"
-    else:
-        saludo_base = "Buenas noches"
-
-    no_leidos = _contar_correos_no_leidos()
-    if no_leidos:
-        extra = "un correo sin leer" if no_leidos == 1 else f"{no_leidos} correos sin leer"
-        saludo_texto = f"{saludo_base}, Elías, tienes {extra}. ¿En qué puedo ayudarte?"
-    else:
-        saludo_texto = f"{saludo_base}, Elías. ¿En qué puedo ayudarte?"
-
-    return jsonify({"saludo": saludo_texto, "audio_base64": _generar_audio_base64(saludo_texto)})
-
-@app.route("/api/wake-status")
-def api_wake_status():
-    return jsonify({
-        "activo": _wake_activo,
-        "metodos": ["jarvis"] if _wake_activo else [],
-    })
-
-@app.route("/api/estado")
-def api_estado():
-    return jsonify({"pausado": _jarvis_pausado})
-
-@app.route("/api/accion-poll")
-def api_accion_poll():
-    """El frontend consulta esto para saber si debe ejecutar una acción de UI."""
-    try:
-        accion = _accion_queue.get_nowait()
-        return jsonify({"accion": accion})
-    except queue.Empty:
-        return jsonify({"accion": None})
-
-# ── Noticias ───────────────────────────────────────────────────────────────
-
-@app.route("/api/noticias")
-def api_noticias():
-    """Obtiene noticias de tecnología e IA via NewsAPI."""
-    api_key   = os.getenv("NEWS_API_KEY", "")
-    categoria = request.args.get("categoria", "tecnologia")
-
-    queries = {
-        "tecnologia":     "tecnologia OR inteligencia artificial OR software",
-        "ia":             "inteligencia artificial OR machine learning OR ChatGPT OR AI",
-        "ciberseguridad": "ciberseguridad OR hacking OR cybersecurity",
-        "programacion":   "programacion OR Python OR JavaScript OR desarrollador",
-    }
-
-    if not api_key:
-        return jsonify({"error": "Falta NEWS_API_KEY en .env", "noticias": []})
-
-    try:
-        q   = urllib.parse.quote(queries.get(categoria, queries["tecnologia"]))
-        url = (
-            f"https://newsapi.org/v2/everything"
-            f"?q={q}"
-            f"&language=es"
-            f"&sortBy=publishedAt"
-            f"&pageSize=12"
-            f"&apiKey={api_key}"
-        )
-        req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        })
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            data = _json.loads(resp.read())
-
-        noticias = []
-        for art in data.get("articles", []):
-            if art.get("title") and art.get("title") != "[Removed]":
-                noticias.append({
-                    "titulo":      art.get("title", ""),
-                    "descripcion": art.get("description", "") or "",
-                    "fuente":      art.get("source", {}).get("name", ""),
-                    "url":         art.get("url", ""),
-                    "imagen":      art.get("urlToImage", ""),
-                    "fecha":       art.get("publishedAt", ""),
-                })
-
-        return jsonify({"noticias": noticias, "total": len(noticias)})
-
-    except Exception as e:
-        logger.error(f"Error obteniendo noticias: {e}")
-        return jsonify({"error": str(e), "noticias": []})
-
-@app.route("/api/noticias-analisis", methods=["POST"])
-def api_noticias_analisis():
-    """Genera un análisis breve con IA sobre un conjunto de titulares de noticias."""
-    data = request.get_json(force=True) or {}
-    titulares = data.get("titulares", [])
-    if not titulares:
-        return jsonify({"analisis": ""})
-
-    lista = "\n".join(f"- {t}" for t in titulares[:10])
-    try:
-        resp = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "openai/gpt-oss-20b",
-                "reasoning_effort": "low",
-                "messages": [{
-                    "role": "user",
-                    "content": (
-                        "Eres un analista. Basado en estos titulares recientes, escribe un análisis "
-                        "breve (2 párrafos cortos) que conecte los puntos en común, el contexto detrás "
-                        "de las noticias, y por qué importan. En español de Chile, prosa conversacional, "
-                        "sin markdown, sin listas, sin títulos:\n\n" + lista
-                    ),
-                }],
-                "max_tokens": 400,
-            },
-            timeout=25,
-        )
-        resp.raise_for_status()
-        texto = resp.json()["choices"][0]["message"]["content"]
-        texto = jarvis_core._limpiar_markdown(texto)
-        return jsonify({"analisis": texto})
-    except Exception as e:
-        logger.error(f"Error en análisis de noticias: {e}")
-        return jsonify({"analisis": "No pude generar el análisis en este momento."})
-
-# ── Groq / LLM Integration ─────────────────────────────────────────────────
-
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-
-_github_cache = {"data": None, "timestamp": 0}
-GITHUB_REPOS = [
-    {"nombre": "Jarvis",         "repo": "EliasVicencio/Jarvis"},
-    {"nombre": "Hyperion",       "repo": "EliasVicencio/Hyperion"},
-    {"nombre": "Dani ISO27001",  "repo": "EliasVicencio19/Dani-ISO27001"},
-]
-
-@app.route("/api/celebrar-logro", methods=["POST"])
-def api_celebrar_logro():
-    data = request.get_json(force=True) or {}
-    titulo = data.get("titulo", "una tarea")[:100]
-    try:
-        mensaje = jarvis_core.generar_celebracion(titulo)
-        jarvis_core.anunciar_proactivo(mensaje)
-        return jsonify({"ok": True})
-    except Exception as e:
-        logger.error(f"Error celebrando logro: {e}")
-        return jsonify({"ok": False})
-
-# ── Deploy Frontend ──────────────────────────────────────────────────────────
-
-FRONTEND_DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend", "dist")
-
-@app.route("/api/youtube-videos")
-def api_youtube_videos():
-    """Obtiene los últimos videos de un canal via el RSS público de YouTube (sin API key)."""
-    channel_id = request.args.get("channel_id", "")
-    if not channel_id:
-        return jsonify({"error": "Falta channel_id", "videos": []})
-    try:
-        import xml.etree.ElementTree as ET
-        url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=8) as r:
-            xml_data = r.read()
-
-        ns = {
-            "atom": "http://www.w3.org/2005/Atom",
-            "yt": "http://www.youtube.com/xml/schemas/2015",
-        }
-        root = ET.fromstring(xml_data)
-        videos = []
-        for entry in root.findall("atom:entry", ns):
-            video_id = entry.find("yt:videoId", ns)
-            title    = entry.find("atom:title", ns)
-            published = entry.find("atom:published", ns)
-            author   = entry.find("atom:author/atom:name", ns)
-            videos.append({
-                "id":     video_id.text if video_id is not None else "",
-                "titulo": title.text if title is not None else "",
-                "canal":  author.text if author is not None else "",
-                "fecha":  published.text if published is not None else "",
-            })
-        return jsonify({"videos": videos[:8]})
-    except Exception as e:
-        logger.error(f"Error obteniendo videos YouTube RSS: {e}")
-        return jsonify({"error": str(e), "videos": []})
-
-@app.route("/api/youtube-buscar-canal")
-def api_youtube_buscar_canal():
-    """Resuelve el nombre de cualquier canal de YouTube a su ID real, sin API key."""
-    query = request.args.get("q", "").strip()
-    if not query:
-        return jsonify({"error": "Falta q", "channel_id": None, "nombre": None})
-    try:
-        url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}&sp=EgIQAg%3D%3D"  # sp filtra solo canales
-        req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        })
-        with urllib.request.urlopen(req, timeout=8) as r:
-            html = r.read().decode("utf-8", errors="ignore")
-
-        m = re.search(r'"channelId":"(UC[\w-]{22})"', html)
-        if not m:
-            return jsonify({"error": "Canal no encontrado", "channel_id": None, "nombre": None})
-        channel_id = m.group(1)
-
-        nombre_m = re.search(r'"title":\{"simpleText":"([^"]+)"\},"descriptionSnippet"', html)
-        nombre = nombre_m.group(1) if nombre_m else query
-
-        return jsonify({"channel_id": channel_id, "nombre": nombre})
-    except Exception as e:
-        logger.error(f"Error buscando canal: {e}")
-        return jsonify({"error": str(e), "channel_id": None, "nombre": None})
-
-# ── Telegram Bot (proceso separado) ─────────────────────────────────────────
 
 _telegram_process = None
 
@@ -631,8 +80,8 @@ def _arrancar_telegram_bot():
     )
     logger.info(f"Telegram bot iniciado (PID {_telegram_process.pid})")
 
-# ── Arranque ───────────────────────────────────────────────────────────────
 
+# ── Arranque ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     threading.Thread(target=_monitor_memoria, daemon=True).start()
     jarvis_core.iniciar_proactividad()

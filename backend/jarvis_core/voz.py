@@ -1,4 +1,5 @@
 """Síntesis y reconocimiento de voz (Google Cloud TTS + Google STT), y mensajería a Telegram."""
+import logging
 import os
 import time
 import platform
@@ -7,6 +8,8 @@ import tempfile
 import requests
 import speech_recognition as sr
 
+
+logger = logging.getLogger(__name__)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
@@ -26,12 +29,12 @@ _recognizer.energy_threshold = 300  # sensibilidad al ruido
 # ── Síntesis de voz ───────────────────────────────────────────────────────
 def hablar(texto):
     """Convierte texto a voz con Google Cloud TTS."""
-    print(f"🤖 Saturday: {texto}")
+    logger.info(f"🤖 Saturday: {texto}")
     tmp = None
     try:
         # Generar archivo mp3 en carpeta temporal
         tmp = generar_audio_mp3(texto, output_path=os.path.join(tempfile.gettempdir(), "jarvis_audio.mp3"))
-        print(f"🔊 Audio generado: {tmp} ({os.path.getsize(tmp)} bytes)")
+        logger.info(f"🔊 Audio generado: {tmp} ({os.path.getsize(tmp)} bytes)")
 
         # Intentar reproducir con diferentes métodos
         reproducido = False
@@ -48,9 +51,9 @@ def hablar(texto):
                     pygame.time.Clock().tick(10)
                 pygame.mixer.quit()
                 reproducido = True
-                print("✓ Reproducido con pygame")
+                logger.info("✓ Reproducido con pygame")
             except Exception as e:
-                print(f"⚠ pygame falló: {e}")
+                logger.warning(f"⚠ pygame falló: {e}")
 
         # Método 2: PowerShell (Windows nativo, siempre funciona)
         if not reproducido and platform.system() == "Windows":
@@ -65,9 +68,9 @@ def hablar(texto):
                     capture_output=True, timeout=30
                 )
                 reproducido = True
-                print("✓ Reproducido con PowerShell")
+                logger.info("✓ Reproducido con PowerShell")
             except Exception as e:
-                print(f"⚠ PowerShell falló: {e}")
+                logger.warning(f"⚠ PowerShell falló: {e}")
 
         # Método 3: afpAlay (macOS)
         if not reproducido and platform.system() == "Darwin":
@@ -80,10 +83,10 @@ def hablar(texto):
             reproducido = True
 
         if not reproducido:
-            print("⚠ No se pudo reproducir el audio en ningún método")
+            logger.warning("⚠ No se pudo reproducir el audio en ningún método")
 
     except Exception as e:
-        print(f"⚠ Error en síntesis de voz: {e}")
+        logger.error(f"⚠ Error en síntesis de voz: {e}")
     finally:
         if tmp and os.path.exists(tmp):
             try:
@@ -95,7 +98,7 @@ def hablar(texto):
 # ── Reconocimiento de voz ─────────────────────────────────────────────────
 def reconocer_voz():
     """Escucha el micrófono y devuelve el texto reconocido via Google STT."""
-    print("🎤 Escuchando...")
+    logger.info("🎤 Escuchando...")
     try:
         with sr.Microphone() as mic:
             _recognizer.adjust_for_ambient_noise(mic, duration=0.3)
@@ -103,17 +106,17 @@ def reconocer_voz():
 
         texto = _recognizer.recognize_google(audio, language="es-MX")
         texto = texto.lower().strip()
-        print(f"📝 Entendí: {texto}")
+        logger.info(f"📝 Entendí: {texto}")
         return texto
 
     except sr.WaitTimeoutError:
-        print("❌ Tiempo de espera agotado")
+        logger.error("❌ Tiempo de espera agotado")
     except sr.UnknownValueError:
-        print("❌ No se entendió")
+        logger.error("❌ No se entendió")
     except sr.RequestError as e:
-        print(f"❌ Error de Google STT: {e}")
+        logger.error(f"❌ Error de Google STT: {e}")
     except Exception as e:
-        print(f"❌ Error: {e}")
+        logger.error(f"❌ Error: {e}")
     return ""
 
 # ── Transcripción desde archivo (audio subido por el navegador) ──────────
@@ -124,16 +127,16 @@ def transcribir_archivo(path_wav):
             audio = _recognizer.record(source)
         texto = _recognizer.recognize_google(audio, language="es-MX")
         texto = texto.lower().strip()
-        print(f"📝 Entendí (archivo): {texto}")
+        logger.info(f"📝 Entendí (archivo): {texto}")
         return texto
     except sr.UnknownValueError:
-        print("❌ No se entendió el audio")
+        logger.error("❌ No se entendió el audio")
         return ""
     except sr.RequestError as e:
-        print(f"❌ Error de Google STT: {e}")
+        logger.error(f"❌ Error de Google STT: {e}")
         return ""
     except Exception as e:
-        print(f"❌ Error transcribiendo archivo: {e}")
+        logger.error(f"❌ Error transcribiendo archivo: {e}")
         return ""
 
 # ── Generar audio sin reproducirlo localmente ─────────────────────────────
@@ -155,13 +158,13 @@ def _generar_audio_google(texto, output_path):
         )
         data = resp.json()
         if "audioContent" not in data:
-            print(f"⚠ Google Cloud TTS devolvió error: {data}")
+            logger.error(f"⚠ Google Cloud TTS devolvió error: {data}")
             return False
         with open(output_path, "wb") as f:
             f.write(base64.b64decode(data["audioContent"]))
         return True
     except Exception as e:
-        print(f"⚠ Google Cloud TTS falló: {e}")
+        logger.warning(f"⚠ Google Cloud TTS falló: {e}")
         return False
 
 
@@ -190,14 +193,14 @@ def enviar_texto_telegram(texto, chat_id=None):
         requests.post(url, data={"chat_id": chat_id, "text": texto}, timeout=10)
         return True
     except Exception as e:
-        print(f"⚠ Error enviando texto a Telegram: {e}")
+        logger.error(f"⚠ Error enviando texto a Telegram: {e}")
         return False
 
 def enviar_voz_telegram(path_ogg, chat_id=None, caption=None):
     """Envía una nota de voz (.ogg/opus) al chat de Telegram configurado."""
     chat_id = chat_id or TELEGRAM_CHAT_ID
     if not TELEGRAM_BOT_TOKEN or not chat_id:
-        print("⚠ TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID no configurados")
+        logger.warning("⚠ TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID no configurados")
         return False
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendVoice"
@@ -209,7 +212,7 @@ def enviar_voz_telegram(path_ogg, chat_id=None, caption=None):
             requests.post(url, data=data, files=files, timeout=20)
         return True
     except Exception as e:
-        print(f"⚠ Error enviando voz a Telegram: {e}")
+        logger.error(f"⚠ Error enviando voz a Telegram: {e}")
         return False
 
 # ── Utilidades ────────────────────────────────────────────────────────────

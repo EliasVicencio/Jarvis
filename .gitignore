@@ -1,5 +1,7 @@
 # Secrets
 backend/.env
+backend/credentials.json
+backend/token.json
 
 # Python
 __pycache__/
