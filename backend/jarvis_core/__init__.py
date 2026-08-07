@@ -15,7 +15,7 @@ Estructura:
   comandos.py      -> procesar_comando(), el despachador central
 """
 
-from ..rutas.voz import *
+from .voz import *
 from .calendario import *
 from .productividad import *
 from .memoria import *
