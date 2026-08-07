@@ -301,7 +301,12 @@ export default function App() {
         }
         if (data.aviso_proactivo) {
           setTarjetas([{ pregunta: "Saturday", respuesta: data.aviso_proactivo }]);
-          hablarBrowser(data.aviso_proactivo);
+          if (data.audio_base64) {
+            const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
+            audio.play().catch(() => hablarBrowser(data.aviso_proactivo));
+          } else {
+            hablarBrowser(data.aviso_proactivo);
+          }
         }
       } catch {}
     }, 500);

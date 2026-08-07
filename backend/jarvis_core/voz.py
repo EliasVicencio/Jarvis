@@ -1,23 +1,18 @@
-"""Síntesis y reconocimiento de voz (Edge TTS + Google STT), y mensajería a Telegram."""
+"""Síntesis y reconocimiento de voz (Google Cloud TTS + Google STT), y mensajería a Telegram."""
 import os
 import time
 import platform
 import subprocess
 import tempfile
 import requests
-import edge_tts
-import asyncio
 import speech_recognition as sr
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 GROQ_API_KEY_MEM = os.getenv("GROQ_API_KEY", "")
-VOZ = "es-MX-JorgeNeural"
-VOZ_RATE = "+0%"    # velocidad natural, sin acelerar (acelerar sonaba más robótico, no menos)
-VOZ_PITCH = "+0Hz"  # tono natural, sin forzar
 
-# Google Cloud TTS (Chirp 3 HD, voz natural) — si no está configurado, usa Edge TTS gratis.
+# Google Cloud TTS (Chirp 3 HD) — único motor de voz del sistema.
 GOOGLE_TTS_API_KEY = os.getenv("GOOGLE_TTS_API_KEY", "")
 GOOGLE_TTS_LANG = os.getenv("GOOGLE_TTS_LANG", "es-US")
 GOOGLE_TTS_VOICE = os.getenv("GOOGLE_TTS_VOICE", "es-US-Chirp3-HD-Charon")  # masculina, profunda/autoritaria — elegida
@@ -30,7 +25,7 @@ _recognizer.energy_threshold = 300  # sensibilidad al ruido
 # ── Helpers ──────────────────────────────────────────────────────────────────
 # ── Síntesis de voz ───────────────────────────────────────────────────────
 def hablar(texto):
-    """Convierte texto a voz con Edge TTS (gratuito, sin cuenta)."""
+    """Convierte texto a voz con Google Cloud TTS."""
     print(f"🤖 Saturday: {texto}")
     tmp = None
     try:
@@ -166,28 +161,21 @@ def _generar_audio_google(texto, output_path):
             f.write(base64.b64decode(data["audioContent"]))
         return True
     except Exception as e:
-        print(f"⚠ Google Cloud TTS falló, usando Edge TTS de respaldo: {e}")
+        print(f"⚠ Google Cloud TTS falló: {e}")
         return False
 
 
-def generar_audio_mp3(texto, output_path=None, rate=VOZ_RATE, pitch=VOZ_PITCH):
-    """Genera audio: intenta Google Cloud TTS primero (si está configurado, más natural), y si
-    falla o no está configurado, usa Edge TTS (gratuito) como respaldo automático."""
+def generar_audio_mp3(texto, output_path=None):
+    """Genera audio con Google Cloud TTS (Chirp 3 HD). Único motor de voz del sistema —
+    si GOOGLE_TTS_API_KEY no está configurada o la llamada falla, no hay audio (se propaga
+    el error/silencio en vez de caer a otro motor)."""
     if output_path is None:
         output_path = os.path.join(
             tempfile.gettempdir(), f"jarvis_tts_{os.getpid()}_{int(time.time() * 1000)}.mp3"
         )
 
-    if _generar_audio_google(texto, output_path):
-        return output_path
-
-    async def _generar():
-        comunicar = edge_tts.Communicate(texto, VOZ, rate=rate, pitch=pitch)
-        await comunicar.save(output_path)
-
-    import concurrent.futures
-    with concurrent.futures.ThreadPoolExecutor() as pool:
-        pool.submit(asyncio.run, _generar()).result()
+    if not _generar_audio_google(texto, output_path):
+        raise RuntimeError("Google Cloud TTS no pudo generar el audio (revisa GOOGLE_TTS_API_KEY y la cuota).")
 
     return output_path
 

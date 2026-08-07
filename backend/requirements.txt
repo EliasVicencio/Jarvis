@@ -1,5 +1,4 @@
 # Síntesis de voz (gratuito, sin cuenta)
-edge-tts>=6.1.0
 
 # Reconocimiento de voz via Google STT (gratuito)
 SpeechRecognition>=3.10.0

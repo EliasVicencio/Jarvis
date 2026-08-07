@@ -144,6 +144,7 @@ def api_wake_poll():
 
     try:
         resultado["aviso_proactivo"] = jarvis_core._avisos_proactivos.get_nowait()
+        resultado["audio_base64"] = _generar_audio_base64(resultado["aviso_proactivo"])
     except queue.Empty:
         pass
 
@@ -333,52 +334,6 @@ def api_memoria():
 def api_memoria_eliminar(indice):
     memorias = jarvis_core.eliminar_memoria(indice)
     return jsonify({"memoria": memorias})
-
-@app.route("/api/emails")
-def api_emails():
-    user = os.environ.get("EMAIL_USER", "")
-    pwd  = os.environ.get("EMAIL_PASS", "")
-    if not user or not pwd:
-        return jsonify({"error": "Credenciales no configuradas", "emails": []})
-    try:
-        M = imaplib.IMAP4_SSL("imap.gmail.com", timeout=4)
-        M.login(user, pwd)
-        M.select("INBOX")
-        _, ids = M.search(None, "ALL")
-        email_ids = ids[0].split()[-20:]  # últimos 20
-        emails = []
-        for eid in reversed(email_ids):
-            _, data = M.fetch(eid, "(RFC822)")
-            msg = emaillib.message_from_bytes(data[0][1])
-            asunto_raw = decode_header(msg["Subject"] or "")[0]
-            asunto = asunto_raw[0].decode(asunto_raw[1] or "utf-8") if isinstance(asunto_raw[0], bytes) else (asunto_raw[0] or "Sin asunto")
-            de_raw = decode_header(msg["From"] or "")[0]
-            de = de_raw[0].decode(de_raw[1] or "utf-8") if isinstance(de_raw[0], bytes) else (de_raw[0] or "")
-            fecha = msg["Date"] or ""
-            message_id = (msg["Message-ID"] or "").strip()
-            cuerpo = ""
-            if msg.is_multipart():
-                for part in msg.walk():
-                    if part.get_content_type() == "text/plain":
-                        cuerpo = part.get_payload(decode=True).decode("utf-8", errors="replace")[:2000]
-                        break
-            else:
-                cuerpo = msg.get_payload(decode=True).decode("utf-8", errors="replace")[:2000]
-            emails.append({
-                "id":         eid.decode(),
-                "message_id": message_id,
-                "de":         de,
-                "asunto":     asunto,
-                "preview":    cuerpo[:80].replace("\n"," "),
-                "cuerpo":     cuerpo,
-                "fecha":      fecha,
-                "leido":      False,
-            })
-        M.logout()
-        return jsonify({"emails": emails})
-    except Exception as e:
-        logger.error(f"Error IMAP: {e}")
-        return jsonify({"error": str(e), "emails": []})
 
 @app.route("/api/youtube-key", methods=["GET"])
 def api_youtube_key():
@@ -582,45 +537,6 @@ def api_noticias_analisis():
     except Exception as e:
         logger.error(f"Error en análisis de noticias: {e}")
         return jsonify({"analisis": "No pude generar el análisis en este momento."})
-
-# ── Email Send ────────────────────────────────────────────────────────────
-
-@app.route("/api/enviar-email", methods=["POST"])
-def api_enviar_email():
-    """Envía un email vía SMTP."""
-    data = request.get_json(force=True) or {}
-    para = data.get("para", "")
-    asunto = data.get("asunto", "")
-    cuerpo = data.get("cuerpo", "")
-
-    if not para or not asunto or not cuerpo:
-        return jsonify({"error": "Faltan campos: para, asunto, cuerpo"}), 400
-
-    user = os.environ.get("EMAIL_USER", "")
-    pwd = os.environ.get("EMAIL_PASS", "")
-
-    if not user or not pwd:
-        return jsonify({"error": "Credenciales email no configuradas"}), 400
-
-    try:
-        import smtplib
-        from email.message import EmailMessage
-
-        msg = EmailMessage()
-        msg.set_content(cuerpo)
-        msg["Subject"] = asunto
-        msg["From"] = user
-        msg["To"] = para
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-            smtp.login(user, pwd)
-            smtp.send_message(msg)
-
-        logger.info(f"Email enviado a {para}: {asunto}")
-        return jsonify({"ok": True, "mensaje": f"Email enviado a {para}"})
-    except Exception as e:
-        logger.error(f"Error enviando email: {e}")
-        return jsonify({"error": "No se pudo procesar la solicitud"}), 500
 
 # ── Groq / LLM Integration ─────────────────────────────────────────────────
 
