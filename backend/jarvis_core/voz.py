@@ -20,7 +20,7 @@ VOZ_PITCH = "+0Hz"  # tono natural, sin forzar
 # Google Cloud TTS (Chirp 3 HD, voz natural) — si no está configurado, usa Edge TTS gratis.
 GOOGLE_TTS_API_KEY = os.getenv("GOOGLE_TTS_API_KEY", "")
 GOOGLE_TTS_LANG = os.getenv("GOOGLE_TTS_LANG", "es-US")
-GOOGLE_TTS_VOICE = os.getenv("GOOGLE_TTS_VOICE", "es-US-Chirp3-HD-Achernar")  # verifica/cambia en tu consola
+GOOGLE_TTS_VOICE = os.getenv("GOOGLE_TTS_VOICE", "es-US-Chirp3-HD-Charon")  # masculina, profunda/autoritaria — elegida
 
 # Reconocedor de voz (reutilizable)
 _recognizer = sr.Recognizer()
