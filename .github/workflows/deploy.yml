@@ -18,9 +18,12 @@ jobs:
           script: |
             cd /home/ubuntu/Jarvis
             git pull origin main
+            source backend/venv/bin/activate
+            pip install -r backend/requirements.txt -q
+            deactivate
             cd frontend
-            npm install --no-audit --no-fund
-            npm run build
+            npm install --legacy-peer-deps --no-audit --no-fund
+            npx vite build
             cd ..
             sudo systemctl restart jarvis-backend.service
             sudo systemctl restart jarvis-frontend.service
