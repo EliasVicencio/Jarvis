@@ -1,4 +1,4 @@
-"""Rutas de noticias y YouTube: NewsAPI, análisis de titulares con IA, videos por RSS
+"""Rutas de noticias y YouTube: NewsData.io, análisis de titulares con IA, videos por RSS
 (sin API key), búsqueda de canales, y celebración de logros (Stark Ops)."""
 import os
 import re
@@ -17,8 +17,8 @@ bp = Blueprint("noticias", __name__)
 
 @bp.route("/api/noticias")
 def api_noticias():
-    """Obtiene noticias de tecnología e IA via NewsAPI."""
-    api_key   = os.getenv("NEWS_API_KEY", "")
+    """Obtiene noticias de tecnología e IA via NewsData.io."""
+    api_key   = os.getenv("NEWS_DATA_API_KEY", "") or os.getenv("NEWS_API_KEY", "")
     categoria = request.args.get("categoria", "tecnologia")
 
     queries = {
@@ -29,34 +29,37 @@ def api_noticias():
     }
 
     if not api_key:
-        return jsonify({"error": "Falta NEWS_API_KEY en .env", "noticias": []})
+        return jsonify({"error": "Falta NEWS_DATA_API_KEY en .env", "noticias": []})
 
     try:
         q   = urllib.parse.quote(queries.get(categoria, queries["tecnologia"]))
         url = (
-            f"https://newsapi.org/v2/everything"
-            f"?q={q}"
+            f"https://newsdata.io/api/1/news"
+            f"?apikey={api_key}"
+            f"&q={q}"
             f"&language=es"
-            f"&sortBy=publishedAt"
-            f"&pageSize=12"
-            f"&apiKey={api_key}"
+            f"&size=12"
         )
         req = urllib.request.Request(url, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         })
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
 
         noticias = []
-        for art in data.get("articles", []):
-            if art.get("title") and art.get("title") != "[Removed]":
+        for art in data.get("results", []):
+            title = art.get("title", "")
+            if title and title.lower() != "[removed]":
+                img = art.get("image_url", "")
+                if isinstance(img, list):
+                    img = img[0] if img else ""
                 noticias.append({
-                    "titulo":      art.get("title", ""),
+                    "titulo":      title,
                     "descripcion": art.get("description", "") or "",
-                    "fuente":      art.get("source", {}).get("name", ""),
-                    "url":         art.get("url", ""),
-                    "imagen":      art.get("urlToImage", ""),
-                    "fecha":       art.get("publishedAt", ""),
+                    "fuente":      art.get("source_name", ""),
+                    "url":         art.get("link", ""),
+                    "imagen":      img,
+                    "fecha":       art.get("pubDate", ""),
                 })
 
         return jsonify({"noticias": noticias, "total": len(noticias)})
