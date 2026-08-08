@@ -38,7 +38,7 @@ def api_noticias():
             f"?apikey={api_key}"
             f"&q={q}"
             f"&language=es"
-            f"&size=12"
+            f"&size=10"
         )
         req = urllib.request.Request(url, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
