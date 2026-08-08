@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app")
 
 app = Flask(__name__)
-CORS(app, origins=["https://jarvis-elias.viewdns.net"])
+CORS(app, origins=["https://saturday.viewdns.net"])
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB máximo por petición
 
 from rutas.voz import bp as voz_bp
