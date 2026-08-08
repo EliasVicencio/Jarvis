@@ -43,6 +43,30 @@ const COMANDOS = [
 ];
 
 export default function App() {
+  const [fullscreenListo, setFullscreenListo] = useState(false);
+
+  const entrarFullscreen = () => {
+    const el = document.documentElement;
+    const r = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (r) r.call(el).then(() => setFullscreenListo(true)).catch(() => setFullscreenListo(true));
+    else setFullscreenListo(true);
+  };
+
+  if (!fullscreenListo) {
+    return (
+      <div className="splash" onClick={entrarFullscreen}>
+        <div className="splash-core" />
+        <div className="splash-brand">SATURDAY</div>
+        <div className="splash-sub">asistente personal</div>
+        <button className="splash-btn" onClick={entrarFullscreen}>Entrar</button>
+      </div>
+    );
+  }
+
+  return <AppInner />;
+}
+
+function AppInner() {
   const [vista,       setVista]       = useState("principal");
   const [estado,      setEstado]      = useState("inactivo");
   const [inputManual, setInputManual] = useState("");
